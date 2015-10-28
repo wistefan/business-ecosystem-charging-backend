@@ -53,7 +53,7 @@ class MarketplaceCollection(Resource):
 
         # Get contents from the request
         try:
-            content = json.loads(request.raw_post_data)
+            content = json.loads(request.body)
             name = content['name']
             host = content['host']
             api_version = content['api_version']
@@ -127,14 +127,14 @@ class MarketplaceEntry(Resource):
 
         try:
             unregister_from_market(request.user, market)
-        except Exception, e:
-            if e.message == 'Bad Gateway':
+        except Exception as e:
+            if unicode(e) == 'Bad Gateway':
                 code = 502
-                msg = e.message
+                msg = unicode(e)
             else:
-                if e.message == 'Not found':
+                if unicode(e) == 'Not found':
                     code = 404
-                    msg = e.message
+                    msg = unicode(e)
                 else:
                     code = 400
                     msg = 'Bad request'

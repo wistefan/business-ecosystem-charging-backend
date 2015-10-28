@@ -939,7 +939,6 @@ class PublishEntryTestCase(TestCase):
 
         # Call the view
         site = Site.objects.create(name='Test_site', domain='http://testsite.com')
-        Context.objects.create(site=site)
         views.get_current_site = MagicMock()
         views.get_current_site.return_value = site
 

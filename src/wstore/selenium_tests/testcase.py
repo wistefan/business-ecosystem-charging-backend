@@ -101,7 +101,7 @@ class WStoreSeleniumTestCase(TestCase, LiveServerTestCase):
         data += '&redirect_uri=' + 'http://localhost:' + unicode(TESTING_PORT)
 
         headers = {
-            'content-type': 'application/form-url-encoded',
+            'content-type': 'application/x-www-form-urlencoded',
         }
         request = MethodRequest('POST', url, data, headers)
 

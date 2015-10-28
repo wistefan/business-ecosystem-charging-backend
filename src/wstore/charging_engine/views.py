@@ -56,7 +56,7 @@ class ServiceRecordCollection(Resource):
     def create(self, request, reference):
         try:
             # Extract SDR document from the HTTP request
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
 
             # Validate SDR structure
             if 'offering' not in data or 'customer' not in data or 'time_stamp' not in data \
@@ -70,7 +70,7 @@ class ServiceRecordCollection(Resource):
             sdr_manager = SDRManager(purchase)
             sdr_manager.include_sdr(data)
         except Exception, e:
-            return build_response(request, 400, e.message)
+            return build_response(request, 400, unicode(e))
 
         # Return response
         return build_response(request, 200, 'OK')
@@ -154,9 +154,9 @@ class PayPalConfirmation(Resource):
 
             # Uses an atomic operation to get and set the _lock value in the purchase
             # document
-            pre_value = db.wstore_purchase.find_and_modify(
-                query={'_id': ObjectId(reference)},
-                update={'$set': {'_lock': True}}
+            pre_value = db.wstore_purchase.find_one_and_update(
+                {'_id': ObjectId(reference)},
+                {'$set': {'_lock': True}}
             )
 
             # If the value of _lock before setting it to true was true, means
@@ -175,9 +175,9 @@ class PayPalConfirmation(Resource):
             # the timeout function has completely ended before acquire the resource
             # so _lock is set to false and the view ends
             if purchase.state != 'pending':
-                db.wstore_purchase.find_and_modify(
-                    query={'_id': ObjectId(reference)},
-                    update={'$set': {'_lock': False}}
+                db.wstore_purchase.find_one_and_update(
+                    {'_id': ObjectId(reference)},
+                    {'$set': {'_lock': False}}
                 )
                 raise Exception('The timeout set by WStore has finished')
 
@@ -232,9 +232,9 @@ class PayPalConfirmation(Resource):
             notify_provider(purchase)
 
         # _lock is set to false
-        db.wstore_purchase.find_and_modify(
-            query={'_id': reference},
-            update={'$set': {'_lock': False}}
+        db.wstore_purchase.find_one_and_update(
+            {'_id': ObjectId(reference)},
+            {'$set': {'_lock': False}}
         )
 
         # Return the confirmation web page

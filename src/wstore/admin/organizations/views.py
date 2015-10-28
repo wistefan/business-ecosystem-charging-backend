@@ -78,7 +78,7 @@ class OrganizationCollection(Resource):
             return build_response(request, 403, 'The user has not been activated')
 
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body.decode('utf-8'))
 
             if 'name' not in data:
                 raise Exception('Invalid JSON content')
@@ -148,8 +148,8 @@ class OrganizationCollection(Resource):
                 organization.save()
         except Exception as e:
             msg = 'Invalid JSON content'
-            if e.message:
-                msg = e.message
+            if unicode(e):
+                msg = unicode(e)
             return build_response(request, 400, msg)
 
         return build_response(request, 201, 'Created')
@@ -224,15 +224,15 @@ class OrganizationEntry(Resource):
             return build_response(request, 403, 'Forbidden')
 
         if not request.user.is_staff and request.user.pk not in organization.managers:
-            return build_response(request, 403, 'Forbidden')
+            return build_response(request, 403, 'You are not authorized to update the current organization')
 
         try:
             # Load request data
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
 
             if 'notification_url' in data:
                 if data['notification_url'] and not is_valid_url(data['notification_url']):
-                    raise Exception('Enter a valid URL')
+                    raise ValueError('The provided notification_url is not a valid URL')
 
                 organization.notification_url = data['notification_url']
 
@@ -260,7 +260,7 @@ class OrganizationEntry(Resource):
                             is_hidden_credit_card(number, organization.payment_info['number']):
                         number = organization.payment_info['number']
                     else:
-                        raise Exception('Invalid credit card number')
+                        raise ValueError('Invalid credit card number')
 
                 new_payment = {
                     'type': data['payment_info']['type'],
@@ -294,11 +294,12 @@ class OrganizationEntry(Resource):
 
             organization.payment_info = new_payment
             organization.save()
-        except Exception as e:
-            msg = 'Invalid JSON content'
-            if e.message:
-                msg = e.message
-            return build_response(request, 400, msg)
+        except HTTPError:
+            return build_response(request, 502, 'The RSS has failed processing new expenditure limits')
+        except ValueError as e:
+            return build_response(request, 400, unicode(e))
+        except Exception:
+            return build_response(request, 400, 'Invalid JSON content')
 
         return build_response(request, 200, 'OK')
 
@@ -308,7 +309,7 @@ class OrganizationEntry(Resource):
 def change_current_organization(request):
 
     # Get the requested organization
-    data = json.loads(request.raw_post_data)
+    data = json.loads(request.body)
     try:
         org = Organization.objects.get(name=data['organization'])
     except:
@@ -395,7 +396,7 @@ class OrganizationUserCollection(Resource):
 
         # Check the request data
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
 
             if 'username' not in data or 'roles' not in data:
                 raise Exception('')

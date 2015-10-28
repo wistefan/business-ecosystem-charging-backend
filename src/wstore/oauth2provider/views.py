@@ -18,6 +18,7 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+import json
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
 from django.shortcuts import render
@@ -60,17 +61,20 @@ def provide_authorization_code(request):
 @require_POST
 def provide_authorization_token(request):
 
-    raw_data = dict(request.POST)
+    try:
+        raw_data = dict(request.POST)
 
-    data = {
-        'client_id': raw_data['client_id'][0],
-        'client_secret': raw_data['client_secret'][0],
-        'grant_type': raw_data['grant_type'][0]
-    }
-    if 'refresh_token' in raw_data:
-        data['refresh_token'] = raw_data['refresh_token'][0]
-    else:
-        data['code'] = raw_data['code'][0]
-        data['redirect_uri'] = raw_data['redirect_uri'][0]
+        data = {
+            'client_id': raw_data['client_id'][0],
+            'client_secret': raw_data['client_secret'][0],
+            'grant_type': raw_data['grant_type'][0]
+        }
+        if 'refresh_token' in raw_data:
+            data['refresh_token'] = raw_data['refresh_token'][0]
+        else:
+            data['code'] = raw_data['code'][0]
+            data['redirect_uri'] = raw_data['redirect_uri'][0]
 
-    return provider.get_token_from_post_data(data)
+        return provider.get_token_from_post_data(data)
+    except Exception as e:
+        return build_response(request, 400, unicode(data))

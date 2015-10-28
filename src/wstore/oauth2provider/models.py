@@ -25,7 +25,7 @@ from django.utils.translation import ugettext as _
 
 class Application(models.Model):
 
-    client_id = models.CharField(_('Client ID'), max_length=40, blank=False, primary_key=True)
+    client_id = models.CharField(_('Client ID'), max_length=40, blank=False, unique=True)
     client_secret = models.CharField(_('Client secret'), max_length=40, blank=False)
     redirect_uri = models.CharField(_('Redirect URI'), max_length=255, blank=True)
     name = models.CharField(_('Application Name'), max_length=40, blank=False)
@@ -52,7 +52,7 @@ class Code(models.Model):
 
 class Token(models.Model):
 
-    token = models.CharField(_('Token'), max_length=40, blank=False, primary_key=True)
+    token = models.CharField(_('Token'), max_length=40, blank=False, unique=True)
 
     client = models.ForeignKey(Application)
     user = models.ForeignKey(User)

@@ -1,6 +1,6 @@
 [
     {
-        "pk": "61000bba8e05ac2dddddddd",
+        "pk": "61000bba8e05ac2ddddddddd",
         "model": "oauth2provider.application",
         "fields": {
             "client_secret": "secret",

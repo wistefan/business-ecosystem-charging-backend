@@ -18,8 +18,9 @@
 # along with WStore.  
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+import json
 from xml.dom.minidom import getDOMImplementation
-from django.utils import simplejson
+
 
 def get_xml_response(request, mimetype, status_code, value):
     dom = getDOMImplementation()
@@ -47,7 +48,8 @@ def get_json_response(request, mimetype, status_code, message):
     else:
         response['result'] = 'correct'
 
-    return simplejson.dumps(response)
+    return json.dumps(response)
+
 
 def get_unicode_response(request, mimetype, status_code, message):
     response = ''
@@ -56,4 +58,4 @@ def get_unicode_response(request, mimetype, status_code, message):
     else:
         response += 'Correct: ' + message
 
-        return unicode(response)
+    return unicode(response)

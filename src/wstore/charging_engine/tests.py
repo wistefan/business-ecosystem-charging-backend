@@ -467,9 +467,9 @@ class SubscriptionChargingTestCase(TestCase):
         error = False
         try:
             charging.resolve_charging(type_='renovation')
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEqual(msg, 'The pricing model does not contain any subscription to renovate')
@@ -599,9 +599,9 @@ class PayPerUseChargingTestCase(TestCase):
         msg = None
         try:
             charging.resolve_charging(type_='use')
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEquals(msg, 'There is not pending SDRs to process')
@@ -1004,9 +1004,9 @@ class PriceFunctionPaymentTestCase(TestCase):
             msg = None
             try:
                 resolver._price_function_calculation(info, var)
-            except Exception, e:
+            except Exception as e:
                 error = True
-                msg = e.message
+                msg = unicode(e)
 
             self.assertTrue(error)
             self.assertEquals(msg, err)

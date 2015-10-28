@@ -206,22 +206,22 @@ class OrganizationEntryTestCase(TestCase):
         }, (200, 'OK', 'correct'), False),
         ({}, (200, 'OK', 'correct'), False),
         ({}, (404, 'Organization not found', 'error'), True, _not_found),
-        ({}, (403, 'Forbidden', 'error'), True, _forbidden),
+        ({}, (403, 'You are not authorized to update the current organization', 'error'), True, _forbidden),
         ({
             'notification_url': 'invalidurl'
-        }, (400, 'Enter a valid URL', 'error'), True),
+        }, (400, 'The provided notification_url is not a valid URL', 'error'), True),
         ({
             'limits': {
                 'perTransaction': '100',
                 'weekly': '150'
             }
-        }, (400, 'Invalid JSON content', 'error'), True, _unauthorized),
+        }, (502, 'The RSS has failed processing new expenditure limits', 'error'), True, _unauthorized),
         ({
             'limits': {
                 'perTransaction': '100',
                 'weekly': '150'
             }
-        }, (400, 'Invalid JSON content', 'error'), True, _rss_failure),
+        }, (502, 'The RSS has failed processing new expenditure limits', 'error'), True, _rss_failure),
         ({
             'payment_info': {
                 'number': '1234',
@@ -237,7 +237,7 @@ class OrganizationEntryTestCase(TestCase):
         org_entry = views.OrganizationEntry(permitted_methods=('GET', 'PUT'))
 
         # Include data
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         if side_effect:
             side_effect(self)
@@ -439,7 +439,7 @@ class OrganizationCollectionTestCase(TestCase):
             org_info = views.get_organization_info(self.organizations[org_id])
         except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         if not exp_error:
             # Check organization info
@@ -515,7 +515,7 @@ class OrganizationCollectionTestCase(TestCase):
     def test_organization_creation(self, data, exp_resp, created=True, side_effect=None, user_included=False):
 
         # Load request data
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         if side_effect:
             side_effect(self)

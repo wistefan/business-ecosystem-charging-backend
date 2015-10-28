@@ -398,7 +398,7 @@ class RSSViewTestCase(TestCase):
     def test_rss_creation(self, data, refresh, resp, created, expected_request, side_effect=None):
 
         # Include data to mock
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         # Mock ExpenditureManager
         self.views.ExpenditureManager = MagicMock()
@@ -480,7 +480,7 @@ class RSSViewTestCase(TestCase):
         self.views.RSS.objects.get.side_effect = Exception('Not found')
 
     def _invalid_data(self):
-        self.request.raw_post_data = None
+        self.request.body = None
 
     def _make_limit_failure(self):
         self.views._make_rss_request.return_value = (True, 502, 'RSS failure')
@@ -555,7 +555,7 @@ class RSSViewTestCase(TestCase):
 
         self.views.RSS.objects.get = get_mock
 
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         if 'models' in data:
             # Mock model manager

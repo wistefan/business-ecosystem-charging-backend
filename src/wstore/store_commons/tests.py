@@ -310,9 +310,9 @@ class UsdlParserTestCase(TestCase):
         msg = None
         try:
             parser = USDLParser(f.read(), 'text/fail')
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEqual(msg, 'Error the document has not a valid rdf format')
@@ -326,9 +326,9 @@ class UsdlParserTestCase(TestCase):
         msg = None
         try:
             parser = USDLParser(f.read(), 'text/turtle')
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEqual(msg, 'No service offering has been defined')
@@ -345,9 +345,9 @@ class UsdlParserTestCase(TestCase):
         msg = None
         try:
             parser.parse()
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEqual(msg, 'No services included')
@@ -359,8 +359,7 @@ class USDLValidationTestCase(TestCase):
 
     def setUp(self):
         # Create default context
-        site = Site.objects.create(name='Default', domain='http://localhost:8000/')
-        cnt = Context.objects.create(site=site)
+        Site.objects.create(name='Default', domain='http://localhost:8000/')
 
     def _mock_context(self):
         cnt = Context.objects.all()[0]
@@ -620,9 +619,9 @@ class PriceFunctionParsingTestCase(TestCase):
             msg = None
             try:
                 usdl_parser._parse_function(price_function)
-            except Exception, e:
+            except Exception as e:
                 error = True
-                msg = e.message
+                msg = unicode(e)
 
             self.assertTrue(error)
             self.assertEquals(msg, 'Invalid price function: ' + error_messages[i])

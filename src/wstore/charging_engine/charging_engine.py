@@ -71,9 +71,9 @@ class ChargingEngine:
 
         # Uses an atomic operation to get and set the _lock value in the purchase
         # document
-        pre_value = db.wstore_purchase.find_and_modify(
-            query={'_id': ObjectId(self._purchase.pk)},
-            update={'$set': {'_lock': True}}
+        pre_value = db.wstore_purchase.find_one_and_update(
+            {'_id': ObjectId(self._purchase.pk)},
+            {'$set': {'_lock': True}}
         )
 
         # If _lock not exists or is set to false means that this function has
@@ -86,9 +86,9 @@ class ChargingEngine:
                 purchase = Purchase.objects.get(pk=self._purchase.pk)
                 rollback(purchase)
 
-            db.wstore_purchase.find_and_modify(
-                query={'_id': ObjectId(self._purchase.pk)},
-                update={'$set': {'_lock': False}}
+            db.wstore_purchase.find_one_and_update(
+                {'_id': ObjectId(self._purchase.pk)},
+                {'$set': {'_lock': False}}
             )
 
     def _fix_price(self, price):

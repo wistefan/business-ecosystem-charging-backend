@@ -50,7 +50,7 @@ class PurchaseFormCollection(Resource):
     @supported_request_mime_types(('application/json', ))
     def create(self, request):
 
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
 
         # Get the offering
         try:
@@ -159,7 +159,7 @@ class PurchaseCollection(Resource):
         content_type = get_content_type(request)[0]
 
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
             payment_info = {}
 
             if isinstance(data['offering'], dict):
@@ -302,7 +302,7 @@ class PurchaseEntry(Resource):
 
         purchase = Purchase.objects.get(ref=reference)
 
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
 
         try:
             if data['method'] == 'paypal':

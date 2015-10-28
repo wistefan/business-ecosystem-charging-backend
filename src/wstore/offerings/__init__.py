@@ -23,4 +23,4 @@ from wstore.store_commons.database import get_database_connection
 db = get_database_connection()
 
 # Create index for tagging if not created
-db.wstore_offering.ensure_index('tags')
+db.wstore_offering.create_index('tags')

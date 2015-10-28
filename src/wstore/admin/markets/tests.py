@@ -251,7 +251,7 @@ class UnregisteringFromMarketplaceTestCase(TestCase):
             markets_management.unregister_from_market(self._user, 'test_market')
         except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEquals(msg, 'Bad Gateway')
@@ -368,7 +368,7 @@ class MarketplaceViewTestCase(TestCase):
     @override_settings(OILAUTH=True)
     def test_market_api_create(self, data, exp_resp, error, side_effect=None):
         # Create request data
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         if side_effect:
             side_effect(self)

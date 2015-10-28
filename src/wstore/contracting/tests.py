@@ -329,9 +329,9 @@ class PurchaseRollbackTestCase(TestCase):
         msg = None
         try:
             Purchase.objects.get(pk='61005aba8e05ac2115f022f0')
-        except Exception, e:
+        except Exception as e:
             error = True
-            msg = e.message
+            msg = unicode(e)
 
         self.assertTrue(error)
         self.assertEqual(msg, 'Purchase matching query does not exist.')
@@ -354,15 +354,15 @@ class PurchaseRollbackTestCase(TestCase):
         msg_cont = None
         try:
             Purchase.objects.get(pk='61005aba8e05ac2115f02111')
-        except Exception, e:
+        except Exception as e:
             error_purch = True
-            msg_purch = e.message
+            msg_purch = unicode(e)
 
         try:
             Contract.objects.get(pk='6100023a7825a622562020f9')
-        except Exception, e:
+        except Exception as e:
             error_cont = True
-            msg_cont = e.message
+            msg_cont = unicode(e)
 
         self.assertTrue(error_purch)
         self.assertEqual(msg_purch, 'Purchase matching query does not exist.')
@@ -462,9 +462,7 @@ class ProviderNotificationTestCase(TestCase):
 
     def setUp(self):
         notify_provider.notify_acquisition = MagicMock(name="notify_acquisition")
-        self.user = User.objects.create_user(username='test_user', email='', password='passwd')
-        self.user.userprofile.user = self.user
-        self.user.userprofile.save()
+        self.user = User.objects.get(username='test_user')
         settings.OILAUTH = self.prev_value
 
     @classmethod
@@ -923,9 +921,9 @@ class UpdatingPurchasesTestCase(TestCase):
             try:
                 charging = charging_engine.ChargingEngine(purchase, payment_method='paypal', plan=errors[err])
                 charging._create_purchase_contract()
-            except Exception, e:
+            except Exception as e:
                 error = True
-                msg = e.message
+                msg = unicode(e)
 
                 self.assertTrue(error)
                 self.assertEquals(msg, err)

@@ -87,11 +87,11 @@ class TagCollection(Resource):
 
         # Build tag manager
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
             manager = TagManager()
             manager.update_tags(offering, data['tags'])
         except Exception, e:
-            return build_response(request, 400, e.message)
+            return build_response(request, 400, unicode(e))
 
         return build_response(request, 200, 'OK')
 

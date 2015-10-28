@@ -18,7 +18,7 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from django.conf.urls.defaults import patterns, url, include
+from django.conf.urls import patterns, url, include
 
 import wstore.oauth2provider.urls
 from wstore import views

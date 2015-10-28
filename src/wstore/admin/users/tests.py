@@ -479,14 +479,14 @@ class UserEntryTestCase(TestCase):
                 'perTransaction': '100',
                 'weekly': '150',
             }
-        }, 'user3', True, (400, 'Invalid content', 'error'), True, _unauthorized),
+        }, 'user3', True, (502, 'The RSS has failed processing expenditure limits', 'error'), True, _unauthorized),
         ({
             'notification_url': 'http://newnotificationurl.com',
             'limits': {
                 'perTransaction': '100',
                 'weekly': '150',
             }
-        }, 'user3', True, (400, 'Invalid content', 'error'), True, _rss_failure),
+        }, 'user3', True, (502, 'The RSS has failed processing expenditure limits', 'error'), True, _rss_failure),
         ({
             'roles': [],
             'payment_info': {
@@ -496,7 +496,7 @@ class UserEntryTestCase(TestCase):
                 'expire_year': '2018',
                 'cvv2': '121'
             }
-        }, 'user3', True, (400, 'Invalid content', 'error'), True)
+        }, 'user3', True, (400, 'Invalid credit card info', 'error'), True)
     ])
     def test_user_update(self, data, username, idm_auth, exp_resp, error, side_effect=None):
 
@@ -504,7 +504,7 @@ class UserEntryTestCase(TestCase):
         views.settings.OILAUTH = idm_auth
 
         # Include data request
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         # Create view class
         user_entry = views.UserProfileEntry(permitted_methods=('GET', 'PUT'))

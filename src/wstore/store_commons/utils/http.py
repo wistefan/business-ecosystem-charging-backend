@@ -55,7 +55,7 @@ def build_response(request, status_code, msg, extra_formats=None, headers=None):
     else:
         mimetype = mimeparser.best_match(formatters.keys(), request.META.get('HTTP_ACCEPT', 'text/plain'))
 
-    response = HttpResponse(formatters[mimetype](request, mimetype, status_code, msg), mimetype=mimetype, status=status_code)
+    response = HttpResponse(formatters[mimetype](request, mimetype, status_code, msg), content_type=mimetype, status=status_code)
     if headers is None:
         headers = {}
 
@@ -71,6 +71,7 @@ def get_content_type(request):
         return '', ''
     else:
         return content_type_header.split(';', 1)
+
 
 def authentication_required(func):
 

@@ -190,7 +190,7 @@ class RSSCollection(Resource):
         if not request.user.is_staff:
             return build_response(request, 403, 'Forbidden')
 
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
 
         if 'name' not in data or 'host' not in data or 'api_version' not in data:
             msg = 'RSS creation error: Missing a required field'
@@ -412,7 +412,7 @@ class RSSEntry(Resource):
 
         # Get data
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
         except:
             return build_response(request, 400, 'Invalid JSON data')
 

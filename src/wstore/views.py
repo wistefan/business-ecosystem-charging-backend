@@ -199,7 +199,7 @@ class ProviderRequest(API_Resource):
 
         # Get user info
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
             if not 'username' in data or not 'message' in data:
                 raise Exception('')
         except:

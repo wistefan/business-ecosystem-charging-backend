@@ -106,7 +106,7 @@ class UnitCollection(Resource):
             return build_response(request, 403, 'Forbidden')
 
         try:
-            unit_data = json.loads(request.raw_post_data)
+            unit_data = json.loads(request.body)
         except:
             return build_response(request, 400, 'Invalid JSON content')
 
@@ -172,7 +172,7 @@ class CurrencyCollection(Resource):
             return build_response(request, 403, 'Forbidden')
 
         # Get data
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
         if not 'currency' in data:
             return build_response(request, 400, 'Invalid JSON content')
 

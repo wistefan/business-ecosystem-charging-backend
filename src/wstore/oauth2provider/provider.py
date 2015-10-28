@@ -62,11 +62,12 @@ class WstoreAuthorizationProvider(AuthorizationProvider):
         Code.objects.create(client=client, user=user, scope=scope, code=code)
 
     def persist_token_information(self, client_id, scope, access_token, token_type, expires_in, refresh_token, data):
+        client = Application.objects.get(client_id=client_id)
         Token.objects.create(
             token=access_token,
             user_id=data['user_id'],
             token_type=token_type,
-            client_id=client_id,
+            client=client,
             scope=scope,
             expires_in=expires_in,
             refresh_token=refresh_token
@@ -86,7 +87,8 @@ class WstoreAuthorizationProvider(AuthorizationProvider):
         }
 
     def discard_authorization_code(self, client_id, code):
-        Code.objects.filter(client__client_id=client_id, code=code).delete()
+        client = Application.objects.get(client_id=client_id)
+        Code.objects.filter(client=client, code=code).delete()
 
     def from_refresh_token(self, client_id, refresh_token, scope):
         try:

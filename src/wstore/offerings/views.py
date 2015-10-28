@@ -77,7 +77,7 @@ class OfferingCollection(Resource):
         # Checks the provider role
         if 'provider' in roles:
             try:
-                json_data = json.loads(unicode(request.raw_post_data, 'utf-8'))
+                json_data = json.loads(unicode(request.body, 'utf-8'))
                 create_offering(user, json_data)
             except RepositoryError as e:
                 return build_response(request, 502, unicode(e))
@@ -175,11 +175,11 @@ class OfferingEntry(Resource):
 
                 return build_response(request, 403, 'You are not allowed to edit the current offering')
 
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
 
             update_offering(user, offering, data)
         except Exception, e:
-            return build_response(request, 400, e.message)
+            return build_response(request, 400, unicode(e))
 
         return build_response(request, 200, 'OK')
 
@@ -234,7 +234,7 @@ class PublishEntry(Resource):
 
         if content_type == 'application/json':
             try:
-                data = json.loads(request.raw_post_data)
+                data = json.loads(request.body)
                 publish_offering(request.user, offering, data)
             except HTTPError:
                 return build_response(request, 502, 'The Marketplace has failed publishing the offering')
@@ -308,7 +308,7 @@ class ResourceCollection(Resource):
 
             try:
                 if content_type == 'application/json':
-                    data = json.loads(request.raw_post_data)
+                    data = json.loads(request.body)
                     register_resource(user, data)
                 else:
                     data = json.loads(request.POST['json'])
@@ -351,7 +351,7 @@ class ResourceCollection(Resource):
             try:
                 response = get_provider_resources(request.user, filter_=open_res, pagination=pagination)
             except Exception, e:
-                return build_response(request, 400, e.message)
+                return build_response(request, 400, unicode(e))
         else:
             return build_response(request, 403, 'Forbidden')
 
@@ -422,7 +422,7 @@ class ResourceEntry(Resource):
         try:
             # Extract the data depending on the content type
             if content_type == 'application/json':
-                data = json.loads(request.raw_post_data)
+                data = json.loads(request.body)
                 params = (request.user, data, )
             else:
                 data = json.loads(request.POST['json'])
@@ -443,7 +443,7 @@ class ResourceEntry(Resource):
 
         try:
             # Extract the data depending on the content type
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
             params = (request.user, data, )
         except:
             return build_response(request, 400, 'Invalid content')
@@ -477,7 +477,7 @@ class BindEntry(Resource):
 
         # Bind the resources
         try:
-            data = json.loads(request.raw_post_data)
+            data = json.loads(request.body)
             bind_resources(offering, data, request.user)
         except Exception as e:
             return build_response(request, 400, unicode(e))
@@ -509,8 +509,8 @@ def _make_review_action(action, request, organization, name, version, review=Non
     # Call the action method
     try:
         data = None
-        if request.raw_post_data:
-            data = json.loads(request.raw_post_data)
+        if request.body:
+            data = json.loads(request.body)
 
         # Check if the param to be used in the call
         # is the offering or the review

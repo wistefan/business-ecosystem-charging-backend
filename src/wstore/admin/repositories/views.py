@@ -49,7 +49,7 @@ class RepositoryCollection(Resource):
 
         # Get request info
         try:
-            content = json.loads(request.raw_post_data)
+            content = json.loads(request.body)
             is_default = content.get('is_default', False)
         except:
             msg = "Request body is not valid JSON data"

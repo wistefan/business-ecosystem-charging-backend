@@ -119,7 +119,7 @@ class UserProfileCollection(Resource):
         if not request.user.is_staff:
             return build_response(request, 403, 'Forbidden')
 
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
 
         # Validate Info
         if (not 'roles' in data) or (not 'username' in data) or (not 'first_name') in data \
@@ -270,7 +270,7 @@ class UserProfileEntry(Resource):
         if not request.user.is_staff and not request.user.username == username:
             return build_response(request, 403, 'Forbidden')
 
-        data = json.loads(request.raw_post_data)
+        data = json.loads(request.body)
         # Update the user
         try:
             user = User.objects.get(username=username)
@@ -377,7 +377,7 @@ class UserProfileEntry(Resource):
                     is_hidden_credit_card(number, user_profile.payment_info['number']):
                         number = user_profile.payment_info['number']
                     else:
-                        raise Exception('')
+                        raise ValueError('Invalid credit card info')
 
                 user_profile.payment_info = {
                     'type': data['payment_info']['type'],
@@ -393,10 +393,11 @@ class UserProfileEntry(Resource):
             user.save()
             user_profile.save()
 
-        except Exception as e:
-            msg = 'Invalid content'
-            if e.message:
-                msg = e.message
-            return build_response(request, 400, msg)
+        except ValueError as e:
+            return build_response(request, 400, unicode(e))
+        except HTTPError:
+            return build_response(request, 502, 'The RSS has failed processing expenditure limits')
+        except Exception:
+            return build_response(request, 400, 'Invalid JSON content')
 
         return build_response(request, 200, 'OK')

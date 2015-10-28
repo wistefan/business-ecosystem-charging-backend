@@ -346,7 +346,7 @@ class RepositoryViewTestCase(TestCase):
     ])
     def test_repository_api_create(self, data, exp_resp, error, side_effect=None):
         # Create request data
-        self.request.raw_post_data = json.dumps(data)
+        self.request.body = json.dumps(data)
 
         if side_effect:
             side_effect(self)
