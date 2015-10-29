@@ -26,6 +26,7 @@ from wstore.asset_manager.resource_plugins import views as plugins_views
 urlpatterns = patterns('',
     # API
     url(r'^api/assetManagement/assets/?$', offering_views.ResourceCollection(permitted_methods=('GET', 'POST'))),
+    url(r'^api/assetManagement/assets/validate/?$', offering_views.ResourceCollection(permitted_methods=('GET', 'POST'))),
     url(r'^api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
-    url(r'^api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)?$', plugins_views.PluginEntry(permitted_methods=('GET',)))
+    url(r'^api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',)))
 )

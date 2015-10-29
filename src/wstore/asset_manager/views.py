@@ -28,8 +28,8 @@ from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
     authentication_required
 from wstore.models import Organization, Resource as OfferingResource
-from wstore.asset_manager.resources_management import register_resource, get_provider_resources, delete_resource,\
-    update_resource, upgrade_resource
+from wstore.asset_manager.resources_management import get_provider_resources, delete_resource,\
+    update_resource, upgrade_resource, upload_asset
 from wstore.store_commons.errors import ConflictError
 
 
@@ -49,11 +49,11 @@ class ResourceCollection(Resource):
             try:
                 if content_type == 'application/json':
                     data = json.loads(request.body)
-                    register_resource(user, data)
+                    upload_asset(user, data)
                 else:
                     data = json.loads(request.POST['json'])
                     f = request.FILES['file']
-                    register_resource(user, data, file_=f)
+                    upload_asset(user, data, file_=f)
 
             except ConflictError as e:
                 return build_response(request, 409, unicode(e))
@@ -75,21 +75,10 @@ class ResourceCollection(Resource):
             pagination = None
 
         profile = request.user.userprofile
-        filter_ = request.GET.get('open', None)
-
-        if filter_ and filter_ != 'true' and filter_ != 'false':
-            return build_response(request, 400, 'Invalid open param')
-
-        open_res = None
-        if filter_ is not None:
-            open_res = False
-
-            if filter_ == 'true':
-                open_res = True
 
         if 'provider' in profile.get_current_roles():
             try:
-                response = get_provider_resources(request.user, filter_=open_res, pagination=pagination)
+                response = get_provider_resources(request.user, pagination=pagination)
             except Exception, e:
                 return build_response(request, 400, unicode(e))
         else:

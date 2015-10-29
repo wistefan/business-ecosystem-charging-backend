@@ -118,6 +118,7 @@ class Resource(models.Model):
     download_link = models.CharField(max_length=200)
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
+    state = models.CharField(max_length=20)
     resource_type = models.CharField(max_length=100)
     meta_info = DictField()
 

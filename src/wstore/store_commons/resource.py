@@ -27,6 +27,7 @@ METHOD_MAPPING = {
     'POST': 'create',
     'PUT': 'update',
     'DELETE': 'delete',
+    'PATCH': 'patch'
 }
 
 
