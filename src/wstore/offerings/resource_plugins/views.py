@@ -21,12 +21,33 @@
 from __future__ import unicode_literals
 
 import json
+from urlparse import urljoin
 
 from django.http import HttpResponse
 
 from wstore.store_commons.resource import Resource
+from wstore.store_commons.utils.http import build_response
 from wstore.store_commons.utils.http import authentication_required
-from wstore.models import ResourcePlugin
+from wstore.models import ResourcePlugin, Context
+
+
+def get_plugin_info(plugin):
+    site = Context.objects.all()[0].site
+    plugin_url = urljoin(site.domain, 'api/offering/resources/plugins/' + plugin.plugin_id)
+    plugin_info = {
+        'id': plugin.plugin_id,
+        'href': plugin_url,
+        'name': plugin.name,
+        'author': plugin.author,
+        'version': plugin.version,
+        'media_types': plugin.media_types,
+        'formats': plugin.formats,
+        'overrides': plugin.overrides
+    }
+    if plugin.form:
+        plugin_info['form'] = plugin.form
+
+    return plugin_info
 
 
 class PluginCollection(Resource):
@@ -37,41 +58,27 @@ class PluginCollection(Resource):
         This view is used to retrieve the existing resource plugin types
         """
         # Load basic types
-        result = [{
-            'name': 'Downloadable',
-            'plugin_id': 'downloadable',
-            'author': 'Wstore',
-            'version': '1',
-            'media_types': [],
-            'formats': ['FILE', 'URL'],
-            'overrides': []
-        }, {
-            'name': 'API',
-            'plugin_id': 'api',
-            'author': 'Wstore',
-            'version': '1',
-            'media_types': [],
-            'formats': ['URL'],
-            'overrides': []
-        }]
+        result = []
 
         # Get resource plugins
         plugins = ResourcePlugin.objects.all()
 
         for plugin in plugins:
-            plugin_info = {
-                'name': plugin.name,
-                'plugin_id': plugin.plugin_id,
-                'author': plugin.author,
-                'version': plugin.version,
-                'media_types': plugin.media_types,
-                'formats': plugin.formats,
-                'overrides': plugin.overrides
-            }
-            if plugin.form:
-                plugin_info['form'] = plugin.form
-
-            result.append(plugin_info)
+            result.append(get_plugin_info(plugin))
 
         mime_type = 'application/JSON; charset=UTF-8'
         return HttpResponse(json.dumps(result), status=200, mimetype=mime_type)
+
+
+class PluginEntry(Resource):
+
+    @authentication_required
+    def read(self, request, plugin_id):
+        try:
+            plugin = ResourcePlugin.objects.get(plugin_id=plugin_id)
+        except:
+            return build_response(request, 404, 'Digital asset type not found')
+
+        plugin_info = get_plugin_info(plugin)
+        mime_type = 'application/JSON; charset=UTF-8'
+        return HttpResponse(json.dumps(plugin_info), status=200, mimetype=mime_type)
