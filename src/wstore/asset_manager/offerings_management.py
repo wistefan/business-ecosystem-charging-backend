@@ -34,7 +34,7 @@ from django.core.exceptions import PermissionDenied
 from wstore.repository_adaptor.repositoryAdaptor import repository_adaptor_factory, unreg_repository_adaptor_factory
 from wstore.market_adaptor.marketadaptor import marketadaptor_factory
 from wstore.search.search_engine import SearchEngine
-from wstore.offerings.offering_rollback import OfferingRollback
+from wstore.asset_manager.offering_rollback import OfferingRollback
 from wstore.models import Offering, Resource, Repository
 from wstore.models import Marketplace, MarketOffering
 from wstore.models import Purchase
@@ -45,7 +45,7 @@ from wstore.store_commons.utils.url import is_valid_url
 from wstore.social.tagging.tag_manager import TagManager
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.database import get_database_connection
-from wstore.offerings.usdl.usdl_generator import USDLGenerator
+from wstore.asset_manager.usdl.usdl_generator import USDLGenerator
 from wstore.models import RSS
 from wstore.charging_engine.models import Unit
 from wstore.rss_adaptor.rss_manager_factory import RSSManagerFactory
@@ -162,20 +162,20 @@ def get_offering_info(offering, user):
 
 def _get_purchased_offerings(user, db, pagination=None, sort=None):
 
-    # Get the user profile purchased offerings
+    # Get the user profile purchased asset_manager
     user_profile = db.wstore_userprofile.find_one({'user_id': ObjectId(user.pk)})
-    # Get the user organization purchased offerings
+    # Get the user organization purchased asset_manager
     organization = db.wstore_organization.find_one({'_id': user_profile['current_organization_id']})
 
     if not user.userprofile.is_user_org():
         user_purchased = organization['offerings_purchased']
     else:
         # If the current organization is the user organization, load
-        # all user offerings
+        # all user asset_manager
 
         user_purchased = user_profile['offerings_purchased']
 
-        # Append user offerings from organization offerings
+        # Append user asset_manager from organization asset_manager
         for offer in organization['offerings_purchased']:
             if offer not in user_purchased:
                 user_purchased.append(offer)
@@ -190,7 +190,7 @@ def _get_purchased_offerings(user, db, pagination=None, sort=None):
     elif sort == 'rating':
         user_purchased = sorted(user_purchased, key=lambda off: Offering.objects.get(pk=off).rating, reverse=True)
 
-    # If pagination has been defined take the offerings corresponding to the page
+    # If pagination has been defined take the asset_manager corresponding to the page
     if pagination:
         skip = int(pagination['skip']) - 1
         limit = int(pagination['limit'])
@@ -203,7 +203,7 @@ def _get_purchased_offerings(user, db, pagination=None, sort=None):
     return user_purchased
 
 
-# Gets a set of offerings depending on filter value
+# Gets a set of asset_manager depending on filter value
 def get_offerings(user, filter_='published', state=None, pagination=None, sort=None):
 
     allowed_states = ['uploaded', 'published', 'deleted']
@@ -231,7 +231,7 @@ def get_offerings(user, filter_='published', state=None, pagination=None, sort=N
         if sorting == 'name':
             order = 1
 
-    # Get all the offerings owned by the provider using raw mongodb access
+    # Get all the asset_manager owned by the provider using raw mongodb access
     db = get_database_connection()
     offerings = db.wstore_offering
 
@@ -643,10 +643,10 @@ def publish_offering(user, offering, data):
         raise PermissionDenied('Publication error: The offering ' + offering.name + ' ' + offering.version + ' cannot be published')
 
     # Validate the offering has enough content to be published
-    # Open offerings cannot be published in they do not contain
+    # Open asset_manager cannot be published in they do not contain
     # digital assets (applications or resources)
     if offering.open and not len(offering.resources) and not len(offering.applications):
-        raise PermissionDenied('Publication error: Open offerings cannot be published if they do not contain at least a digital asset (resource or application)')
+        raise PermissionDenied('Publication error: Open asset_manager cannot be published if they do not contain at least a digital asset (resource or application)')
 
     # Check if it possible to publish the offering in a Marketplace
     if not len(Repository.objects.all()) > 0 and len(data['marketplaces']) > 0:
@@ -783,7 +783,7 @@ def delete_offering(user, offering):
             if len(newest) < 8:
                 newest.remove(offering.pk)
             else:
-                # Get the 8 newest offerings using the publication date for sorting
+                # Get the 8 newest asset_manager using the publication date for sorting
                 db = get_database_connection()
                 offerings = db.wstore_offering
                 newest_off = offerings.find({'state': 'published'}).sort('publication_date', -1).limit(8)
@@ -802,7 +802,7 @@ def delete_offering(user, offering):
             if len(top_rated) < 8:
                 top_rated.remove(offering.pk)
             else:
-                # Get the 4 top rated offerings
+                # Get the 4 top rated asset_manager
                 db = get_database_connection()
                 offerings = db.wstore_offering
                 top_off = offerings.find({'state': 'published', 'rating': {'$gt': 0}}).sort('rating', -1).limit(8)

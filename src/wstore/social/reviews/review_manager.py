@@ -256,7 +256,7 @@ class ReviewManager():
         se = SearchEngine(index_path)
         se.update_index(rev.offering)
 
-        # Update top rated offerings
+        # Update top rated asset_manager
         self._update_top_rated()
 
     def _remove_review_from_org(self, user, offering, org):
@@ -293,7 +293,7 @@ class ReviewManager():
         se = SearchEngine(index_path)
         se.update_index(rev.offering)
 
-        # Update top rated offerings
+        # Update top rated asset_manager
         self._update_top_rated()
 
         # Update user info to allow her to create a new review

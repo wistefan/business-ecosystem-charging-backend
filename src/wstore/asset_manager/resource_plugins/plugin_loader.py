@@ -29,11 +29,11 @@ from shutil import rmtree
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
-from wstore.offerings.resource_plugins.plugin_manager import PluginManager
-from wstore.offerings.resource_plugins.plugin_error import PluginError
-from wstore.offerings.resource_plugins.plugin_rollback import installPluginRollback
+from wstore.asset_manager.resource_plugins.plugin_manager import PluginManager
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
+from wstore.asset_manager.resource_plugins.plugin_rollback import installPluginRollback
 from wstore.models import ResourcePlugin, Resource
-from wstore.offerings.resource_plugins.plugin import Plugin
+from wstore.asset_manager.resource_plugins.plugin import Plugin
 
 
 class PluginLoader():
@@ -45,10 +45,10 @@ class PluginLoader():
     def __init__(self):
         self._plugin_manager = PluginManager()
         self._plugins_path = os.path.join(settings.BASEDIR, 'wstore')
-        self._plugins_path = os.path.join(self._plugins_path, 'offerings')
+        self._plugins_path = os.path.join(self._plugins_path, 'asset_manager')
         self._plugins_path = os.path.join(self._plugins_path, 'resource_plugins')
         self._plugins_path = os.path.join(self._plugins_path, 'plugins')
-        self._plugins_module = 'wstore.offerings.resource_plugins.plugins.'
+        self._plugins_module = 'wstore.asset_manager.resource_plugins.plugins.'
 
     @installPluginRollback
     def install_plugin(self, path, logger=None):

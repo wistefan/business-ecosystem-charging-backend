@@ -46,7 +46,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """
             This method is used to perform the charging process
-            of the offerings that have pending SDR for more than
+            of the asset_manager that have pending SDR for more than
             a month
         """
         now = time.mktime(datetime.now().timetuple())

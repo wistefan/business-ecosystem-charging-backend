@@ -181,7 +181,7 @@ class USDLGenerator():
             raise TypeError('Invalid pricing info: price_plans field must be a list')
 
         if open_ and len(pricing_info['price_plans']) > 0:
-            raise ValueError('Invalid pricing info: Open offerings cannot define price plans')
+            raise ValueError('Invalid pricing info: Open asset_manager cannot define price plans')
 
         # Validate price plans
         label_required = len(pricing_info['price_plans']) > 1

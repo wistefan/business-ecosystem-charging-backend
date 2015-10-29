@@ -33,7 +33,7 @@ class Response(models.Model):
     response = models.TextField(max_length=200)
 
 
-# User reviews of offerings
+# User reviews of asset_manager
 class Review(models.Model):
     user = models.ForeignKey(User)
     organization = models.ForeignKey(Organization)

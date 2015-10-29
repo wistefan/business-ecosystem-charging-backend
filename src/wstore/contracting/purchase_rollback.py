@@ -73,7 +73,7 @@ def rollback(purchase):
             purchase.delete()
 
     # If the purchase is paid the offering must be included in the customer
-    # offerings purchased list
+    # asset_manager purchased list
     else:
         if purchase.organization_owned:
             org = purchase.owner_organization
@@ -112,7 +112,7 @@ class PurchaseRollback():
                     and unicode(e) != 'Invalid payment method' and unicode(e) != 'Invalid credit card info'\
                     and unicode(e) != 'The customer does not have a tax address' and unicode(e) != 'The customer does not have payment info'\
                     and unicode(e) != 'Missing a required field in the tax address. It must contain street, postal, city, province and country'\
-                    and unicode(e) != 'Open offerings cannot be purchased' \
+                    and unicode(e) != 'Open asset_manager cannot be purchased' \
                     and unicode(e) != 'You must accept the terms and conditions of the offering to acquire it':
 
                 # Get the purchase

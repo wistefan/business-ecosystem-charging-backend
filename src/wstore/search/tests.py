@@ -180,7 +180,7 @@ class FullTextSearchTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         offerings_management.USDLParser = FakeUSDLParser
 
         super(FullTextSearchTestCase, cls).setUpClass()
@@ -199,7 +199,7 @@ class FullTextSearchTestCase(TestCase):
 
         user.userprofile.save()
 
-        # Include user private organization in the offerings
+        # Include user private organization in the asset_manager
         for o in Offering.objects.filter(owner_admin_user=user):
             o.owner_organization = user.userprofile.current_organization
             o.save()
@@ -271,7 +271,7 @@ class UpdateIndexTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         offerings_management.USDLParser = FakeUSDLParser
         cls.date = datetime.now()
 
@@ -293,7 +293,7 @@ class UpdateIndexTestCase(TestCase):
 
         user.userprofile.save()
 
-        # Include user private organization in the offerings
+        # Include user private organization in the asset_manager
         for o in Offering.objects.filter(owner_admin_user=user):
             o.owner_organization = user.userprofile.current_organization
             o.save()

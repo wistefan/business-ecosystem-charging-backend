@@ -30,7 +30,7 @@ from wstore.models import Repository
 def register_repository(name, host, offering_collection, resource_collection, api_version, default=False):
     """
     Register a new repository in WStore, these repositories will be used for the storage
-    of the USDL descriptions of offerings and resources
+    of the USDL descriptions of asset_manager and resources
     """
 
     if host[-1] != '/':

@@ -45,7 +45,7 @@ def create_purchase(user, offering, org_owned=False, payment_info=None):
         raise PermissionDenied("This offering can't be purchased")
 
     if offering.open:
-        raise PermissionDenied('Open offerings cannot be purchased')
+        raise PermissionDenied('Open asset_manager cannot be purchased')
 
     if accepted_needed(offering) and not payment_info['accepted']:
         raise PermissionDenied('You must accept the terms and conditions of the offering to acquire it')

@@ -29,7 +29,7 @@ from whoosh.qparser import QueryParser
 from whoosh import query
 
 from wstore.models import Offering, Purchase
-from wstore.offerings.usdl.usdl_generator import USDLGenerator
+from wstore.asset_manager.usdl.usdl_generator import USDLGenerator
 
 
 class SearchEngine():
@@ -204,7 +204,7 @@ class SearchEngine():
                     filter_ = filter_ & state_filter
             else:
                 # If state is not included the default behaviour is returning
-                # published offerings
+                # published asset_manager
                 filter_ = query.Term('state', 'published')
 
             # Create sorting params if needed
@@ -261,13 +261,13 @@ class SearchEngine():
 
             result = []
             # The get_offering_info method is imported inside this method in order to avoid a cross-reference import error
-            from wstore.offerings.offerings_management import get_offering_info
+            from wstore.asset_manager.offerings_management import get_offering_info
 
 
             if not count:
                 for hit in search_result:
 
-                    # Get the offerings
+                    # Get the asset_manager
                     offering = Offering.objects.get(pk=hit['id'])
                     result.append(get_offering_info(offering, user))
             else:

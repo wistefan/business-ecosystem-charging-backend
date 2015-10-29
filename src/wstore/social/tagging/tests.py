@@ -205,7 +205,7 @@ class TagManagementTestCase(TestCase):
                 self.assertTrue(t in ret_tags)
 
     def test_search_by_tag(self):
-        # Create mock offerings
+        # Create mock asset_manager
         tag_manager.Offering = MagicMock()
 
         def get_mock(pk=None):
@@ -319,7 +319,7 @@ class TagViewTestCase(TestCase):
 
         # Create the view
         tag_collection = views.TagCollection(permitted_methods=('GET', 'PUT'))
-        url = '/api/offering/offerings/' + off_data['organization'] +'/' + off_data['name'] + '/' + off_data['version'] +'/tags'
+        url = '/api/offering/asset_manager/' + off_data['organization'] +'/' + off_data['name'] + '/' + off_data['version'] +'/tags'
 
         if action:
             url += '?action=' + action
@@ -372,7 +372,7 @@ class TagViewTestCase(TestCase):
 
         # Create the view
         tag_collection = views.TagCollection(permitted_methods=('GET', 'PUT'))
-        url = '/api/offering/offerings/' + off_data['organization'] +'/' + off_data['name'] + '/' + off_data['version'] +'/tags'
+        url = '/api/offering/asset_manager/' + off_data['organization'] +'/' + off_data['name'] + '/' + off_data['version'] +'/tags'
 
         data = {'tags': ['tag1', 'tag2']}
         request = self.factory.put(

@@ -29,7 +29,7 @@ from wstore.store_commons.resource import Resource
 from wstore.social.tagging.recommendation_manager import RecommendationManager
 from wstore.social.tagging.tag_manager import TagManager
 from wstore.models import Offering, Organization
-from wstore.offerings.offerings_management import get_offering_info
+from wstore.asset_manager.offerings_management import get_offering_info
 
 
 class TagCollection(Resource):
@@ -165,7 +165,7 @@ class SearchTagEntry(Resource):
 
                     response.append(offering_info)
 
-                # Sort offerings if needed
+                # Sort asset_manager if needed
                 if sort:
                     rev = True
                     if sort == 'name':

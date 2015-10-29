@@ -31,7 +31,7 @@ from wstore.store_commons.resource import Resource
 from wstore.search.search_engine import SearchEngine
 from wstore.models import Resource as WStore_resource
 from wstore.models import Organization, Offering
-from wstore.offerings.offerings_management import get_offering_info
+from wstore.asset_manager.offerings_management import get_offering_info
 
 
 class SearchEntry(Resource):

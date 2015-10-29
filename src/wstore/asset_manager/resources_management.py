@@ -31,14 +31,14 @@ from django.template import Context as TmplContext
 
 from wstore.models import Resource, Offering, Repository
 from wstore.repository_adaptor.repositoryAdaptor import repository_adaptor_factory, unreg_repository_adaptor_factory
-from wstore.offerings.models import ResourceVersion
+from wstore.asset_manager.models import ResourceVersion
 from wstore.store_commons.utils.name import is_valid_id, is_valid_file
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import Version
 from wstore.store_commons.errors import ConflictError
-from wstore.offerings.offerings_management import delete_offering
-from wstore.offerings.resource_plugins.plugins.ckan_validation import validate_dataset
-from wstore.offerings.resource_plugins.decorators import register_resource_events, \
+from wstore.asset_manager.offerings_management import delete_offering
+from wstore.asset_manager.resource_plugins.plugins.ckan_validation import validate_dataset
+from wstore.asset_manager.resource_plugins.decorators import register_resource_events, \
     upgrade_resource_events, update_resource_events, delete_resource_events, \
     register_resource_validation_events, upgrade_resource_validation_events
 
@@ -274,7 +274,7 @@ def upgrade_resource(resource, user, data, file_=None):
     # Update new version number
     resource.version = data['version']
 
-    # Update offerings
+    # Update asset_manager
     if file_ or 'content' in data:
         if file_:
             file_content = file_
@@ -434,12 +434,12 @@ def _delete_resource(resource, user):
         _remove_resource(resource)
     else:
         # If the resource is part of an offering check if all the
-        # offerings are in uploaded state
+        # asset_manager are in uploaded state
         used_offerings = []
         for off in resource.offerings:
             offering = Offering.objects.get(pk=off)
 
-            # Remove resource from uploaded offerings
+            # Remove resource from uploaded asset_manager
             if offering.state == 'uploaded':
                 offering.resources.remove(ObjectId(resource.pk))
                 offering.save()
@@ -454,7 +454,7 @@ def _delete_resource(resource, user):
             resource.state = 'deleted'
             resource.save()
 
-            # Remove published offerings
+            # Remove published asset_manager
             for of in used_offerings:
                 offering = Offering.objects.get(pk=of)
                 if offering.state == 'published':

@@ -35,14 +35,14 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.test.utils import override_settings
 
-from wstore.offerings import offerings_management
+from wstore.asset_manager import offerings_management
 from wstore.models import UserProfile
 from wstore.models import Offering
 from wstore.models import Marketplace, MarketOffering
 from wstore.models import Resource
 from wstore.models import Organization
 
-from wstore.offerings.test.offering_test_data import *
+from wstore.asset_manager.test.offering_test_data import *
 
 __test__ = False
 
@@ -897,7 +897,7 @@ class OfferingPublicationTestCase(TestCase):
         }, _published, PermissionDenied, 'Publication error: The offering test_offering1 1.0 cannot be published'),
         ('open_without_assets', {
             'marketplaces': []
-        }, _open, PermissionDenied, 'Publication error: Open offerings cannot be published if they do not contain at least a digital asset (resource or application)')
+        }, _open, PermissionDenied, 'Publication error: Open asset_manager cannot be published if they do not contain at least a digital asset (resource or application)')
     ])
     def test_offering_publication(self, name, data, side_effect=None, err_type=None, err_msg=None):
         offering = Offering.objects.get(name='test_offering1')

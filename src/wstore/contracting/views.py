@@ -35,7 +35,7 @@ from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
 authentication_required
 from wstore.store_commons.utils.version import is_lower_version
-from wstore.offerings.offerings_management import get_offering_info
+from wstore.asset_manager.offerings_management import get_offering_info
 from wstore.contracting.purchases_management import create_purchase
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.models import Offering, Organization, Context
@@ -207,7 +207,7 @@ class PurchaseCollection(Resource):
                 if not 'customer' in roles and not developer_plan:
                     return build_response(request, 403, 'Forbidden')
 
-                # Load the purchased offerings if it is an update in
+                # Load the purchased asset_manager if it is an update in
                 # order to check versions later
                 if update_plan:
                     purchased_offerings = user.userprofile.current_organization.offerings_purchased

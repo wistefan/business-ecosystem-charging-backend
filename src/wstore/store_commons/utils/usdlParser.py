@@ -690,14 +690,14 @@ def validate_usdl(usdl, mimetype, offering_data):
     if valid and is_open:
         if valid and len(parsed_document['pricing']['price_plans']) > 1:
             valid = False
-            reason = 'For open offerings only a price plan is allowed and must specify free use'
+            reason = 'For open asset_manager only a price plan is allowed and must specify free use'
 
         if valid and len(parsed_document['pricing']['price_plans']) == 1 and \
             'price_components' in parsed_document['pricing']['price_plans'][0] and \
             len(parsed_document['pricing']['price_plans'][0]['price_components']) > 0:
 
             valid = False
-            reason = 'It is not allowed to specify pricing models for open offerings'
+            reason = 'It is not allowed to specify pricing models for open asset_manager'
 
     # Check that if there are more than a price plan all of them contain a label
     update_plan = False

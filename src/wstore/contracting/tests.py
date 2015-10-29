@@ -196,7 +196,7 @@ class PurchasesCreationTestCase(TestCase):
             'payment_method': 'credit_card',
             'plan': 'update'
         }, Exception, 'The customer does not have payment info'),
-        ('open_offering', _open_offering, False, None, PermissionDenied, 'Open offerings cannot be purchased'),
+        ('open_offering', _open_offering, False, None, PermissionDenied, 'Open asset_manager cannot be purchased'),
         ('no_tax_address', None, False, {
             'payment_method': 'credit_card',
             'credit_card': {

@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 
 from django.core.management.base import BaseCommand, CommandError
 
-from wstore.offerings.resource_plugins.plugin_loader import PluginLoader
+from wstore.asset_manager.resource_plugins.plugin_loader import PluginLoader
 
 
 class Command(BaseCommand):

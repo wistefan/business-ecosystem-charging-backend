@@ -31,11 +31,11 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from django.conf import settings
 
-from wstore.offerings import resources_management
+from wstore.asset_manager import resources_management
 from wstore.models import Resource, Repository
 from django.core.exceptions import PermissionDenied
 from wstore.store_commons.errors import ConflictError
-from wstore.offerings.test.resource_test_data import *
+from wstore.asset_manager.test.resource_test_data import *
 
 
 __test__ = False
@@ -52,7 +52,7 @@ class ResourceRegisteringTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        reload(wstore.offerings.resource_plugins.decorators)
+        reload(wstore.asset_manager.resource_plugins.decorators)
         reload(resources_management)
 
     def setUp(self):
@@ -264,8 +264,8 @@ class ResourceRegisteringTestCase(TestCase):
         # Create plugin module mocks
         plugin_mock = MagicMock(name="test_plugin")
         plugin_mock.on_pre_create_validation.return_value = data
-        wstore.offerings.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module.return_value = plugin_mock
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module.return_value = plugin_mock
         reload(resources_management)
 
         self.setUp()
@@ -305,8 +305,8 @@ class ResourceRegisteringTestCase(TestCase):
             self.assertEquals(unicode(error), err_msg)
 
     def test_load_plugin_module(self):
-        module = 'wstore.offerings.test.resource_tests.FakePlugin'
-        from wstore.offerings.resource_plugins.decorators import load_plugin_module
+        module = 'wstore.asset_manager.test.resource_tests.FakePlugin'
+        from wstore.asset_manager.resource_plugins.decorators import load_plugin_module
 
         loaded_module = load_plugin_module(module)
 
@@ -459,7 +459,7 @@ class ResourceDeletionTestCase(TestCase):
     @classmethod
     def tearDownClass(cls):
         reload(os)
-        reload(wstore.offerings.resource_plugins.decorators)
+        reload(wstore.asset_manager.resource_plugins.decorators)
         reload(resources_management)
         super(ResourceDeletionTestCase, cls).tearDownClass()
 
@@ -555,9 +555,9 @@ class ResourceDeletionTestCase(TestCase):
 
         # Create plugin module mocks
         self.plugin_mock = MagicMock(name="test_plugin")
-        wstore.offerings.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
         reload(resources_management)
         self._adaptor_mock = MagicMock()
         resources_management.unreg_repository_adaptor_factory = MagicMock()
@@ -623,7 +623,7 @@ class ResourceUpdateTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        reload(wstore.offerings.resource_plugins.decorators)
+        reload(wstore.asset_manager.resource_plugins.decorators)
         reload(resources_management)
         reload(os)
         super(ResourceUpdateTestCase, cls).tearDownClass()
@@ -637,21 +637,21 @@ class ResourceUpdateTestCase(TestCase):
     def _res_plugin_type(self):
         self.resource.resource_type = 'test_plugin'
         self.plugin_mock = MagicMock(name="test_plugin")
-        wstore.offerings.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
         reload(resources_management)
         self._mock_resource_libs()
 
     def _invalid_media(self):
         self.resource.resource_type = 'test_plugin'
         self.plugin_mock = MagicMock(name="test_plugin")
-        wstore.offerings.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
 
         mock_model = MagicMock(name="ResourcePluginModel")
         mock_model.media_types = ['application/x-widget']
 
-        wstore.offerings.resource_plugins.decorators._get_plugin_model.return_value = mock_model
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model.return_value = mock_model
         reload(resources_management)
         self._mock_resource_libs()
 
@@ -688,7 +688,7 @@ class ResourceUpdateTestCase(TestCase):
         # Check event calls
         self.plugin_mock.on_pre_update.assert_called_once_with(self.resource)
         self.plugin_mock.on_post_update.assert_called_once_with(self.resource)
-        wstore.offerings.resource_plugins.decorators._get_plugin_model.assert_called_once_with('test_plugin')
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model.assert_called_once_with('test_plugin')
 
     def _check_no_uploaded(self):
         self.assertEquals(self.resource.resource_usdl, "")
@@ -748,7 +748,7 @@ class ResourceUpgradeTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        reload(wstore.offerings.resource_plugins.decorators)
+        reload(wstore.asset_manager.resource_plugins.decorators)
         reload(resources_management)
         super(ResourceUpgradeTestCase, cls).tearDownClass()
 
@@ -783,12 +783,12 @@ class ResourceUpgradeTestCase(TestCase):
         self.resource.resource_type = 'test_plugin'
         self.plugin_mock = MagicMock(name="test_plugin")
         self.plugin_mock.on_pre_upgrade_validation.return_value = data
-        wstore.offerings.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model = MagicMock(name="_get_plugin_model")
         self.mock_model = MagicMock()
         self.mock_model.formats = ['FILE']
-        wstore.offerings.resource_plugins.decorators._get_plugin_model.return_value = self.mock_model
-        wstore.offerings.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
-        wstore.offerings.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
+        wstore.asset_manager.resource_plugins.decorators._get_plugin_model.return_value = self.mock_model
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module = MagicMock(name="load_plugin_module")
+        wstore.asset_manager.resource_plugins.decorators.load_plugin_module.return_value = self.plugin_mock
 
         reload(resources_management)
         resources_management._upload_usdl = MagicMock(name="_upload_usdl")

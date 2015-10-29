@@ -29,11 +29,11 @@ from shutil import rmtree
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
-from wstore.offerings.resource_plugins.plugin_manager import PluginManager
-from wstore.offerings.resource_plugins.plugin_error import PluginError
-from wstore.offerings.resource_plugins import plugin_loader
+from wstore.asset_manager.resource_plugins.plugin_manager import PluginManager
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
+from wstore.asset_manager.resource_plugins import plugin_loader
 from wstore.models import ResourcePlugin
-from wstore.offerings.resource_plugins.test_data import *
+from wstore.asset_manager.resource_plugins.test_data import *
 
 
 class PluginLoaderTestCase(TestCase):

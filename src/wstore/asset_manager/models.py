@@ -78,7 +78,7 @@ class Offering(models.Model):
         site = self._get_site()
 
         offering_id = urllib2.quote(self.owner_organization.name + '/' + self.name + '/' + self.version)
-        return urljoin(site, 'api/offering/offerings/' + offering_id)
+        return urljoin(site, 'api/offering/asset_manager/' + offering_id)
 
     def get_image_url(self):
         """
@@ -108,29 +108,17 @@ class ResourceVersion(models.Model):
     version = models.CharField(max_length=20)
     resource_path = models.CharField(max_length=100)
     download_link = models.CharField(max_length=200)
-    resource_usdl = models.URLField()
-    resource_uri = models.URLField()
 
 
-# The resources are the frontend components of an application
-# a resource could be a web based component or an API used to
-# access backend components
 class Resource(models.Model):
-    name = models.CharField(max_length=50)
-    version = models.CharField(max_length=20)
+    product_ref = models.URLField()
+    version = models.CharField(max_length=20)  # This field maps the Product Spec version
     provider = models.ForeignKey(Organization)
     content_type = models.CharField(max_length=50)
-    # Organization
-    description = models.TextField()
-    state = models.CharField(max_length=50)
     download_link = models.CharField(max_length=200)
     resource_path = models.CharField(max_length=100)
-    offerings = ListField(models.ForeignKey(Offering))
-    open = models.BooleanField(default=False)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
     resource_type = models.CharField(max_length=100)
-    resource_usdl = models.URLField()
-    resource_uri = models.URLField()
     meta_info = DictField()
 
     def get_url(self):
@@ -157,7 +145,6 @@ class Resource(models.Model):
 
     class Meta:
         app_label = 'wstore'
-        unique_together = ('name', 'provider')
 
 
 class ResourcePlugin(models.Model):

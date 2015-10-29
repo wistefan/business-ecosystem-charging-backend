@@ -121,7 +121,7 @@ class CreateIndexesTestCase(IndexTestCase):
         self.se_inst = MagicMock()
         createindexes.SearchEngine = MagicMock()
         createindexes.SearchEngine.return_value = self.se_inst
-        # Mock offerings
+        # Mock asset_manager
         self.tested_mod.Offering = MagicMock()
         self.offerings = [
             'offering1',
@@ -167,7 +167,7 @@ class CreateTagIndexesTestCase(IndexTestCase):
         self.tm_inst = MagicMock()
         createtags.TagManager = MagicMock()
         createtags.TagManager.return_value = self.tm_inst
-        # Mock offerings
+        # Mock asset_manager
         self.offering = MagicMock()
         self.offering.tags = ['tag1']
         createtags.Offering = MagicMock()

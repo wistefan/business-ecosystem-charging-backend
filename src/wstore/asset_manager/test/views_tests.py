@@ -30,7 +30,7 @@ from django.test.utils import override_settings
 from django.test.client import RequestFactory, MULTIPART_CONTENT
 from django.contrib.auth.models import User
 
-from wstore.offerings import views
+from wstore.asset_manager import views
 from wstore.models import Offering, Organization, Context
 from django.contrib.sites.models import Site
 from wstore.store_commons.errors import ConflictError, RepositoryError
@@ -46,7 +46,7 @@ class OfferingCollectionTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         reload(offerings_management)
         reload(views)
         super(OfferingCollectionTestCase, cls).tearDownClass()
@@ -87,12 +87,12 @@ class OfferingCollectionTestCase(TestCase):
             'resources': []
         }]
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_collection = views.OfferingCollection(permitted_methods=('GET', 'POST'))
         views.get_offerings = MagicMock(name='get_offering')
 
         views.get_offerings.return_value = return_value
-        request = self.factory.get('/api/offering/offerings' + qstring)
+        request = self.factory.get('/api/offering/asset_manager' + qstring)
         request.user = self.user
 
         # Call the view
@@ -123,7 +123,7 @@ class OfferingCollectionTestCase(TestCase):
             'number': 3
         }
 
-        request = self.factory.get('/api/offering/offerings?action=count' + qstring)
+        request = self.factory.get('/api/offering/asset_manager?action=count' + qstring)
         request.user = self.user
 
         # Call the view
@@ -169,7 +169,7 @@ class OfferingCollectionTestCase(TestCase):
             side_effect(self)
 
         request = self.factory.post(
-            '/api/offering/offerings',
+            '/api/offering/asset_manager',
             json.dumps(data),
             HTTP_ACCEPT='application/json; charset=utf-8',
             content_type='application/json; charset=utf-8'
@@ -204,7 +204,7 @@ class OfferingEntryTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         reload(offerings_management)
         reload(views)
         super(OfferingEntryTestCase, cls).tearDownClass()
@@ -228,12 +228,12 @@ class OfferingEntryTestCase(TestCase):
             'resources': []
         }
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.get_offering_info = MagicMock(name='get_offering_info')
         views.get_offering_info.return_value = return_value
 
-        request = self.factory.get('/api/offering/offerings/test_user/test_offering/1.0')
+        request = self.factory.get('/api/offering/asset_manager/test_user/test_offering/1.0')
         request.user = self.user
 
         # Call the view
@@ -270,11 +270,11 @@ class OfferingEntryTestCase(TestCase):
 
     def test_get_offering_not_found(self):
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.get_offering_info = MagicMock(name='get_offering_info')
 
-        request = self.factory.get('/api/offering/offerings/test_user/test_offering/1.0', HTTP_ACCEPT='application/json')
+        request = self.factory.get('/api/offering/asset_manager/test_user/test_offering/1.0', HTTP_ACCEPT='application/json')
         request.user = self.user
 
         response = offering_entry.read(request, 'test_user', 'test_offering', '1.0')
@@ -292,12 +292,12 @@ class OfferingEntryTestCase(TestCase):
 
     def test_get_offering_exception(self):
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.get_offering_info = MagicMock(name='get_offering_info')
         views.get_offering_info.side_effect = Exception('Error getting offering')
 
-        request = self.factory.get('/api/offering/offerings/test_user/test_offering/1.0', HTTP_ACCEPT='application/json')
+        request = self.factory.get('/api/offering/asset_manager/test_user/test_offering/1.0', HTTP_ACCEPT='application/json')
         request.user = self.user
 
         offering = Offering.objects.create(
@@ -338,12 +338,12 @@ class OfferingEntryTestCase(TestCase):
             'description': 'test offering'
         }
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.update_offering = MagicMock(name='update_offering')
 
         request = self.factory.put(
-            '/api/offering/offerings/test_user/test_offering/1.0',
+            '/api/offering/asset_manager/test_user/test_offering/1.0',
             json.dumps(data),
             content_type='application/json',
             HTTP_ACCEPT='application/json'
@@ -390,12 +390,12 @@ class OfferingEntryTestCase(TestCase):
             'description': 'test offering'
         }
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.update_offering = MagicMock(name='update_offering')
 
         request = self.factory.put(
-            '/api/offering/offerings/test_user/test_offering/1.0',
+            '/api/offering/asset_manager/test_user/test_offering/1.0',
             json.dumps(data),
             content_type='application/json',
             HTTP_ACCEPT='application/json'
@@ -424,12 +424,12 @@ class OfferingEntryTestCase(TestCase):
             'description': 'test offering'
         }
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.update_offering = MagicMock(name='update_offering')
 
         request = self.factory.put(
-            '/api/offering/offerings/test_user/test_offering/1.0',
+            '/api/offering/asset_manager/test_user/test_offering/1.0',
             json.dumps(data),
             content_type='application/json',
             HTTP_ACCEPT='application/json'
@@ -482,13 +482,13 @@ class OfferingEntryTestCase(TestCase):
             'description': 'test offering'
         }
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         offering_entry = views.OfferingEntry(permitted_methods=('GET', 'PUT', 'DELETE'))
         views.update_offering = MagicMock(name='update_offering')
         views.update_offering.side_effect = Exception('Update error')
 
         request = self.factory.put(
-            '/api/offering/offerings/test_user/test_offering/1.0',
+            '/api/offering/asset_manager/test_user/test_offering/1.0',
             json.dumps(data),
             content_type='application/json',
             HTTP_ACCEPT='application/json'
@@ -551,7 +551,7 @@ class ResourceCollectionTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         reload(offerings_management)
         reload(views)
         super(ResourceCollectionTestCase, cls).tearDownClass()
@@ -600,7 +600,7 @@ class ResourceCollectionTestCase(TestCase):
     ])
     def test_get_resources(self, return_value, filter_=None, side_effect=None, code=200, error_msg=None, pagination=None):
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         resource_collection = views.ResourceCollection(permitted_methods=('GET', 'POST'))
         views.get_provider_resources = MagicMock(name='get_provider_resources')
 
@@ -661,7 +661,7 @@ class ResourceCollectionTestCase(TestCase):
     ])
     def test_create_resource(self, data, file_=False, side_effect=None, error=False, code=201, msg='Created'):
 
-        # Mock get offerings method
+        # Mock get asset_manager method
         resource_collection = views.ResourceCollection(permitted_methods=('GET', 'POST'))
         views.register_resource = MagicMock(name='get_provider_resources')
 
@@ -737,7 +737,7 @@ class ResourceEntryTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        from wstore.offerings import offerings_management
+        from wstore.asset_manager import offerings_management
         reload(offerings_management)
         reload(views)
         super(ResourceEntryTestCase, cls).tearDownClass()
@@ -907,7 +907,7 @@ class PublishEntryTestCase(TestCase):
             'marketplaces': []
         }
         self.request = self.factory.post(
-            '/offering/offerings/test_user/test_offering/1.0',
+            '/offering/asset_manager/test_user/test_offering/1.0',
             json.dumps(self.data),
             content_type='application/json',
             HTTP_ACCEPT='application/json'

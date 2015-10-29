@@ -442,7 +442,7 @@ class USDLValidationTestCase(TestCase):
                     'label': 'plan_label2'
                 }]
             }
-        }, 'For open offerings only a price plan is allowed and must specify free use', False, True),
+        }, 'For open asset_manager only a price plan is allowed and must specify free use', False, True),
         ('open_plan_price', {
             'services_included': ['service'],
             'pricing': {
@@ -455,7 +455,7 @@ class USDLValidationTestCase(TestCase):
                     }]
                 }]
             }
-        }, 'It is not allowed to specify pricing models for open offerings', False, True),
+        }, 'It is not allowed to specify pricing models for open asset_manager', False, True),
         ('no_label', {
             'services_included': ['service'],
             'pricing': {

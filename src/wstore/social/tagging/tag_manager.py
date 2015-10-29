@@ -101,14 +101,14 @@ class TagManager():
             index_writer.commit()
 
     def count_offerings(self, tag):
-        # Count offerings
+        # Count asset_manager
         return len(self.get_index_doc_by_tag(tag))
 
     def search_by_tag(self, tag, start=None, limit=None):
         # Get documents
         docs = self.get_index_doc_by_tag(tag, start=start, p_limit=limit)
 
-        # Get offerings
+        # Get asset_manager
         return [Offering.objects.get(pk=doc['id']) for doc in docs]
 
     def get_index_doc_by_tag(self, tag, start=None, p_limit=None):

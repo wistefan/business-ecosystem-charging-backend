@@ -18,16 +18,14 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from django.conf.urls import patterns, url, include
+from django.conf.urls import patterns, url
 
-from wstore.offerings import views as offering_views
-from wstore.offerings.resource_plugins import views as plugins_views
+from wstore.asset_manager import views as offering_views
+from wstore.asset_manager.resource_plugins import views as plugins_views
 
 urlpatterns = patterns('',
-
     # API
-    url(r'^api/offering/resources/?$', offering_views.ResourceCollection(permitted_methods=('GET', 'POST'))),
-    url(r'^api/offering/resources/plugins?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
-    url(r'^api/offering/resources/plugins/(?P<plugin_id>[\w -]+)?$', plugins_views.PluginEntry(permitted_methods=('GET',))),
-    url(r'', include('social_auth.urls')),
+    url(r'^api/assetManagement/assets/?$', offering_views.ResourceCollection(permitted_methods=('GET', 'POST'))),
+    url(r'^api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
+    url(r'^api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)?$', plugins_views.PluginEntry(permitted_methods=('GET',)))
 )
