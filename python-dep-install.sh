@@ -8,7 +8,6 @@ pip install https://github.com/RDFLib/rdflib-jsonld/archive/master.zip
 
 pip install "nose==1.3.6" "django-nose==1.4"
 
-pip install "django-social-auth==0.7.28"
 pip install "django-crontab==0.6.0"
 pip install "Whoosh==2.7.0"
 pip install "Stemming==1.0.1"

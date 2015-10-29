@@ -66,12 +66,7 @@ class Organization(models.Model):
     payment_info = DictField()
     tax_address = DictField()
     managers = ListField()
-
-    # The type of the actorId field will depend on the version of the idm API
-    if settings.FIWARE_IDM_API_VERSION == 1:
-        actor_id = models.IntegerField(null=True, blank=True)
-    else:
-        actor_id = models.CharField(null=True, blank=True, max_length=100)
+    actor_id = models.CharField(null=True, blank=True, max_length=100)
 
     expenditure_limits = DictField()
 
@@ -104,12 +99,7 @@ class UserProfile(models.Model):
     tax_address = DictField()
     complete_name = models.CharField(max_length=100)
     payment_info = DictField()
-
-    # The type of the actorId field will depend on the version of the idm API
-    if settings.FIWARE_IDM_API_VERSION == 1:
-        actor_id = models.IntegerField(null=True, blank=True)
-    else:
-        actor_id = models.CharField(null=True, blank=True, max_length=100)
+    actor_id = models.CharField(null=True, blank=True, max_length=100)
 
     access_token = models.CharField(max_length=150, null=True, blank=True)
     refresh_token = models.CharField(max_length=150, null=True, blank=True)
@@ -191,11 +181,6 @@ def create_user_profile(sender, instance, created, **kwargs):
             profile.complete_name = instance.first_name + ' ' + instance.last_name
             profile.save()
 
-    # User search is only used for organization view that is
-    # not needed when using external authentication
-    if not settings.OILAUTH:
-        ResourceBrowser.add_resource('user', resource=instance)
-
 
 def create_context(sender, instance, created, **kwargs):
 
@@ -219,15 +204,14 @@ post_save.connect(create_user_profile, sender=User)
 post_save.connect(create_context, sender=Site)
 
 
-if settings.OILAUTH:
-    def set_tokens(sender, instance, created, **kwargs):
-        # Check if the user is staff
-        if instance.user.is_staff and instance.access_token:
-            # Check if it is needed to refresh RSS token credentials
-            for rss in RSS.objects.all():
-                rss.access_token = instance.access_token
-                rss.refresh_token = instance.refresh_token
-                rss.save()
+def set_tokens(sender, instance, created, **kwargs):
+    # Check if the user is staff
+    if instance.user.is_staff and instance.access_token:
+        # Check if it is needed to refresh RSS token credentials
+        for rss in RSS.objects.all():
+            rss.access_token = instance.access_token
+            rss.refresh_token = instance.refresh_token
+            rss.save()
 
-    # Maintain consistency of admin credentials
-    post_save.connect(set_tokens, sender=UserProfile)
+# Maintain consistency of admin credentials
+post_save.connect(set_tokens, sender=UserProfile)

@@ -46,33 +46,19 @@ BASEDIR = path.dirname(path.abspath(__file__))
 
 STORE_NAME = 'WStore'
 AUTH_PROFILE_MODULE = 'wstore.models.UserProfile'
-OILAUTH = True
-PORTALINSTANCE = False
 
-THEME_ACTIVE = 'defaulttheme'
+ADMIN_ROLE = 'provider'
+PROVIDER_ROLE = 'seller'
+CUSTOMER_ROLE = 'customer'
 
 SITE_ID=u''
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 MEDIA_ROOT = path.join(BASEDIR, 'media')
-
 BILL_ROOT = path.join(MEDIA_ROOT, 'bills')
 
 # URL that handles the media served from MEDIA_ROOT.
 MEDIA_URL = '/media/'
-
-# Absolute path to the directory static files should be collected to.
-STATIC_ROOT = path.join(BASEDIR, 'static')
-
-# URL prefix for static files.
-STATIC_URL = '/static/'
-
-# List of finder classes that know how to find static files in
-# various locations.
-STATICFILES_FINDERS = (
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-)
 
 INSTALLED_APPS = (
     'django.contrib.auth',
@@ -85,33 +71,13 @@ INSTALLED_APPS = (
     'django_mongodb_engine',
     'djangotoolbox',
     'wstore',
-    'wstore.defaulttheme',
     'wstore.charging_engine',
     'wstore.store_commons',
     'wstore.social.tagging',
     'django_crontab',
     'django_nose',
     'social_auth',
-    'wstore.registration'
 )
-
-# Create a testing variable containing whether django is in testing mode
-import sys
-TESTING = sys.argv[1:2] == ['test']
-
-# Load test_settings if testing
-if TESTING and 'wstore.selenium_tests' in INSTALLED_APPS:
-    from wstore.selenium_tests.test_settings import *
-
-if OILAUTH:
-    LOGIN_URL = "/login/fiware/"
-    LOGIN_REDIRECT_URL = '/'
-    LOGIN_ERROR_URL = '/login-error'
-    SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = "/login/fiware/"
-else:
-    LOGIN_URL = '/login/'
-
-USDL_EDITOR_URL = "http://store.lab.fi-ware.eu/usdl-editor"
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '8p509oqr^68+z)y48_*pv!ceun)gu7)yw6%y9j2^0=o14)jetr'
@@ -126,35 +92,22 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'social_auth.context_processors.social_auth_by_type_backends',
 )
 
-SOCIAL_AUTH_PIPELINE = (
-    'social_auth.backends.pipeline.social.social_auth_user',
-    #'social_auth.backends.pipeline.associate.associate_by_email',
-    'social_auth.backends.pipeline.user.get_username',
-    'social_auth.backends.pipeline.user.create_user',
-    'social_auth.backends.pipeline.social.associate_user',
-    'social_auth.backends.pipeline.social.load_extra_data',
-    'social_auth.backends.pipeline.user.update_user_details',
-    'wstore.social_auth_backend.fill_internal_user_info'
-)
-
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
-#    'wstore.themes.load_template_source',
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
-#     'django.template.loaders.eggs.Loader',
 )
 
 MIDDLEWARE_CLASSES = (
     'wstore.store_commons.middleware.URLMiddleware',
 )
 
-WSTOREMAILUSER = '<mail_user'
-WSTOREMAIL = '<email>'
-WSTOREMAILPASS = '<email_passwd>'
-SMTPSERVER = 'smtp.gmail.com:587'
+WSTOREMAILUSER = 'email_user'
+WSTOREMAIL = 'wstore_email'
+WSTOREMAILPASS = 'wstore_email_passwd'
+SMTPSERVER = 'wstore_smtp_server'
 
-WSTOREPROVIDERREQUEST = '<provider_requests_email>'
+WSTOREPROVIDERREQUEST = 'provider_requ_email'
 
 URL_MIDDLEWARE_CLASSES = {
     'default': (
@@ -190,19 +143,8 @@ PAYMENT_METHOD = None
 ACTIVATION_DAYS = 2
 
 AUTHENTICATION_BACKENDS = (
-    'wstore.social_auth_backend.FiwareBackend',
     'django.contrib.auth.backends.ModelBackend',
 )
-
-
-FIWARE_APP_ID = '<app_id>'
-FIWARE_API_SECRET = '<app_secret>'
-FIWARE_IDM_ENDPOINT = 'https://account.lab.fi-ware.org'
-
-FIWARE_IDM_API_VERSION = 2
-FIWARE_KEYSTONE_ENDPOINT = 'http://cloud.lab.fiware.org:4731'
-
-SOCIAL_AUTH_ENABLED_BACKENDS = ('fiware',)
 
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
