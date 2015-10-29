@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -20,7 +20,6 @@
 
 from django.conf.urls import patterns, url, include
 
-import wstore.oauth2provider.urls
 from wstore import views
 from wstore.admin import views as admin_views
 from wstore.admin.markets import views as market_views
@@ -37,17 +36,6 @@ from wstore.repository_adaptor import usdl_proxy
 from wstore.offerings.resource_plugins import views as plugins_views
 
 urlpatterns = patterns('',
-
-    # Views
-    url(r'^/?$', 'wstore.views.home', name='home'),
-    url(r'^search/?$', 'wstore.views.home_search', name='home_search'),
-    url(r'^search/keyword/(?P<keyword>[\w -]+)/?$', 'wstore.views.home_search_text', name='home_search_text'),
-    url(r'^search/tag/(?P<tag>[\w -]+)/?$', 'wstore.views.home_search_tag', name='home_search_tag'),
-    url(r'^search/resource/(?P<org>[\w -]+)/(?P<name>[\w -]+)/(?P<version>[\d.]+)/?$', 'wstore.views.home_search_resource', name='home_search_resource'),
-    url(r'^offering/(?P<org>[\w -]+)/(?P<name>[\w -]+)/(?P<version>[\d.]+)/?$', 'wstore.views.home_details', name='home_details'),
-    url(r'^administration/?$', 'wstore.views.admin', name='admin'),
-    url(r'^catalogue/?$', 'wstore.views.catalogue', name='catalogue'),
-    url(r'^organization/$', 'wstore.views.organization', name='organization'),
 
     # API
     url(r'^api/administration/search$', admin_views.ResourceSearch(permitted_methods=('GET',)), name='resource_search'),
@@ -94,5 +82,3 @@ urlpatterns = patterns('',
     url(r'^api/provider/?$', views.ProviderRequest(permitted_methods=('POST',))),
     url(r'', include('social_auth.urls')),
 )
-
-urlpatterns += wstore.oauth2provider.urls.urlpatterns
