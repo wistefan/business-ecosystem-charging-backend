@@ -115,7 +115,7 @@ class Resource(models.Model):
     version = models.CharField(max_length=20)  # This field maps the Product Spec version
     provider = models.ForeignKey(Organization)
     content_type = models.CharField(max_length=50)
-    download_link = models.CharField(max_length=200)
+    download_link = models.URLField()
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
     state = models.CharField(max_length=20)
@@ -123,16 +123,7 @@ class Resource(models.Model):
     meta_info = DictField()
 
     def get_url(self):
-        url = None
-
-        if self.download_link:
-            url = self.download_link
-        else:
-            # Build the URL for downloading the resource from WStore
-            cnt = Context.objects.all()[0]
-            url = urljoin(cnt.site.domain, self.resource_path)
-
-        return url
+        return self.download_link
 
     def get_uri(self):
         site_context = Context.objects.all()[0]

@@ -23,49 +23,26 @@ from __future__ import unicode_literals
 import json
 
 from django.http import HttpResponse
+from django.core.exceptions import PermissionDenied
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
     authentication_required
-from wstore.models import Organization, Resource as OfferingResource
-from wstore.asset_manager.resources_management import get_provider_resources, delete_resource,\
-    update_resource, upgrade_resource, upload_asset
+from wstore.asset_manager.resources_management import get_provider_resources, upload_asset, \
+    validate_creation, validate_update, validate_upgrade, validate_deletion
 from wstore.store_commons.errors import ConflictError
+from wstore.asset_manager.errors import ProductError
 
 
 class ResourceCollection(Resource):
 
-    # Creates a new resource associated with an user
-    @supported_request_mime_types(('application/json', 'multipart/form-data'))
-    @authentication_required
-    def create(self, request):
-
-        user = request.user
-        profile = user.userprofile
-        content_type = get_content_type(request)[0]
-
-        if 'provider' in profile.get_current_roles():
-
-            try:
-                if content_type == 'application/json':
-                    data = json.loads(request.body)
-                    upload_asset(user, data)
-                else:
-                    data = json.loads(request.POST['json'])
-                    f = request.FILES['file']
-                    upload_asset(user, data, file_=f)
-
-            except ConflictError as e:
-                return build_response(request, 409, unicode(e))
-            except Exception as e:
-                return build_response(request, 400, unicode(e))
-        else:
-            return build_response(request, 403, "You don't have the provider role")
-
-        return build_response(request, 201, 'Created')
-
     @authentication_required
     def read(self, request):
+        """
+        Retrives the existing digital assets associated with a given seller
+        :param request:
+        :return: JSON List containing the existing assets
+        """
 
         pagination = {
             'start': request.GET.get('start', None),
@@ -76,109 +53,106 @@ class ResourceCollection(Resource):
 
         profile = request.user.userprofile
 
-        if 'provider' in profile.get_current_roles():
-            try:
-                response = get_provider_resources(request.user, pagination=pagination)
-            except Exception, e:
-                return build_response(request, 400, unicode(e))
-        else:
+        if 'provider' not in profile.get_current_roles():
             return build_response(request, 403, 'Forbidden')
+
+        try:
+            response = get_provider_resources(request.user, pagination=pagination)
+        except Exception, e:
+            return build_response(request, 400, unicode(e))
 
         return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
 
 
-def _get_resource(resource_id_info):
-    try:
-        # Get the resource
-        provider_org = Organization.objects.get(name=resource_id_info['provider'])
-        resource = OfferingResource.objects.get(provider=provider_org, name=resource_id_info['name'], version=resource_id_info['version'])
-    except:
-        raise ValueError('Resource not found')
-
-    return resource
-
-
-def _call_resource_entry_method(request, resource_id_info, method, data, is_del=False):
-
-    response = build_response(request, 200, 'OK')
-
-    if is_del:
-        response = build_response(request, 204, 'No Content')
-
-    error = False
-
-    try:
-        resource = _get_resource(resource_id_info)
-    except:
-        error = True
-        response = build_response(request, 404, 'Resource not found')
-
-    # Check permissions
-    if not error and ('provider' not in request.user.userprofile.get_current_roles() or
-            not request.user.userprofile.current_organization == resource.provider):
-
-        error = True
-        response = build_response(request, 403, 'Forbidden')
-
-    # Try to make the specified action
-    if not error:
-        try:
-            args = (resource, ) + data
-            method(*args)
-        except Exception as e:
-            response = build_response(request, 400, unicode(e))
-
-    # Return the response
-    return response
-
-
-class ResourceEntry(Resource):
-
-    @authentication_required
-    def delete(self, request, provider, name, version):
-        return _call_resource_entry_method(request, {
-            'provider': provider,
-            'name': name,
-            'version': version
-        }, delete_resource, (request.user, ), True)
+class UploadCollection(Resource):
 
     @supported_request_mime_types(('application/json', 'multipart/form-data'))
     @authentication_required
-    def create(self, request, provider, name, version):
+    def create(self, request):
+        """
+        Uploads a new downloadable digital asset
+        :param request:
+        :return: 201 Created, including the new URL of the asset in the location header
+        """
 
+        user = request.user
+        profile = user.userprofile
         content_type = get_content_type(request)[0]
 
+        if 'provider' not in profile.get_current_roles():
+            return build_response(request, 403, "You don't have the seller role")
+
         try:
-            # Extract the data depending on the content type
             if content_type == 'application/json':
                 data = json.loads(request.body)
-                params = (request.user, data, )
+                location = upload_asset(user, data)
             else:
                 data = json.loads(request.POST['json'])
-                file_ = request.FILES['file']
-                params = (request.user, data, file_)
-        except:
-            return build_response(request, 400, 'Invalid content')
+                f = request.FILES['file']
+                location = upload_asset(user, data, file_=f)
 
-        return _call_resource_entry_method(request, {
-            'provider': provider,
-            'name': name,
-            'version': version
-        }, upgrade_resource, params)
+        except ConflictError as e:
+            return build_response(request, 409, unicode(e))
+        except Exception as e:
+            return build_response(request, 400, unicode(e))
+
+        # Fill location header with the URL of the uploaded digital asset
+        headers = {
+            'Location': location
+        }
+        return build_response(request, 201, 'Created', headers=headers)
+
+
+class ValidateCollection(Resource):
 
     @supported_request_mime_types(('application/json',))
     @authentication_required
-    def update(self, request, provider, name, version):
+    def create(self, request):
+        """
+        Validates the digital assets contained in a TMForum product Specification
+        :param request:
+        :return:
+        """
+
+        # Validate user permissions
+        user = request.user
+        if 'provider' not in user.userprofile.get_current_roles():
+            return build_response(request, 403, "You don't have the seller role")
+
+        validators = {
+            'create': validate_creation,
+            'update': validate_update,
+            'upgrade': validate_upgrade,
+            'delete': validate_deletion
+        }
+
+        # Parse content
+        try:
+            data = json.loads(request.body)
+        except:
+            return build_response(request, 400, 'The content is not a valid JSON document')
+
+        if 'action' not in data:
+            return build_response(request, 400, 'Missing required field: action')
+
+        if 'productSpec' not in data:
+            return build_response(request, 400, 'Missing required field: productSpec')
+
+        # Get Validator
+        try:
+            validator = validators[data['action']]
+        except:
+            msg = 'The provided action (' + data['action']
+            msg += ') is not valid. Allowed values are create, update, upgrade, and delete'
+            return build_response(request, 400, msg)
 
         try:
-            # Extract the data depending on the content type
-            data = json.loads(request.body)
-            params = (request.user, data, )
-        except:
-            return build_response(request, 400, 'Invalid content')
+            validator(user.userprofile.current_organization, data)
+        except ProductError as e:
+            return build_response(request, 400, unicode(e))
+        except PermissionDenied as e:
+            return build_response(request, 409, unicode(e))
+        except Exception:
+            return build_response(request, 400, 'Invalid product specification content')
 
-        return _call_resource_entry_method(request, {
-            'provider': provider,
-            'name': name,
-            'version': version
-        }, update_resource, params)
+        return build_response(request, 200, 'OK')
