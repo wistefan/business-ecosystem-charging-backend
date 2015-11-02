@@ -25,9 +25,9 @@ from wstore.asset_manager.resource_plugins import views as plugins_views
 
 urlpatterns = patterns('',
     # API
-    url(r'^api/assetManagement/assets/?$', offering_views.ResourceCollection(permitted_methods=('GET',))),
-    url(r'^api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
-    url(r'^api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),
-    url(r'^api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
-    url(r'^api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',)))
+    url(r'^charging/api/assetManagement/assets/?$', offering_views.ResourceCollection(permitted_methods=('GET',))),
+    url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
+    url(r'^charging/api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),
+    url(r'^charging/api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
+    url(r'^charging/api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',)))
 )
