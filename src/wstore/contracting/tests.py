@@ -45,7 +45,6 @@ from wstore.models import Purchase
 from wstore.models import UserProfile
 from wstore.charging_engine.models import Contract
 from wstore.contracting import views
-from wstore.keyrock_backends import keyrock_backend_v1
 
 
 __test__ = False
@@ -467,7 +466,6 @@ class ProviderNotificationTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        reload(keyrock_backend_v1)
         settings.OILAUTH = cls.prev_value
         super(ProviderNotificationTestCase, cls).tearDownClass()
 
@@ -544,44 +542,6 @@ class ProviderNotificationTestCase(TestCase):
 
         user_social_auth.save()
         self.user.social_auth = [user_social_auth]
-
-    @parameterized.expand([
-        ('basic', {
-            'owned': False,
-            'actor_id': 1
-        }),
-        ('org', {
-            'owned': False,
-            'actor_id': 1
-        }),
-        ('refresh', {
-            'owned': False,
-            'actor_id': 1
-        }, True)
-    ])
-    def test_identity_manager_notification_v1(self, name, org_data, refresh=False):
-
-        keyrock_backend_v1.urllib2 = FakeUrlib2Notify()
-
-        settings.OILAUTH = True
-
-        purchase = self._build_mock_purchase(org_data)
-
-        if refresh:
-            self._set_expired_token()
-
-        keyrock_backend_v1.notify_acquisition(purchase)
-        opener = keyrock_backend_v1.urllib2._opener
-
-        content = json.loads(opener._body)
-
-        if refresh:
-            UserSocialAuth.refresh_token.assert_any_call()
-
-        self.assertEquals(len(content['applications']), 1)
-        self.assertEquals(content['applications'][0]['id'], 1)
-        self.assertEquals(content['applications'][0]['name'], 'test_app1')
-        self.assertEquals(content['customer'], org_data['actor_id'])
 
 
 class UpdatingPurchasesTestCase(TestCase):

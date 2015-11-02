@@ -134,7 +134,7 @@ def get_resource_info(resource):
         'version': resource.version,
         'content_type': resource.content_type,
         'state': resource.state,
-        'href': resource.get_url(),
+        'href': resource.download_link,
         'resource_type': resource.resource_type,
         'metadata': resource.meta_info
     }

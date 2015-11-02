@@ -24,7 +24,6 @@ import requests
 from django.conf import settings
 
 from wstore.models import Resource
-from wstore.social_auth_backend import notify_acquisition
 
 
 def notify_provider(purchase):
@@ -76,7 +75,3 @@ def notify_provider(purchase):
             requests.post(notification_url, data=body, headers=headers, cert=(settings.NOTIF_CERT_FILE, settings.NOTIF_CERT_KEY_FILE))
         except:
             pass
-
-    # if the oil authentication is enabled, notify the idM the new purchase
-    if settings.OILAUTH and len(purchase.offering.applications) > 0:
-        notify_acquisition(purchase)
