@@ -135,8 +135,8 @@ class ValidateCollection(Resource):
         if 'action' not in data:
             return build_response(request, 400, 'Missing required field: action')
 
-        if 'productSpec' not in data:
-            return build_response(request, 400, 'Missing required field: productSpec')
+        if 'product' not in data:
+            return build_response(request, 400, 'Missing required field: product')
 
         # Get Validator
         try:
@@ -147,7 +147,7 @@ class ValidateCollection(Resource):
             return build_response(request, 400, msg)
 
         try:
-            validator(user.userprofile.current_organization, data)
+            validator(user.userprofile.current_organization, data['product'])
         except ProductError as e:
             return build_response(request, 400, unicode(e))
         except PermissionDenied as e:
