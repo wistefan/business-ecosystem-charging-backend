@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013-2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -33,8 +33,6 @@ class MarketOffering(models.Model):
     offering_name = models.CharField(max_length=100)
 
 
-# An application is an offering composed by some
-# backend comopents and some resources
 class Offering(models.Model):
     name = models.CharField(max_length=50)
     owner_organization = models.ForeignKey(Organization)

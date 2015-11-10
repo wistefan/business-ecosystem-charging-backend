@@ -28,8 +28,8 @@ from django.core.exceptions import PermissionDenied
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
     authentication_required
-from wstore.asset_manager.resources_management import get_provider_resources, upload_asset, \
-    validate_creation, validate_update, validate_upgrade, validate_deletion
+from wstore.asset_manager.resources_management import get_provider_resources, upload_asset
+from wstore.asset_manager.product_validator import ProductValidator
 from wstore.store_commons.errors import ConflictError
 from wstore.asset_manager.errors import ProductError
 
@@ -119,12 +119,7 @@ class ValidateCollection(Resource):
         if 'provider' not in user.userprofile.get_current_roles():
             return build_response(request, 403, "You don't have the seller role")
 
-        validators = {
-            'create': validate_creation,
-            'update': validate_update,
-            'upgrade': validate_upgrade,
-            'delete': validate_deletion
-        }
+        product_validator = ProductValidator()
 
         # Parse content
         try:
@@ -138,16 +133,10 @@ class ValidateCollection(Resource):
         if 'product' not in data:
             return build_response(request, 400, 'Missing required field: product')
 
-        # Get Validator
         try:
-            validator = validators[data['action']]
-        except:
-            msg = 'The provided action (' + data['action']
-            msg += ') is not valid. Allowed values are create, update, upgrade, and delete'
-            return build_response(request, 400, msg)
-
-        try:
-            validator(user.userprofile.current_organization, data['product'])
+            product_validator.validate(data['action'], user.userprofile.current_organization, data['product'])
+        except ValueError as e:
+            return build_response(request, 400, unicode(e))
         except ProductError as e:
             return build_response(request, 400, unicode(e))
         except PermissionDenied as e:
