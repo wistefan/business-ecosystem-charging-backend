@@ -21,131 +21,20 @@
 from __future__ import unicode_literals
 
 import json
-from urlparse import urlunparse, urlparse
 
 from django.contrib.sites.models import get_current_site
 from django.http import HttpResponse
-from django.shortcuts import render
-from django.contrib.auth.models import User
-from django.utils.safestring import mark_safe
-from django.utils.decorators import method_decorator
-from django.contrib.auth.decorators import login_required
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
 authentication_required
 from wstore.store_commons.utils.version import is_lower_version
-from wstore.asset_manager.offerings_management import get_offering_info
 from wstore.contracting.purchases_management import create_purchase
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.models import Offering, Organization, Context
 from wstore.models import Purchase
 from wstore.models import Resource as store_resource
 from wstore.contracting.purchase_rollback import rollback
-
-
-class PurchaseFormCollection(Resource):
-
-    @authentication_required
-    @supported_request_mime_types(('application/json', ))
-    def create(self, request):
-
-        data = json.loads(request.body)
-
-        # Get the offering
-        try:
-            if isinstance(data['offering'], dict):
-                id_ = data['offering']
-                org = Organization.objects.get(name=id_['organization'])
-                offering = Offering.objects.get(owner_organization=org, name=id_['name'], version=id_['version'])
-            else:
-                offering = Offering.objects.get(description_url=data['offering'])
-        except:
-            return build_response(request, 404, 'Not found')
-
-        redirect_uri = data['redirect_uri']
-
-        # Check that the offering can be purchased
-        if offering.state != 'published':
-            return build_response(request, 400, 'The offering cannot be purchased')
-
-        token = offering.pk + request.user.pk
-        site = get_current_site(request)
-
-        context = Context.objects.get(site=site)
-        context.user_refs[token] = {
-            'user': request.user.pk,
-            'offering': offering.pk,
-            'redirect_uri': redirect_uri
-        }
-
-        context.save()
-        site = urlparse(site.domain)
-        query = 'ID=' + token
-
-        # Create the URL that shows the purchase form
-        url = urlunparse((site[0], site[1], '/api/contracting/form', '', query, ''))
-
-        response = {
-            'url': url
-        }
-
-        return HttpResponse(json.dumps(response), status=200, mimetype='application/json')
-
-    @method_decorator(login_required)
-    def read(self, request):
-
-        # Get the token
-        token = request.GET.get('ID', '')
-
-        site = get_current_site(request)
-        context = Context.objects.get(site=site)
-
-        if token not in context.user_refs:
-            return render(request, 'err_msg.html', {
-                'title': 'Token not found',
-                'message': 'The token provided for identifying the purchase is not valid or has expired.'
-            })
-
-        info = context.user_refs[token]
-
-        # Get the user and the offering
-        user = User.objects.get(pk=info['user'])
-        request.user = user
-
-        id_ = info['offering']
-
-        context.save()
-
-        # Load the offering info
-        try:
-            offering = Offering.objects.get(pk=id_)
-        except:
-            return render(request, 'err_msg.html', {
-                'title': 'Offering not found',
-                'message': 'The requested offering does not exists.'
-            })
-
-        offering_info = get_offering_info(offering, user)
-
-        # Check that the offering can be purchased
-        if offering.state != 'published':
-            return render(request, 'err_msg.html', {
-                'title': 'Error',
-                'message': 'The offering cannot be acquired'
-            })
-
-        from django.conf import settings
-
-        # Create the context
-        context = {
-            'offering_info': mark_safe(json.dumps(offering_info)),
-            'oil': settings.OILAUTH,
-            'portal': settings.PORTALINSTANCE
-        }
-
-        # Return the form to purchase the offering
-        return render(request, 'store/purchase_form.html', context)
 
 
 class PurchaseCollection(Resource):

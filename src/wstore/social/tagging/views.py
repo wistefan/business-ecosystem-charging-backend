@@ -29,7 +29,6 @@ from wstore.store_commons.resource import Resource
 from wstore.social.tagging.recommendation_manager import RecommendationManager
 from wstore.social.tagging.tag_manager import TagManager
 from wstore.models import Offering, Organization
-from wstore.asset_manager.offerings_management import get_offering_info
 
 
 class TagCollection(Resource):
@@ -94,95 +93,3 @@ class TagCollection(Resource):
             return build_response(request, 400, unicode(e))
 
         return build_response(request, 200, 'OK')
-
-class SearchTagEntry(Resource):
-
-    @authentication_required
-    def read(self, request, tag):
-        # Get query params
-        action = request.GET.get('action', None)
-        start = request.GET.get('start', None)
-        limit = request.GET.get('limit', None)
-        sort = request.GET.get('sort', None)
-        state = request.GET.get('filter', None)
-
-        # Check action format
-        if action and not (isinstance(action,str) or isinstance(action,unicode)):
-            return build_response(request, 400, 'Invalid action format')
-
-        # Validate action
-        if action and action != 'count':
-            return build_response(request, 400, 'Invalid action')
-
-        if action and (start or limit or sort):
-            return build_response(request, 400, 'Actions cannot be combined with pagination')
-
-        # Validate pagination
-        if (start and not limit) or (not start and limit):
-            return build_response(request, 400, 'Both pagination params are required')
-
-        if start and limit and (not start.isnumeric() or not limit.isnumeric()):
-            return build_response(request, 400, 'Invalid format in pagination parameters')
-        elif start and limit:
-            start = int(start)
-            limit = int(limit)
-
-        if start and limit and (start < 1 or limit < 1):
-            return build_response(request, 400, 'Pagination params must be equal or greater that 1')
-
-        # Validate sorting
-        allowed_sorting = ['name', 'date', 'popularity']
-        if sort and (not isinstance(sort, str) and not isinstance(sort, unicode)):
-            return build_response(request, 400, 'Invalid sorting format')
-
-        if sort and not sort in allowed_sorting:
-            return build_response(request, 400, 'Invalid sorting value')
-
-        # Validate state
-        if state and state != 'published' and state != 'purchased':
-            return build_response(request, 400, 'Invalid filter')
-
-        try:
-            # Build tag manager
-            tm = TagManager()
-
-            # Select action
-            if action == 'count':
-                response = {
-                    'number': tm.count_offerings(tag)
-                }
-            else:
-                offerings = tm.search_by_tag(tag)
-
-                response = []
-                # Get offering info
-                for off in offerings:
-                    offering_info = get_offering_info(off, request.user)
-
-                    if not state and offering_info['state'] != 'published'\
-                    and offering_info['state'] != 'purchased' and offering_info['state'] != 'rated':
-                        continue
-
-                    response.append(offering_info)
-
-                # Sort asset_manager if needed
-                if sort:
-                    rev = True
-                    if sort == 'name':
-                        rev = False
-                    elif sort == 'date':
-                        sort = 'publication_date'
-                    elif sort == 'popularity':
-                        sort = 'rating'
-
-                    response = sorted(response, key=lambda off: off[sort], reverse=rev)
-
-                # If sort was needed pagination must be done after sorting
-                if start and limit:
-                    response = response[start - 1: (limit + (start - 1))]
-
-        except Exception as e:
-            return build_response(request, 400, unicode(e))
-
-        # Create response
-        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
