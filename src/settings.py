@@ -86,7 +86,6 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.media',
     'django.core.context_processors.request',
     'django.core.context_processors.static',
-    'social_auth.context_processors.social_auth_by_type_backends',
 )
 
 # List of callables that know how to import templates from various sources.

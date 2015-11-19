@@ -65,11 +65,7 @@ def logout(request):
             response = build_response(request, 200, 'OK')
 
     # If not using the FI-LAB authentication redirect to the login page
-    elif settings.OILAUTH:
-        from wstore.social_auth_backend import FIWARE_LOGOUT_URL
-        response = HttpResponseRedirect(FIWARE_LOGOUT_URL)
-    else:
-        url = '/login?next=/'
-        response = HttpResponseRedirect(url)
+    url = '/login?next=/'
+    response = HttpResponseRedirect(url)
 
     return response

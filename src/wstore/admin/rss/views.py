@@ -54,26 +54,9 @@ def _make_rss_request(manager, method, user, arg=None):
     except HTTPError as e:
         # Unauthorized: Maybe the token has expired
         if e.code == 401:
-            try:
-                # Try to refresh the access token
-                social = user.social_auth.filter(provider='fiware')[0]
-                social.refresh_token()
-
-                # Update credentials
-                social = user.social_auth.filter(provider='fiware')[0]
-                credentials = social.extra_data
-
-                user.userprofile.access_token = credentials['access_token']
-                user.userprofile.refresh_token = credentials['refresh_token']
-                user.userprofile.save()
-
-                # Refresh expenditure manager user info
-                manager.set_credentials(credentials['access_token'])
-                method()
-            except:
-                error = True
-                code = 401
-                msg = "You don't have access to the RSS instance requested"
+            error = True
+            code = 401
+            msg = "You don't have access to the RSS instance requested"
 
         # Server error
         else:

@@ -61,20 +61,4 @@ class RSS(models.Model):
         """
         Refresh the access token used for accessing the RSS
         """
-        from wstore.models import UserProfile
-        # Get user
-        userprofile = UserProfile.objects.get(access_token=self.access_token)
-        # Refresh token
-        social = userprofile.user.social_auth.filter(provider='fiware')[0]
-        social.refresh_token()
-
-        social = userprofile.user.social_auth.filter(provider='fiware')[0]
-        credentials = social.extra_data
-
-        # Save new credentials
-        userprofile.access_token = credentials['access_token']
-        userprofile.refresh_token = credentials['refresh_token']
-        userprofile.save()
-
-        self.access_token = credentials['access_token']
-        self.save()
+        pass

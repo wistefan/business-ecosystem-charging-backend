@@ -148,17 +148,7 @@ class UserProfile(models.Model):
         return result
 
     def refreshing_token(self):
-        # Try to refresh the access token
-        social = self.user.social_auth.filter(provider='fiware')[0]
-        social.refresh_token()
-
-        # Update credentials
-        social = self.user.social_auth.filter(provider='fiware')[0]
-        credentials = social.extra_data
-
-        self.access_token = credentials['access_token']
-        self.refresh_token = credentials['refresh_token']
-        self.save()
+        pass
 
 
 def create_user_profile(sender, instance, created, **kwargs):
