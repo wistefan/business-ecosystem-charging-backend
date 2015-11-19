@@ -73,10 +73,8 @@ INSTALLED_APPS = (
     'wstore',
     'wstore.charging_engine',
     'wstore.store_commons',
-    'wstore.social.tagging',
     'django_crontab',
-    'django_nose',
-    'social_auth',
+    'django_nose'
 )
 
 # Make this unique, and don't share it with anybody.

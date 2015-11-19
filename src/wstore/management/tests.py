@@ -30,9 +30,10 @@ from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
 
-from wstore.management.commands import configureproject,\
-  createtags, loadplugin, removeplugin
+from wstore.management.commands import configureproject, loadplugin, removeplugin
 
+
+__test__ = False
 
 class ConfigureProjectTestCase(TestCase):
     tags = ('management', )
@@ -106,51 +107,6 @@ class IndexTestCase(TestCase):
                 called = False
 
             self.assertFalse(called)
-
-
-class CreateTagIndexesTestCase(IndexTestCase):
-
-    tags = ('management',)
-
-    def __init__(self, methodName='runTest'):
-        self.tested_mod = createtags
-        IndexTestCase.__init__(self, methodName=methodName)
-
-    def setUp(self):
-        # Mock Tagging manager
-        self.tm_inst = MagicMock()
-        createtags.TagManager = MagicMock()
-        createtags.TagManager.return_value = self.tm_inst
-        # Mock asset_manager
-        self.offering = MagicMock()
-        self.offering.tags = ['tag1']
-        createtags.Offering = MagicMock()
-        createtags.Offering.objects.all.return_value = [
-            self.offering
-        ]
-        IndexTestCase.setUp(self)
-
-    def tearDown(self):
-        reload(createtags)
-        IndexTestCase.tearDown(self)
-
-    def manager_assertion(self):
-        self.tm_inst.update_tags.assert_called_once_with(self.offering, ['tag1'])
-        IndexTestCase.manager_assertion(self)
-
-    @parameterized.expand([
-        ('no_input', False),
-        ('interactive',),
-        ('inter_inv', True, IndexTestCase._invalid_option),
-        ('canceled', True, IndexTestCase._canceled, False)
-    ])
-    def test_create_tag_indexes(self, name, input_=True, side_effect=None, completed=True):
-
-        info = {
-            'command': 'createtags',
-            'module': 'social'
-        }
-        self._index_tst(info, input_=input_, side_effect=side_effect, completed=completed)
 
 
 class FakeCommandError(Exception):
