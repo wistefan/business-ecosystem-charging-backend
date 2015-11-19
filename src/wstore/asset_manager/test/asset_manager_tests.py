@@ -175,7 +175,8 @@ class UploadAssetTestCase(TestCase):
         ('basic', UPLOAD_CONTENT),
         ('file', {}, _use_file),
         ('inv_file_name', UPLOAD_INV_FILENAME, None, ValueError, 'Invalid file name format: Unsupported character'),
-        ('existing', UPLOAD_CONTENT, _file_conflict, ConflictError, 'The provided digital asset (example.wgt) already exists')
+        ('existing', UPLOAD_CONTENT, _file_conflict, ConflictError, 'The provided digital asset (example.wgt) already exists'),
+        ('not_provided', {}, None, ValueError, 'The digital asset file has not been provided')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
     def test_upload_asset(self, name, data, side_effect=None, err_type=None, err_msg=None):
