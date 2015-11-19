@@ -61,42 +61,16 @@ RESOURCE_DATA4 = {
     'metadata': {}
 }
 
-RESOURCE_IN_USE_DATA = {
-    'description': 'Test resource 4',
-}
-
-RESOURCE_CONTENT = {
+UPLOAD_CONTENT = {
     'content': {
-        'name': 'test_usdl.rdf',
-        'data': ''
-    },
+        'name': 'example.wgt',
+        'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
+    }
 }
 
-UPDATE_DATA1 = {
-    'description': 'Test resource 1',
-    'content_type': 'text/plain',
-    'open': False
-}
-
-UPDATE_DATA2 = {
-    'content_type': 'text/plain',
-    'open': False
-}
-
-UPGRADE_CONTENT = {
-    'version': '1.0',
+UPLOAD_INV_FILENAME = {
     'content': {
-        'name': 'test_usdl.rdf',
-        'data': ''
-    },
-}
-
-UPGRADE_LINK = {
-    'version': '1.0',
-    'link': 'http://newlinktoresource.com'
-}
-
-UPGRADE_INV_LINK = {
-    'version': '1.0',
-    'link': 'invalid link'
+        'name': 'exampleÑ.wgt',
+        'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
+    }
 }

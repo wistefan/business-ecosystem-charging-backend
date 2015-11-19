@@ -19,15 +19,16 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from __future__ import unicode_literals
+from django.test.utils import override_settings
 
-from mock import MagicMock
+from mock import MagicMock, mock_open, patch
 from nose_parameterized import parameterized
 
 from django.test import TestCase
 
 from wstore.asset_manager import asset_manager
 from wstore.asset_manager.test.resource_test_data import *
-
+from wstore.store_commons.errors import ConflictError
 
 __test__ = False
 
@@ -126,3 +127,97 @@ class ResourceRetrievingTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
+
+
+class UploadAssetTestCase(TestCase):
+
+    tags = ('asset-manager', )
+    _file = None
+
+    def setUp(self):
+        self._user = MagicMock()
+        self._user.userprofile.current_organization.name = 'test_user'
+
+        asset_manager.Context = MagicMock()
+        self._context_mock = MagicMock(domain='http://testdomain.com/')
+        asset_manager.Context.objects.all.return_value = [self._context_mock]
+
+        asset_manager.Resource = MagicMock()
+        res_mock = MagicMock()
+        res_mock.get_url.return_value = "http://locationurl.com/"
+        asset_manager.Resource.objects.create.return_value = res_mock
+
+        asset_manager.os.path.isdir = MagicMock()
+        asset_manager.os.path.exists = MagicMock()
+        asset_manager.os.path.exists.return_value = False
+
+        self.open_mock = mock_open()
+        self._old_open = asset_manager.__builtins__['open']
+        asset_manager.__builtins__['open'] = self.open_mock
+
+    def tearDown(self):
+        self._file = None
+        asset_manager.__builtins__['open'] = self._old_open
+        reload(asset_manager)
+
+    def _use_file(self):
+        # Mock file
+        self._file = MagicMock(name="example.wgt")
+        self._file.name = "example.wgt"
+        self._file.read.return_value = "Test data content"
+        asset_manager.os.path.isdir.return_value = False
+        asset_manager.os.mkdir = MagicMock()
+
+    def _file_conflict(self):
+        asset_manager.os.path.exists.return_value = True
+
+    @parameterized.expand([
+        ('basic', UPLOAD_CONTENT),
+        ('file', {}, _use_file),
+        ('inv_file_name', UPLOAD_INV_FILENAME, None, ValueError, 'Invalid file name format: Unsupported character'),
+        ('existing', UPLOAD_CONTENT, _file_conflict, ConflictError, 'The provided digital asset (example.wgt) already exists')
+    ])
+    @override_settings(MEDIA_ROOT='/home/test/media')
+    def test_upload_asset(self, name, data, side_effect=None, err_type=None, err_msg=None):
+
+        if side_effect is not None:
+            side_effect(self)
+
+        am = asset_manager.AssetManager()
+        error = None
+        try:
+            location = am.upload_asset(self._user, data, file_=self._file)
+        except Exception as e:
+            error = e
+
+        if err_type is None:
+            # Check not error
+            self.assertTrue(error is None)
+
+            # Check calls
+            self.assertEquals("http://locationurl.com/", location)
+            asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/resources/test_user")
+            asset_manager.os.path.exists.assert_called_once_with("/home/test/media/resources/test_user/example.wgt")
+            self.open_mock.assert_called_once_with("/home/test/media/resources/test_user/example.wgt", "wb")
+            self.open_mock().write.assert_called_once_with("Test data content")
+
+            # Check file calls
+            if self._file is not None:
+                self._file.seek.assert_called_once_with(0)
+                asset_manager.os.mkdir.assert_called_once_with("/home/test/media/resources/test_user")
+
+            # Check resource creation
+            asset_manager.Resource.objects.create.assert_called_once_with(
+                product_ref='',
+                provider=self._user.userprofile.current_organization,
+                version='',
+                download_link='http://testdomain.com/media/resources/test_user/example.wgt',
+                resource_path='/media/resources/test_user/example.wgt',
+                content_type='',
+                resource_type='',
+                state='',
+                meta_info={}
+            )
+        else:
+            self.assertTrue(isinstance(error, err_type))
+            self.assertEquals(err_msg, unicode(error))

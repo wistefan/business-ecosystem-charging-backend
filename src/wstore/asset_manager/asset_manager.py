@@ -61,11 +61,10 @@ class AssetManager():
             raise ConflictError('The provided digital asset (' + file_name + ') already exists')
 
         # Create file
-        f = open(file_path, "wb")
-        f.write(content)
-        f.close()
+        with open(file_path, "wb") as f:
+            f.write(content)
 
-        return settings.MEDIA_URL + 'resources/' + file_name
+        return file_path[file_path.index(settings.MEDIA_URL):]
 
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
