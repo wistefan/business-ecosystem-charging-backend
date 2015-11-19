@@ -30,6 +30,7 @@ from django.core.exceptions import PermissionDenied
 from wstore.models import Purchase, User, Organization
 from wstore.charging_engine.accounting import sdr_manager
 
+__test__ = False
 
 BASIC_SDR = {
     'offering': {

@@ -49,7 +49,6 @@ from wstore.contracting import views
 
 __test__ = False
 
-
 class FakeChargingEngine:
     def __init__(self, purchase, payment_method=None, credit_card=None, plan=None):
         pass

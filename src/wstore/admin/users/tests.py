@@ -35,6 +35,7 @@ from wstore.store_commons.utils.testing import decorator_mock, build_response_mo
     decorator_mock_callable, HTTPResponseMock
 from wstore.admin.rss.tests import ExpenditureMock
 
+__test__ = False
 
 class FakeProfile():
 

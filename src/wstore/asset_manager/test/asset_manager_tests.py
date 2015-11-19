@@ -21,7 +21,7 @@
 from __future__ import unicode_literals
 from django.test.utils import override_settings
 
-from mock import MagicMock, mock_open, patch
+from mock import MagicMock, mock_open
 from nose_parameterized import parameterized
 
 from django.test import TestCase

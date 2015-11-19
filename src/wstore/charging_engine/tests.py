@@ -43,7 +43,6 @@ from wstore.store_commons.database import get_database_connection
 
 __test__ = False
 
-
 def fake_renovation_date(unit):
 
     if unit == 'per month':

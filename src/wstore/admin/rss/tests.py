@@ -33,6 +33,7 @@ from wstore.admin.rss import views
 from wstore.admin.rss import models
 from wstore import models as wstore_models
 
+__test__ = False
 
 class ExpenditureMock():
 

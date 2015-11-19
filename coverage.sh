@@ -1,5 +1,5 @@
 #!/bin/bash
-pip install "coverage==4.0b2"
+pip install "coverage==4.0.2"
 pip install "mock==1.0.1"
 pip install "nose-parameterized==0.5.0"
 

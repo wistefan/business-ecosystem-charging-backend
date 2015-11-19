@@ -28,6 +28,7 @@ from django.test import TestCase
 from wstore.charging_engine.charging import cdr_manager
 from wstore.models import Purchase, Organization
 
+__test__ = False
 
 BASIC_EXP = [{
     'provider': 'test_organization',
