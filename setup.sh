@@ -37,7 +37,6 @@ $WORKSPACE/python-dep-install.sh
 # Create project directories
 cd $WORKSPACE/src
 mkdir -p media/{bills,resources}
-mkdir -p wstore/search/indexes
 mkdir -p wstore/social/indexes
 
 # Test installation
