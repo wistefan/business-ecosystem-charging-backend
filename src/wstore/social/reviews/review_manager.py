@@ -28,7 +28,6 @@ from django.conf import settings
 
 from wstore.models import Offering, Context, Purchase
 from wstore.social.reviews.models import Review, Response
-from wstore.search.search_engine import SearchEngine
 
 
 class ReviewManager():
@@ -152,14 +151,6 @@ class ReviewManager():
 
         offering.save()
 
-        # Update offering indexes
-        index_path = os.path.join(settings.BASEDIR, 'wstore')
-        index_path = os.path.join(index_path, 'search')
-        index_path = os.path.join(index_path, 'indexes')
-
-        se = SearchEngine(index_path)
-        se.update_index(offering)
-
         # Save the offering as rated
         if user.userprofile.is_user_org():
             user.userprofile.rated_offerings.append(offering.pk)
@@ -248,14 +239,6 @@ class ReviewManager():
         rev.offering.rating = rate
         rev.offering.save()
 
-        # Update offering indexes
-        index_path = os.path.join(settings.BASEDIR, 'wstore')
-        index_path = os.path.join(index_path, 'search')
-        index_path = os.path.join(index_path, 'indexes')
-
-        se = SearchEngine(index_path)
-        se.update_index(rev.offering)
-
         # Update top rated asset_manager
         self._update_top_rated()
 
@@ -284,14 +267,6 @@ class ReviewManager():
             rev.offering.rating = 0
 
         rev.offering.save()
-
-        # Update offering indexes
-        index_path = os.path.join(settings.BASEDIR, 'wstore')
-        index_path = os.path.join(index_path, 'search')
-        index_path = os.path.join(index_path, 'indexes')
-
-        se = SearchEngine(index_path)
-        se.update_index(rev.offering)
 
         # Update top rated asset_manager
         self._update_top_rated()

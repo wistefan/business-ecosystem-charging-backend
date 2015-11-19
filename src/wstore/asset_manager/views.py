@@ -28,13 +28,13 @@ from django.core.exceptions import PermissionDenied
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
     authentication_required
-from wstore.asset_manager.resources_management import get_provider_resources, upload_asset
+from wstore.asset_manager.asset_manager import AssetManager
 from wstore.asset_manager.product_validator import ProductValidator
 from wstore.store_commons.errors import ConflictError
 from wstore.asset_manager.errors import ProductError
 
 
-class ResourceCollection(Resource):
+class AssetCollection(Resource):
 
     @authentication_required
     def read(self, request):
@@ -57,7 +57,8 @@ class ResourceCollection(Resource):
             return build_response(request, 403, 'Forbidden')
 
         try:
-            response = get_provider_resources(request.user, pagination=pagination)
+            asset_manager = AssetManager()
+            response = asset_manager.get_provider_assets_info(request.user, pagination=pagination)
         except Exception, e:
             return build_response(request, 400, unicode(e))
 
@@ -82,14 +83,15 @@ class UploadCollection(Resource):
         if 'provider' not in profile.get_current_roles():
             return build_response(request, 403, "You don't have the seller role")
 
+        asset_manager = AssetManager()
         try:
             if content_type == 'application/json':
                 data = json.loads(request.body)
-                location = upload_asset(user, data)
+                location = asset_manager.upload_asset(user, data)
             else:
                 data = json.loads(request.POST['json'])
                 f = request.FILES['file']
-                location = upload_asset(user, data, file_=f)
+                location = asset_manager.upload_asset(user, data, file_=f)
 
         except ConflictError as e:
             return build_response(request, 409, unicode(e))

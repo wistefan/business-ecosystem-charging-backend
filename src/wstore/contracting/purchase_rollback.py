@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -20,13 +20,8 @@
 
 from __future__ import unicode_literals
 
-import os
-
-from django.conf import settings
-
 from wstore.models import Purchase
 from wstore.models import UserProfile
-from wstore.search.search_engine import SearchEngine
 
 
 def rollback(purchase):
@@ -85,14 +80,6 @@ def rollback(purchase):
             if not purchase.offering.pk in profile.offerings_purchased:
                 profile.offerings_purchased.append(purchase.offering.pk)
                 profile.save()
-
-    # Update offering indexes: Offering index must be updated in any case
-    index_path = os.path.join(settings.BASEDIR, 'wstore')
-    index_path = os.path.join(index_path, 'search')
-    index_path = os.path.join(index_path, 'indexes')
-
-    se = SearchEngine(index_path)
-    se.update_index(offering)
 
 
 # This class is used as a decorator to avoid inconsistent states in

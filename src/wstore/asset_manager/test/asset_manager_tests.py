@@ -25,7 +25,7 @@ from nose_parameterized import parameterized
 
 from django.test import TestCase
 
-from wstore.asset_manager import resources_management
+from wstore.asset_manager import asset_manager
 from wstore.asset_manager.test.resource_test_data import *
 
 
@@ -77,9 +77,9 @@ class ResourceRetrievingTestCase(TestCase):
         resource4.resource_type = 'API'
         resource4.meta_info = {}
 
-        resources_management.Resource = MagicMock()
+        asset_manager.Resource = MagicMock()
 
-        resources_management.Resource.objects.filter.return_value = [
+        asset_manager.Resource.objects.filter.return_value = [
             resource1,
             resource2,
             resource3,
@@ -93,7 +93,7 @@ class ResourceRetrievingTestCase(TestCase):
     @classmethod
     def tearDownClass(cls):
         # Restore resource model
-        reload(resources_management)
+        reload(asset_manager)
         super(ResourceRetrievingTestCase, cls).tearDownClass()
 
     @parameterized.expand([
@@ -113,7 +113,8 @@ class ResourceRetrievingTestCase(TestCase):
         # Call the method
         error = None
         try:
-            result = resources_management.get_provider_resources(self.user, pagination)
+            am = asset_manager.AssetManager()
+            result = am.get_provider_assets_info(self.user, pagination)
         except Exception as e:
             error = e
 

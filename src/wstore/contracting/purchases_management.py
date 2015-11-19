@@ -20,10 +20,8 @@
 
 from __future__ import unicode_literals
 
-import os
 from datetime import datetime
 
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
 from wstore.charging_engine.charging_engine import ChargingEngine
@@ -31,7 +29,6 @@ from wstore.models import Purchase
 from wstore.models import UserProfile
 from wstore.contracting.purchase_rollback import PurchaseRollback
 from wstore.contracting.notify_provider import notify_provider
-from wstore.search.search_engine import SearchEngine
 
 
 def accepted_needed(offering):
@@ -152,13 +149,5 @@ def create_purchase(user, offering, org_owned=False, payment_info=None):
 
     else:
         result = redirect_url
-
-    # Update offering indexes
-    index_path = os.path.join(settings.BASEDIR, 'wstore')
-    index_path = os.path.join(index_path, 'search')
-    index_path = os.path.join(index_path, 'indexes')
-
-    se = SearchEngine(index_path)
-    se.update_index(offering)
 
     return result

@@ -18,12 +18,12 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from wstore.asset_manager.test.resource_tests import *
+from wstore.asset_manager.test.asset_manager_tests import *
 from wstore.admin.markets.tests import *
 from wstore.admin.repositories.tests import *
 from wstore.contracting.tests import *
-from wstore.search.tests import *
 from wstore.charging_engine.tests import *
 from wstore.store_commons.tests import *
 from wstore.market_adaptor.tests import *
 from wstore.rss_adaptor.tests import *
+

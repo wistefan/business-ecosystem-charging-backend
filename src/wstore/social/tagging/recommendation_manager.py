@@ -26,7 +26,6 @@ from stemming.porter2 import stem
 from whoosh.analysis import StemmingAnalyzer
 
 from wstore.social.tagging.tag_manager import TagManager
-from wstore.search.search_engine import SearchEngine
 
 
 class RecommendationManager():
@@ -203,13 +202,4 @@ class USDLEntitiesRetrieving(Thread):
         Thread.__init__(self)
        
     def get_named_entities(self):
-        # Get USDL text aggregator
-        se = SearchEngine('')
-
-        # Get usdl text
-        text = se._aggregate_text(self._offering)
-
-        # Get stemmed tokens
-        analyzer = StemmingAnalyzer()
-        named_entities = set([token.text for token in analyzer(unicode(text))])
-        return named_entities
+        return set()
