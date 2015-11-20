@@ -31,17 +31,17 @@ from django.contrib.auth.models import User
 from wstore.asset_manager import views
 from wstore.store_commons.errors import ConflictError
 
-
 RESOURCE_DATA = {
-    'name': 'test_resource',
-    'version': '1.0',
-    'description': 'test resource'
+    'content': {
+        'name': 'testfile.zip',
+        'content': 'content'
+    }
 }
 
 
-class ResourceCollectionTestCase(TestCase):
+class AssetCollectionTestCase(TestCase):
 
-    tags = ('offering-api',)
+    tags = ('asset-api',)
 
     def setUp(self):
         # Create request factory
@@ -51,11 +51,14 @@ class ResourceCollectionTestCase(TestCase):
         self.user.userprofile.get_current_roles = MagicMock(name='get_current_roles')
         self.user.userprofile.get_current_roles.return_value = ['provider', 'customer']
         self.user.userprofile.save()
+        views.AssetManager = MagicMock()
+        self.am_instance = MagicMock()
+        views.AssetManager.return_value = self.am_instance
 
     @classmethod
     def tearDownClass(cls):
         reload(views)
-        super(ResourceCollectionTestCase, cls).tearDownClass()
+        super(AssetCollectionTestCase, cls).tearDownClass()
 
     def _no_provider(self):
         self.user.userprofile.get_current_roles = MagicMock(name='get_current_roles')
@@ -63,25 +66,9 @@ class ResourceCollectionTestCase(TestCase):
         self.user.userprofile.save()
 
     def _call_exception(self):
-        views.get_provider_resources.side_effect = Exception('Getting resources error')
-
-    def _creation_exception(self):
-        views.register_resource.side_effect = Exception('Resource creation exception')
-
-    def _existing(self):
-        views.register_resource.side_effect = ConflictError('Resource exists')
+        self.am_instance.get_provider_assets_info.side_effect = Exception('Getting resources error')
 
     @parameterized.expand([
-        ([{
-            'name': 'test_resource',
-            'provider': 'test_user',
-            'version': '1.0'
-        }], 'true'),
-        ([{
-            'name': 'test_resource',
-            'provider': 'test_user',
-            'version': '1.0'
-        }], 'false'),
         ([{
             'name': 'test_resource',
             'provider': 'test_user',
@@ -91,33 +78,24 @@ class ResourceCollectionTestCase(TestCase):
             'name': 'test_resource',
             'provider': 'test_user',
             'version': '1.0'
-        }], None, None, 200, None, {
+        }], None, 200, None, {
             'start': '1',
             'limit': '1'
         }),
-        ([], None, _no_provider, 403, 'Forbidden'),
-        ([], 'inv', None, 400, 'Invalid open param'),
-        ([], None, _call_exception, 400, 'Getting resources error')
+        ([], _no_provider, 403, 'Forbidden'),
+        ([], _call_exception, 400, 'Getting resources error')
     ])
-    def test_get_resources(self, return_value, filter_=None, side_effect=None, code=200, error_msg=None, pagination=None):
+    def test_get_assets(self, return_value, side_effect=None, code=200, error_msg=None, pagination=None):
 
         # Mock get asset_manager method
-        resource_collection = views.ResourceCollection(permitted_methods=('GET', 'POST'))
-        views.get_provider_resources = MagicMock(name='get_provider_resources')
+        resource_collection = views.AssetCollection(permitted_methods=('GET',))
 
-        views.get_provider_resources.return_value = return_value
+        self.am_instance.get_provider_assets_info.return_value = return_value
 
         path = '/api/offering/resources'
-        if filter_ is not None:
-            path += '?open=' + filter_
 
         if pagination is not None:
-            if filter_ is None:
-                path += '?'
-            else:
-                path += '&'
-
-            path += 'start=' + pagination['start'] + '&limit=' + pagination['limit']
+            path += '?start=' + pagination['start'] + '&limit=' + pagination['limit']
 
         request = self.factory.get(path, HTTP_ACCEPT='application/json')
 
@@ -135,15 +113,8 @@ class ResourceCollectionTestCase(TestCase):
         body_response = json.loads(response.content)
 
         if not error_msg:
-            # Check correct call
-            expected_filter = None
-            if filter_ is not None:
-                expected_filter = False
-
-                if filter_ == 'true':
-                    expected_filter = True
-
-            views.get_provider_resources.assert_called_once_with(self.user, pagination=pagination, filter_=expected_filter)
+            views.AssetManager.assert_called_once_with()
+            self.am_instance.get_provider_assets_info.assert_called_once_with(self.user, pagination=pagination)
             self.assertEquals(type(body_response), list)
             self.assertEquals(body_response, return_value)
         else:
@@ -151,10 +122,16 @@ class ResourceCollectionTestCase(TestCase):
             self.assertEqual(body_response['message'], error_msg)
             self.assertEqual(body_response['result'], 'error')
 
+    def _creation_exception(self):
+        self.am_instance.upload_asset.side_effect = Exception('Resource creation exception')
+
+    def _existing(self):
+        self.am_instance.upload_asset.side_effect = ConflictError('Resource exists')
+
     @parameterized.expand([
         (RESOURCE_DATA,),
         (RESOURCE_DATA, True),
-        (RESOURCE_DATA, False, _no_provider, True, 403, "You don't have the provider role"),
+        (RESOURCE_DATA, False, _no_provider, True, 403, "You don't have the seller role"),
         (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
         (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
         (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
@@ -163,8 +140,7 @@ class ResourceCollectionTestCase(TestCase):
     def test_create_resource(self, data, file_=False, side_effect=None, error=False, code=201, msg='Created'):
 
         # Mock get asset_manager method
-        resource_collection = views.ResourceCollection(permitted_methods=('GET', 'POST'))
-        views.register_resource = MagicMock(name='get_provider_resources')
+        resource_collection = views.UploadCollection(permitted_methods=('POST', ))
 
         content = json.dumps(data)
         content_type = 'application/json'
@@ -206,10 +182,10 @@ class ResourceCollectionTestCase(TestCase):
         if not error:
             # Check correct call
             if not file_:
-                views.register_resource.assert_called_once_with(self.user, data)
+                self.am_instance.upload_asset.assert_called_once_with(self.user, data)
             else:
                 expected_file = request.FILES['file']  # The type change when loaded
-                views.register_resource.assert_called_once_with(self.user, data, file_=expected_file)
+                self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
 
             self.assertEqual(body_response['result'], 'correct')
         else:
