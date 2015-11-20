@@ -32,7 +32,6 @@ from django.test.client import RequestFactory
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from social_auth.db.django_models import UserSocialAuth
 
 import wstore.contracting.purchase_rollback
 from wstore.contracting import purchases_management
@@ -529,18 +528,6 @@ class ProviderNotificationTestCase(TestCase):
     def _set_expired_token(self):
         self.user.userprofile.access_token = 'bca'
         self.user.userprofile.save()
-
-        # Mock social auth methods
-        UserSocialAuth.refresh_token = MagicMock()
-        user_social_auth = UserSocialAuth.objects.create(user=self.user, provider='fiware')
-
-        user_social_auth.extra_data = {
-            'access_token': 'bbb',
-            'refresh_token': 'ccc'
-        }
-
-        user_social_auth.save()
-        self.user.social_auth = [user_social_auth]
 
 
 class UpdatingPurchasesTestCase(TestCase):
