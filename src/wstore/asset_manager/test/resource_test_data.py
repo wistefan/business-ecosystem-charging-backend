@@ -62,6 +62,7 @@ RESOURCE_DATA4 = {
 }
 
 UPLOAD_CONTENT = {
+    'contentType': 'application/x-widget',
     'content': {
         'name': 'example.wgt',
         'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
@@ -69,6 +70,14 @@ UPLOAD_CONTENT = {
 }
 
 UPLOAD_INV_FILENAME = {
+    'contentType': 'application/x-widget',
+    'content': {
+        'name': 'exampleÑ.wgt',
+        'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
+    }
+}
+
+MISSING_TYPE = {
     'content': {
         'name': 'exampleÑ.wgt',
         'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='

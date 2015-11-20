@@ -84,9 +84,9 @@ class AssetManager():
 
         # This information will be extracted from the product specification
         resource_data = {
+            'content_type': data['contentType'],
             'product_ref': '',
             'version': '',
-            'content_type': '',
             'resource_type': '',
             'state': ''
         }
@@ -115,6 +115,9 @@ class AssetManager():
         :param file_: Digital asset file, in case it has been provided as multipart/form-data
         :return: The href of the digital asset
         """
+
+        if 'contentType' not in data:
+            raise ValueError('Missing required field: contentType')
 
         resource_data, current_organization = self._load_resource_info(provider, data, file_=file_)
         resource = self._create_resource_model(current_organization, resource_data)

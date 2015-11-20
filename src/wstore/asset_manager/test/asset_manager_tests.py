@@ -173,10 +173,11 @@ class UploadAssetTestCase(TestCase):
 
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
-        ('file', {}, _use_file),
+        ('file', {'contentType': 'application/x-widget'}, _use_file),
+        ('inv_file_name', MISSING_TYPE, None, ValueError, 'Missing required field: contentType'),
         ('inv_file_name', UPLOAD_INV_FILENAME, None, ValueError, 'Invalid file name format: Unsupported character'),
         ('existing', UPLOAD_CONTENT, _file_conflict, ConflictError, 'The provided digital asset (example.wgt) already exists'),
-        ('not_provided', {}, None, ValueError, 'The digital asset file has not been provided')
+        ('not_provided', {'contentType': 'application/x-widget'}, None, ValueError, 'The digital asset file has not been provided')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
     def test_upload_asset(self, name, data, side_effect=None, err_type=None, err_msg=None):
@@ -214,7 +215,7 @@ class UploadAssetTestCase(TestCase):
                 version='',
                 download_link='http://testdomain.com/media/resources/test_user/example.wgt',
                 resource_path='/media/resources/test_user/example.wgt',
-                content_type='',
+                content_type='application/x-widget',
                 resource_type='',
                 state='',
                 meta_info={}
