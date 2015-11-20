@@ -27,8 +27,10 @@ from nose_parameterized import parameterized
 from django.test import TestCase
 from django.test.client import RequestFactory, MULTIPART_CONTENT
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 
 from wstore.asset_manager import views
+from wstore.asset_manager.errors import ProductError
 from wstore.store_commons.errors import ConflictError
 
 RESOURCE_DATA = {
@@ -38,6 +40,18 @@ RESOURCE_DATA = {
     }
 }
 
+BASIC_PRODUCT = {
+    'action': 'create',
+    'product': {}
+}
+
+MISSING_ACTION = {
+    'product': {}
+}
+
+MISSING_PRODUCT = {
+    'action': 'create'
+}
 
 class AssetCollectionTestCase(TestCase):
 
@@ -128,32 +142,9 @@ class AssetCollectionTestCase(TestCase):
     def _existing(self):
         self.am_instance.upload_asset.side_effect = ConflictError('Resource exists')
 
-    @parameterized.expand([
-        (RESOURCE_DATA,),
-        (RESOURCE_DATA, True),
-        (RESOURCE_DATA, False, _no_provider, True, 403, "You don't have the seller role"),
-        (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists')
-    ])
-    def test_create_resource(self, data, file_=False, side_effect=None, error=False, code=201, msg='Created'):
+    def _test_post_api(self, collection, content, content_type, side_effect=None, error=False, code=201, msg='Created', validator=None):
 
-        # Mock get asset_manager method
-        resource_collection = views.UploadCollection(permitted_methods=('POST', ))
-
-        content = json.dumps(data)
-        content_type = 'application/json'
-
-        if file_:
-            f = StringIO()
-            f.name = 'test_file.txt'
-            f.write('test file')
-            content = {
-                'json': json.dumps(data),
-                'file': f
-            }
-            content_type = MULTIPART_CONTENT
+        resource_collection = collection(permitted_methods=('POST', ))
 
         # Build the request
         request = self.factory.post(
@@ -162,7 +153,6 @@ class AssetCollectionTestCase(TestCase):
             content_type=content_type,
             HTTP_ACCEPT='application/json'
         )
-
         request.user = self.user
 
         # Create the side effect if needed
@@ -180,13 +170,81 @@ class AssetCollectionTestCase(TestCase):
         self.assertEqual(body_response['message'], msg)
 
         if not error:
+            validator(request)
+            self.assertEqual(body_response['result'], 'correct')
+        else:
+            self.assertEqual(body_response['result'], 'error')
+
+    @parameterized.expand([
+        (RESOURCE_DATA,),
+        (RESOURCE_DATA, True),
+        (RESOURCE_DATA, False, _no_provider, True, 403, "You don't have the seller role"),
+        (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists')
+    ])
+    def test_upload_asset(self, data, file_=False, side_effect=None, error=False, code=201, msg='Created'):
+
+        content_type = 'application/json'
+
+        if file_:
+            f = StringIO()
+            f.name = 'test_file.txt'
+            f.write('test file')
+            content = {
+                'json': json.dumps(data),
+                'file': f
+            }
+            content_type = MULTIPART_CONTENT
+        else:
+            content = json.dumps(data)
+
+        def validator(request):
             # Check correct call
             if not file_:
                 self.am_instance.upload_asset.assert_called_once_with(self.user, data)
             else:
-                expected_file = request.FILES['file']  # The type change when loaded
+                expected_file = request.FILES['file']
                 self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
 
-            self.assertEqual(body_response['result'], 'correct')
+        self._test_post_api(views.UploadCollection, content, content_type, side_effect, error, code, msg, validator)
+
+    def _prod_val_value_error(self):
+        self.validator_instance.validate.side_effect = ValueError('Invalid value in product')
+
+    def _prod_val_product_error(self):
+        self.validator_instance.validate.side_effect = ProductError('Missing product information')
+
+    def _prod_val_permission_denied(self):
+        self.validator_instance.validate.side_effect = PermissionDenied('Permission denied')
+
+    def _prod_val_exception(self):
+        self.validator_instance.validate.side_effect = Exception('Unexpected error')
+
+    @parameterized.expand([
+        ('basic', BASIC_PRODUCT),
+        ('not_provider', BASIC_PRODUCT, _no_provider, True, 403, "You don't have the seller role"),
+        ('invalid_content', 'inv', None, True, 400, 'The content is not a valid JSON document'),
+        ('missing_action', MISSING_ACTION, None, True, 400, 'Missing required field: action'),
+        ('missing_product', MISSING_PRODUCT, None, True, 400, 'Missing required field: product'),
+        ('value_error', BASIC_PRODUCT, _prod_val_value_error, True, 400, 'Invalid value in product'),
+        ('product_error', BASIC_PRODUCT, _prod_val_product_error, True, 400, 'ProductError: Missing product information'),
+        ('permission_denied', BASIC_PRODUCT, _prod_val_permission_denied, True, 403, 'Permission denied'),
+        ('exception', BASIC_PRODUCT, _prod_val_exception, True, 400, 'Invalid product specification content')
+    ])
+    def test_validate_resource(self, name, data, side_effect=None, error=False, code=200, msg='OK'):
+        views.ProductValidator = MagicMock()
+        self.validator_instance = MagicMock()
+        views.ProductValidator.return_value = self.validator_instance
+
+        if isinstance(data, dict):
+            content = json.dumps(data)
         else:
-            self.assertEqual(body_response['result'], 'error')
+            content = data
+
+        def validator(request):
+            views.ProductValidator.assert_called_once_with()
+            self.validator_instance.validate.assert_called_once_with(data['action'], self.user.userprofile.current_organization, data['product'])
+
+        self._test_post_api(views.ValidateCollection, content, 'application/json', side_effect, error, code, msg, validator)

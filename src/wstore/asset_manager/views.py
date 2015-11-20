@@ -142,7 +142,7 @@ class ValidateCollection(Resource):
         except ProductError as e:
             return build_response(request, 400, unicode(e))
         except PermissionDenied as e:
-            return build_response(request, 409, unicode(e))
+            return build_response(request, 403, unicode(e))
         except Exception:
             return build_response(request, 400, 'Invalid product specification content')
 
