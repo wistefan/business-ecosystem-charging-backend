@@ -56,6 +56,30 @@ BASIC_PRODUCT = {
         "productSpecCharacteristic": [
             {
                 "id": "42",
+                "name": "Custom char",
+                "description": "Custom characteristic of the product",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "Custom value",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "42",
                 "name": "media type",
                 "description": "Media type of the product",
                 "valueType": "string",
@@ -401,6 +425,98 @@ MULTIPLE_LOCATION = {
                     {
                         "valueType": "string",
                         "default": True,
+                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+MULTIPLE_VALUES = {
+    'action': 'create',
+    'product': {
+        "productSpecCharacteristic": [
+            {
+                "id": "42",
+                "name": "media type",
+                "description": "Media type of the product",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "application/x-widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset type",
+                "description": "Type of digital asset being provided",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "Widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Location",
+                "description": "URL pointing to the digital asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }, {
+                        "valueType": "string",
+                        "default": False,
                         "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
                         "unitOfMeasure": "",
                         "valueFrom": "",

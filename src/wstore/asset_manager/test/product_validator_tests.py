@@ -63,6 +63,10 @@ class ProductValidatorTestCase(TestCase):
     def _only_url(self):
         self._plugin_instance.formats = ["URL"]
 
+    def _support_file(self):
+        self._plugin_instance.formats = ["FILE", "URL"]
+        self._context_inst.site.domain = "http://mydomain.org/"
+
     def _not_supported(self):
         product_validator.ResourcePlugin.objects.get.side_effect = Exception('Not found')
 
@@ -79,23 +83,25 @@ class ProductValidatorTestCase(TestCase):
         self._asset_instance.content_type = 'text/plain'
 
     @parameterized.expand([
-        ('basic', BASIC_PRODUCT, ),
-        ('file_url_allowed', BASIC_PRODUCT, _support_url),
-        ('url_asset', BASIC_PRODUCT, _only_url),
-        ('invalid_action', INVALID_ACTION, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, update, upgrade, and delete'),
-        ('missing_chars', MISSING_CHAR, None, ProductError, 'ProductError: The product specification does not contain the productSpecCharacteristic field'),
-        ('missing_media', MISSING_MEDIA, None, ProductError, 'ProductError: The product specification must contain a media type characteristic'),
-        ('missing_type', MISSING_TYPE, None, ProductError, 'ProductError: The product specification must contain a asset type characteristic'),
-        ('missing_location', MISSING_LOCATION, None, ProductError, 'ProductError: The product specification must contain a location characteristic'),
-        ('multiple_char', MULTIPLE_LOCATION, None, ProductError, 'ProductError: The product specification must not contain more than one location characteristic'),
-        ('not_supported', BASIC_PRODUCT, _not_supported, ProductError, 'ProductError: The given product specification contains a not supported asset type: Widget'),
-        ('inv_media', BASIC_PRODUCT, _inv_media, ProductError, 'ProductError: The media type characteristic included in the product specification is not valid for the given asset type'),
-        ('inv_location', INVALID_LOCATION, None, ProductError, 'ProductError: The location characteristic included in the product specification is not a valid URL'),
-        ('not_asset', BASIC_PRODUCT, _not_asset, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
-        ('unauthorized', BASIC_PRODUCT, _not_owner, PermissionDenied, 'You are not authorized to use the digital asset specified in the location characteristic'),
-        ('diff_media', BASIC_PRODUCT, _diff_media, ProductError, 'ProductError: The specified media type characteristic is different from the one of the provided digital asset')
+        ('basic', BASIC_PRODUCT, True),
+        ('file_url_allowed', BASIC_PRODUCT, True, _support_url),
+        ('url_asset', BASIC_PRODUCT, False, _only_url),
+        ('url_file_allowed', BASIC_PRODUCT, False, _support_file),
+        ('invalid_action', INVALID_ACTION, True, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, update, upgrade, and delete'),
+        ('missing_chars', MISSING_CHAR, True, None, ProductError, 'ProductError: The product specification does not contain the productSpecCharacteristic field'),
+        ('missing_media', MISSING_MEDIA, True, None, ProductError, 'ProductError: The product specification must contain a media type characteristic'),
+        ('missing_type', MISSING_TYPE, True, None, ProductError, 'ProductError: The product specification must contain a asset type characteristic'),
+        ('missing_location', MISSING_LOCATION, True, None, ProductError, 'ProductError: The product specification must contain a location characteristic'),
+        ('multiple_char', MULTIPLE_LOCATION, True, None, ProductError, 'ProductError: The product specification must not contain more than one location characteristic'),
+        ('multiple_values', MULTIPLE_VALUES, True, None, ProductError, 'ProductError: The characteristic Location must not contain multiple values'),
+        ('not_supported', BASIC_PRODUCT, True, _not_supported, ProductError, 'ProductError: The given product specification contains a not supported asset type: Widget'),
+        ('inv_media', BASIC_PRODUCT, True, _inv_media, ProductError, 'ProductError: The media type characteristic included in the product specification is not valid for the given asset type'),
+        ('inv_location', INVALID_LOCATION, True, None, ProductError, 'ProductError: The location characteristic included in the product specification is not a valid URL'),
+        ('not_asset', BASIC_PRODUCT, True, _not_asset, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
+        ('unauthorized', BASIC_PRODUCT, True, _not_owner, PermissionDenied, 'You are not authorized to use the digital asset specified in the location characteristic'),
+        ('diff_media', BASIC_PRODUCT, True, _diff_media, ProductError, 'ProductError: The specified media type characteristic is different from the one of the provided digital asset')
     ])
-    def test_validate_creation(self, name, data, side_effect=None, err_type=None, err_msg=None):
+    def test_validate_creation(self, name, data, is_file, side_effect=None, err_type=None, err_msg=None):
 
         if side_effect is not None:
             side_effect(self)
@@ -112,7 +118,7 @@ class ProductValidatorTestCase(TestCase):
             # Check calls
             product_validator.ResourcePlugin.objects.get.assert_called_once_with(name='Widget')
 
-            if "FILE" in self._plugin_instance.formats:
+            if is_file:
                 product_validator.Resource.objects.get.assert_called_once_with(download_link="http://testlocation.org/media/resources/test_user/widget.wgt")
             else:
                 product_validator.Resource.objects.create.assert_called_once_with(
