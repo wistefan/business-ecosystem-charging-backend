@@ -40,7 +40,7 @@ class ProductValidator():
     def _parse_characteristics(self, product_spec):
         expected_chars = {
             'asset type': [],
-            'content type': [],
+            'media type': [],
             'location': []
         }
 
@@ -61,24 +61,23 @@ class ProductValidator():
             if len(expected_chars[char_name]) > 1:
                 raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
 
-        return expected_chars
+        return expected_chars['asset type'][0], expected_chars['media type'][0], expected_chars['location'][0]
 
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
-        values = self._parse_characteristics(product_spec)
+        asset_t, media_type, url = self._parse_characteristics(product_spec)
 
         # Search the asset type
         try:
-            asset_type = ResourcePlugin.objects.get(name=values['asset type'][0])
+            asset_type = ResourcePlugin.objects.get(name=asset_t)
         except:
-            raise ProductError('The given product specification contains a not supported asset type: ' + values['asset type'][0])
+            raise ProductError('The given product specification contains a not supported asset type: ' + asset_t)
 
         # Validate media type
-        if len(asset_type.media_types) and values['content type'] not in asset_type.media_types:
+        if len(asset_type.media_types) and media_type not in asset_type.media_types:
             raise ProductError('The media type characteristic included in the product specification is not valid for the given asset type')
 
         # Validate location format
-        url = values['location'][0]
         if not is_valid_url(url):
             raise ProductError('The location characteristic included in the product specification is not a valid URL')
 
@@ -86,7 +85,7 @@ class ProductValidator():
         is_file = False
         if 'FILE' in asset_type.formats:
             if 'URL' in asset_type.formats:
-                site = Context.objects.all()[0]
+                site = Context.objects.all()[0].site
                 if url.startswith(site.domain):
                     is_file = True
             else:
@@ -101,6 +100,9 @@ class ProductValidator():
 
             if asset.provider != provider:
                 raise PermissionDenied('You are not authorized to use the digital asset specified in the location characteristic')
+
+            if asset.content_type != media_type.lower():
+                raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
         else:
             # Create the new asset model
             asset = Resource.objects.create(
@@ -110,10 +112,8 @@ class ProductValidator():
             )
 
         # Complete asset information
-        asset.product_ref = product_spec['href']
         asset.version = product_spec['version']
-        asset.content_type = values['content type'][0]
-        asset.resource_type = values['asset type'][0]
+        asset.resource_type = asset_t
         asset.state = product_spec['lifecycleStatus']
         asset.save()
 

@@ -74,7 +74,7 @@ class AssetManager():
             version=resource_data['version'],
             download_link=resource_data['link'],
             resource_path=resource_data['content_path'],
-            content_type=resource_data['content_type'],
+            content_type=resource_data['content_type'].lower(),
             resource_type=resource_data['resource_type'],
             state=resource_data['state'],
             meta_info=resource_data['metadata']
