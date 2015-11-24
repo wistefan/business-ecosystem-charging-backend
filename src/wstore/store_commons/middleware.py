@@ -79,7 +79,7 @@ class URLMiddleware(object):
 
     def get_matched_middleware(self, path, middleware_method):
 
-        if path.startswith('/api/'):
+        if path.startswith('/charging/'):
             group = 'api'
         elif path.startswith('/media/'):
             group = 'media'
