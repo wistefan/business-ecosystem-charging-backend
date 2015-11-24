@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 -2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -18,7 +18,9 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from django.contrib.auth import get_user
+
+from __future__ import unicode_literals
+
 from django.utils.importlib import import_module
 from django.utils.functional import SimpleLazyObject
 from django.utils.http import http_date, parse_http_date_safe
@@ -125,15 +127,15 @@ class URLMiddleware(object):
 
 def get_api_user(request):
 
-    from django.contrib.auth.models import User, AnonymousUser
+    from django.contrib.auth.models import AnonymousUser
     from django.conf import settings
-    from wstore.models import Organization
+    from wstore.models import Organization, User
 
     # Get User information from the request
     try:
         nick_name = request.META['HTTP_X_NICK_NAME']
         display_name = request.META['HTTP_X_DISPLAY_NAME']
-        roles = request.META['HTTP_X_ROLES']
+        roles = request.META['HTTP_X_ROLES'].split(',')
     except:
         return AnonymousUser()
 
@@ -147,18 +149,13 @@ def get_api_user(request):
     user.userprofile.complete_name = display_name
     user.userprofile.actor_id = nick_name
 
-    # Update user roles
-    wstore_roles = []
-    for role in roles:
-        wstore_roles.append(role['name'].lower())
-
-    user.is_staff = settings.ADMIN_ROLE.lower() in wstore_roles
+    user.is_staff = settings.ADMIN_ROLE.lower() in roles
 
     user_roles = []
-    if settings.PROVIDER_ROLE in wstore_roles:
+    if settings.PROVIDER_ROLE in roles:
         user_roles.append('provider')
 
-    if settings.CUSTOMER_ROLE in wstore_roles:
+    if settings.CUSTOMER_ROLE in roles:
         user_roles.append('customer')
 
     # Get user private organization
