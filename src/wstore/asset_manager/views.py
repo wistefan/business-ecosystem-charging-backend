@@ -118,7 +118,7 @@ class ValidateCollection(Resource):
 
         # Validate user permissions
         user = request.user
-        if 'provider' not in user.userprofile.get_current_roles():
+        if 'provider' not in user.userprofile.get_current_roles() and not user.is_staff:
             return build_response(request, 403, "You don't have the seller role")
 
         product_validator = ProductValidator()
