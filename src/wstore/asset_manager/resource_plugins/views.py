@@ -40,7 +40,7 @@ def get_plugin_info(plugin):
         'name': plugin.name,
         'author': plugin.author,
         'version': plugin.version,
-        'media_types': plugin.media_types,
+        'mediaTypes': plugin.media_types,
         'formats': plugin.formats,
         'overrides': plugin.overrides
     }
