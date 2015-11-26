@@ -106,9 +106,10 @@ class ProductValidator():
         else:
             # Create the new asset model
             asset = Resource.objects.create(
-                content_path='',
+                resource_path='',
                 download_link=url,
-                provider=provider
+                provider=provider,
+                content_type=media_type
             )
 
         # Complete asset information

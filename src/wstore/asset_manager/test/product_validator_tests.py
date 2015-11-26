@@ -122,9 +122,10 @@ class ProductValidatorTestCase(TestCase):
                 product_validator.Resource.objects.get.assert_called_once_with(download_link="http://testlocation.org/media/resources/test_user/widget.wgt")
             else:
                 product_validator.Resource.objects.create.assert_called_once_with(
-                    content_path='',
+                    resource_path='',
                     download_link="http://testlocation.org/media/resources/test_user/widget.wgt",
-                    provider=self._provider
+                    provider=self._provider,
+                    content_type='application/x-widget'
                 )
 
             # Check asset values
