@@ -93,7 +93,7 @@ class AssetManager():
 
         current_organization = provider.userprofile.current_organization
 
-        site = Context.objects.all()[0].domain
+        site = Context.objects.all()[0].site.domain
         if not file_:
             if 'content' not in data:
                 raise ValueError('The digital asset file has not been provided')

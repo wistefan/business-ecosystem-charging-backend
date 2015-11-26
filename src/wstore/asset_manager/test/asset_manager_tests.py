@@ -139,7 +139,8 @@ class UploadAssetTestCase(TestCase):
         self._user.userprofile.current_organization.name = 'test_user'
 
         asset_manager.Context = MagicMock()
-        self._context_mock = MagicMock(domain='http://testdomain.com/')
+        self._context_mock = MagicMock()
+        self._context_mock.site.domain = 'http://testdomain.com/'
         asset_manager.Context.objects.all.return_value = [self._context_mock]
 
         asset_manager.Resource = MagicMock()
