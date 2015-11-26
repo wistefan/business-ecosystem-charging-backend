@@ -80,7 +80,7 @@ class UploadCollection(Resource):
         profile = user.userprofile
         content_type = get_content_type(request)[0]
 
-        if 'provider' not in profile.get_current_roles():
+        if 'provider' not in profile.get_current_roles() and not user.is_staff:
             return build_response(request, 403, "You don't have the seller role")
 
         asset_manager = AssetManager()
@@ -99,10 +99,13 @@ class UploadCollection(Resource):
             return build_response(request, 400, unicode(e))
 
         # Fill location header with the URL of the uploaded digital asset
-        headers = {
-            'Location': location
-        }
-        return build_response(request, 201, 'Created', headers=headers)
+        response = HttpResponse(json.dumps({
+            'content': location,
+            'contentType': data['contentType']
+        }), status=200, mimetype='application/json; charset=utf-8')
+
+        response['Location'] = location
+        return response
 
 
 class ValidateCollection(Resource):

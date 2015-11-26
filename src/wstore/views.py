@@ -40,7 +40,7 @@ class ServeMedia(API_Resource):
         dir_path = os.path.join(settings.MEDIA_ROOT, path)
 
         # Protect the resources from not authorized downloads
-        if dir_path.endswith('resources') :
+        if dir_path.endswith('resources'):
             if request.user.is_anonymous():
                 return build_response(request, 401, 'Unauthorized')
 

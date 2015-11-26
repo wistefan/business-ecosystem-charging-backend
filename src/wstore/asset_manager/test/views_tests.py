@@ -34,6 +34,7 @@ from wstore.asset_manager.errors import ProductError
 from wstore.store_commons.errors import ConflictError
 
 RESOURCE_DATA = {
+    'contentType': 'application/zip',
     'content': {
         'name': 'testfile.zip',
         'content': 'content'
@@ -65,6 +66,7 @@ class AssetCollectionTestCase(TestCase):
         self.user.userprofile.get_current_roles = MagicMock(name='get_current_roles')
         self.user.userprofile.get_current_roles.return_value = ['provider', 'customer']
         self.user.userprofile.save()
+        self.user.is_staff = False
         views.AssetManager = MagicMock()
         self.am_instance = MagicMock()
         views.AssetManager.return_value = self.am_instance
@@ -167,13 +169,7 @@ class AssetCollectionTestCase(TestCase):
         body_response = json.loads(response.content)
 
         self.assertEqual(type(body_response), dict)
-        self.assertEqual(body_response['message'], msg)
-
-        if not error:
-            validator(request)
-            self.assertEqual(body_response['result'], 'correct')
-        else:
-            self.assertEqual(body_response['result'], 'error')
+        validator(request, body_response)
 
     @parameterized.expand([
         (RESOURCE_DATA,),
@@ -184,7 +180,7 @@ class AssetCollectionTestCase(TestCase):
         (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
         (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists')
     ])
-    def test_upload_asset(self, data, file_=False, side_effect=None, error=False, code=201, msg='Created'):
+    def test_upload_asset(self, data, file_=False, side_effect=None, error=False, code=200, msg='Created'):
 
         content_type = 'application/json'
 
@@ -200,13 +196,25 @@ class AssetCollectionTestCase(TestCase):
         else:
             content = json.dumps(data)
 
-        def validator(request):
-            # Check correct call
-            if not file_:
-                self.am_instance.upload_asset.assert_called_once_with(self.user, data)
+        self.am_instance.upload_asset.return_value = 'http://locationurl.com/'
+
+        def validator(request, body_response):
+            if not error:
+                # Check correct call
+                if not file_:
+                    self.am_instance.upload_asset.assert_called_once_with(self.user, data)
+                else:
+                    expected_file = request.FILES['file']
+                    self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
+                self.assertEquals(body_response, {
+                    'contentType': 'application/zip',
+                    'content': 'http://locationurl.com/'
+                })
             else:
-                expected_file = request.FILES['file']
-                self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
+                self.assertEqual(body_response, {
+                    'message': msg,
+                    'result': 'error'
+                })
 
         self._test_post_api(views.UploadCollection, content, content_type, side_effect, error, code, msg, validator)
 
@@ -243,8 +251,14 @@ class AssetCollectionTestCase(TestCase):
         else:
             content = data
 
-        def validator(request):
-            views.ProductValidator.assert_called_once_with()
-            self.validator_instance.validate.assert_called_once_with(data['action'], self.user.userprofile.current_organization, data['product'])
+        def validator(request, body_response):
+            self.assertEqual(body_response['message'], msg)
+
+            if not error:
+                views.ProductValidator.assert_called_once_with()
+                self.assertEqual(body_response['result'], 'correct')
+                self.validator_instance.validate.assert_called_once_with(data['action'], self.user.userprofile.current_organization, data['product'])
+            else:
+                self.assertEqual(body_response['result'], 'error')
 
         self._test_post_api(views.ValidateCollection, content, 'application/json', side_effect, error, code, msg, validator)
