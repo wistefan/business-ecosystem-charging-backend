@@ -130,9 +130,6 @@ class Resource(models.Model):
 
         return urljoin(base_uri, 'api/offering/resources/' + resource_id)
 
-    def __unicode__(self):
-        return self.name
-
     class Meta:
         app_label = 'wstore'
 
