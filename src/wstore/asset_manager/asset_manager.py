@@ -27,6 +27,7 @@ from urlparse import urljoin
 from django.conf import settings
 
 from wstore.models import Resource, Context
+from wstore.store_commons.rollback import rollback
 from wstore.store_commons.utils.name import is_valid_file
 from wstore.store_commons.errors import ConflictError
 
@@ -64,11 +65,13 @@ class AssetManager():
         with open(file_path, "wb") as f:
             f.write(content)
 
+        self.rollback_logger['files'].append(file_path)
+
         return file_path[file_path.index(settings.MEDIA_URL):]
 
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
-        return Resource.objects.create(
+        resource = Resource.objects.create(
             product_ref=resource_data['product_ref'],
             provider=provider,
             version=resource_data['version'],
@@ -79,6 +82,9 @@ class AssetManager():
             state=resource_data['state'],
             meta_info=resource_data['metadata']
         )
+        self.rollback_logger['models'].append(resource)
+
+        return resource
 
     def _load_resource_info(self, provider, data, file_=None):
 
@@ -107,6 +113,7 @@ class AssetManager():
 
         return resource_data, current_organization
 
+    @rollback
     def upload_asset(self, provider, data, file_=None):
         """
         Uploads a new digital asset that will be used to create a product Specification

@@ -29,6 +29,7 @@ from django.test import TestCase
 from wstore.asset_manager import asset_manager
 from wstore.asset_manager.test.resource_test_data import *
 from wstore.store_commons.errors import ConflictError
+from wstore.store_commons.utils.testing import decorator_mock
 
 __test__ = False
 
@@ -129,12 +130,16 @@ class ResourceRetrievingTestCase(TestCase):
             self.assertEquals(unicode(e), err_msg)
 
 
+
 class UploadAssetTestCase(TestCase):
 
     tags = ('asset-manager', )
     _file = None
 
     def setUp(self):
+        import wstore.store_commons.rollback
+        wstore.store_commons.rollback.rollback = decorator_mock
+
         self._user = MagicMock()
         self._user.userprofile.current_organization.name = 'test_user'
 
@@ -144,9 +149,9 @@ class UploadAssetTestCase(TestCase):
         asset_manager.Context.objects.all.return_value = [self._context_mock]
 
         asset_manager.Resource = MagicMock()
-        res_mock = MagicMock()
-        res_mock.get_url.return_value = "http://locationurl.com/"
-        asset_manager.Resource.objects.create.return_value = res_mock
+        self.res_mock = MagicMock()
+        self.res_mock.get_url.return_value = "http://locationurl.com/"
+        asset_manager.Resource.objects.create.return_value = self.res_mock
 
         asset_manager.os.path.isdir = MagicMock()
         asset_manager.os.path.exists = MagicMock()
@@ -157,6 +162,9 @@ class UploadAssetTestCase(TestCase):
         asset_manager.__builtins__['open'] = self.open_mock
 
     def tearDown(self):
+        import wstore.store_commons.rollback
+        reload(wstore.store_commons.rollback)
+
         self._file = None
         asset_manager.__builtins__['open'] = self._old_open
         reload(asset_manager)
@@ -187,6 +195,11 @@ class UploadAssetTestCase(TestCase):
             side_effect(self)
 
         am = asset_manager.AssetManager()
+        am.rollback_logger = {
+            'files': [],
+            'models': []
+        }
+
         error = None
         try:
             location = am.upload_asset(self._user, data, file_=self._file)
@@ -203,6 +216,12 @@ class UploadAssetTestCase(TestCase):
             asset_manager.os.path.exists.assert_called_once_with("/home/test/media/resources/test_user/example.wgt")
             self.open_mock.assert_called_once_with("/home/test/media/resources/test_user/example.wgt", "wb")
             self.open_mock().write.assert_called_once_with("Test data content")
+
+            # Check rollback logger
+            self.assertEquals({
+                'files': ["/home/test/media/resources/test_user/example.wgt"],
+                'models': [self.res_mock]
+            }, am.rollback_logger)
 
             # Check file calls
             if self._file is not None:
