@@ -33,17 +33,17 @@ from django.contrib.sites.models import Site
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
-import wstore.contracting.purchase_rollback
-from wstore.contracting import purchases_management
-from wstore.contracting import purchase_rollback
+import wstore.ordering.purchase_rollback
+from wstore.ordering import purchases_management
+from wstore.ordering import purchase_rollback
 
-from wstore.contracting import notify_provider
+from wstore.ordering import notify_provider
 from wstore.models import Offering, Context
 from wstore.models import Organization
 from wstore.models import Purchase
 from wstore.models import UserProfile
 from wstore.charging_engine.models import Contract
-from wstore.contracting import views
+from wstore.ordering import views
 
 
 __test__ = False
@@ -81,7 +81,7 @@ class PurchasesCreationTestCase(TestCase):
         )
 
         # Mock class decorators
-        wstore.contracting.purchase_rollback.rollback = MagicMock()
+        wstore.ordering.purchase_rollback.rollback = MagicMock()
 
         reload(purchases_management)
         # Mock purchases rollback
@@ -89,7 +89,7 @@ class PurchasesCreationTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        wstore.contracting.purchase_rollback.rollback = cls._old_roll
+        wstore.ordering.purchase_rollback.rollback = cls._old_roll
         super(PurchasesCreationTestCase, cls).tearDownClass()
 
     def setUp(self):

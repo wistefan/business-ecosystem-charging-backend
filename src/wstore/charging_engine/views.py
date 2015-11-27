@@ -34,8 +34,8 @@ from wstore.models import Purchase
 from wstore.models import UserProfile
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
-from wstore.contracting.purchase_rollback import rollback
-from wstore.contracting.notify_provider import notify_provider
+from wstore.ordering.purchase_rollback import rollback
+from wstore.ordering.notify_provider import notify_provider
 from wstore.store_commons.database import get_database_connection
 
 

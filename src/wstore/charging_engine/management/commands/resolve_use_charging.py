@@ -27,7 +27,7 @@ from django.core.management.base import BaseCommand
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.models import Contract
 from wstore.models import Organization
-from wstore.contracting.models import Purchase
+from wstore.ordering.models import Purchase
 
 
 class Command(BaseCommand):

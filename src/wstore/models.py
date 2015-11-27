@@ -85,7 +85,7 @@ class Organization(models.Model):
 
 
 from wstore.asset_manager.models import Offering, Resource, ResourcePlugin, MarketOffering
-from wstore.contracting.models import Purchase
+from wstore.ordering.models import Purchase
 
 
 class UserProfile(models.Model):

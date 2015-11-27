@@ -35,7 +35,7 @@ from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.charging.balance_manager import BalanceManager
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
-from wstore.contracting.purchase_rollback import rollback
+from wstore.ordering.purchase_rollback import rollback
 from wstore.store_commons.database import get_database_connection
 
 

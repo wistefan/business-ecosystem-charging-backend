@@ -27,8 +27,8 @@ from django.core.exceptions import PermissionDenied
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.models import Purchase
 from wstore.models import UserProfile
-from wstore.contracting.purchase_rollback import PurchaseRollback
-from wstore.contracting.notify_provider import notify_provider
+from wstore.ordering.purchase_rollback import PurchaseRollback
+from wstore.ordering.notify_provider import notify_provider
 
 
 def accepted_needed(offering):
