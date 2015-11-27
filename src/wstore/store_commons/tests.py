@@ -27,7 +27,7 @@ from nose_parameterized import parameterized
 
 from django.test import TestCase
 
-from wstore.store_commons import middleware
+from wstore.store_commons import middleware, rollback
 
 __test__ = False
 
@@ -108,3 +108,47 @@ class AuthenticationMiddlewareTestCase(TestCase):
 
         else:
             self.assertEquals(AnonymousUser(), user)
+
+
+class RollbackTestCase(TestCase):
+
+    tags = ('rollback', )
+
+    def test_rollback_correct(self):
+        called_method = MagicMock()
+        called_method.return_value = 'Returned'
+
+        wrapper = rollback.rollback(called_method)
+
+        ref = MagicMock()
+
+        value = wrapper(ref, 'value')
+
+        called_method.assert_called_once_with(ref, 'value')
+        self.assertEquals('Returned', value)
+        self.assertEquals({
+            'files': [],
+            'models': []
+        }, ref.rollback_logger)
+
+    def test_rollback_exception(self):
+        model = MagicMock()
+
+        rollback.os = MagicMock()
+
+        def called_method(ref):
+            ref.rollback_logger['files'].append('/home/test/testfile.pdf')
+            ref.rollback_logger['models'].append(model)
+            raise ValueError('Value error')
+
+        wrapper = rollback.rollback(called_method)
+        error = False
+        try:
+            wrapper(MagicMock())
+        except ValueError as e:
+            error = True
+            self.assertEquals('Value error', unicode(e))
+
+        self.assertTrue(error)
+        rollback.os.remove.assert_called_once_with('/home/test/testfile.pdf')
+        model.delete.assert_called_once_with()
