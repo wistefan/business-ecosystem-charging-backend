@@ -29,7 +29,7 @@ from django.http import HttpResponse
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, \
     authentication_required
 from wstore.store_commons.resource import Resource
-from wstore.models import UserProfile, Context
+from wstore.models import Context
 from wstore.models import Organization
 
 
