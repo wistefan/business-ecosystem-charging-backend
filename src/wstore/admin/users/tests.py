@@ -18,18 +18,17 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from copy import deepcopy
+
 import json
 from mock import MagicMock
-from urllib2 import HTTPError
 from nose_parameterized import parameterized
 
 from django.test import TestCase
-from django.conf import settings
 
 from wstore.admin.users import views
 from wstore.store_commons.utils import http
-from wstore.store_commons.utils.testing import decorator_mock, build_response_mock,\
-    decorator_mock_callable
+from wstore.store_commons.utils.testing import decorator_mock, decorator_mock_callable
 
 __test__ = False
 
@@ -158,6 +157,9 @@ class UserEntryTestCase(TestCase):
     def _invalid_data(self):
         self.request.body = 'invalid'
 
+    def _incomplete_profile(self):
+        self.request.user.userprofile.tax_address = {}
+
     CORRECT_RES = {
         'result': 'correct',
         'message': 'OK'
@@ -206,11 +208,27 @@ class UserEntryTestCase(TestCase):
         ('invalid_data', {}, 400, {
             'result': 'error',
             'message': 'Invalid JSON content'
-        }, _invalid_data)
+        }, _invalid_data),
+        ('incomplete',  {
+            'billingAddress': {
+                'province': 'a province'
+            }
+        }, 400, {
+            'result': 'error',
+            'message': 'Incomplete billing address, there is a missing field'
+        }, _incomplete_profile)
     ])
     def test_user_update(self, name, data, status, response, side_effect=None):
 
-        self.request.user.userprofile.tax_address = {}
+        initial_address = {
+            'street': 'initialstr',
+            'postal': 'initialpost',
+            'city': 'initialcity',
+            'province': 'initialprovince',
+            'country': 'initialcountry'
+        }
+
+        self.request.user.userprofile.tax_address = deepcopy(initial_address)
 
         # Include data request
         self.request.body = json.dumps(data)
@@ -231,9 +249,14 @@ class UserEntryTestCase(TestCase):
 
         # Check modified profile
         if status == 200 and 'billingAddress' in data:
-            self.assertEquals(data['billingAddress'], self.request.user.userprofile.tax_address)
+            expected = initial_address.copy()
+            expected.update(data['billingAddress'])
+
+            self.assertEquals(expected, self.request.user.userprofile.tax_address)
             self.request.user.userprofile.save.assert_called_once_with()
         else:
             # Check that userprofile has not been modified
-            self.assertEquals({}, self.request.user.userprofile.tax_address)
+            if 'billingAddress' not in data:
+                self.assertEquals(initial_address, self.request.user.userprofile.tax_address)
+
             self.assertFalse(self.request.user.userprofile.save.called)

@@ -111,6 +111,11 @@ class UserProfileEntry(Resource):
             if 'country' in data['billingAddress']:
                 user.userprofile.tax_address['country'] = data['billingAddress']['country']
 
+            if 'street' not in user.userprofile.tax_address or 'postal' not in user.userprofile.tax_address or\
+                    'city' not in user.userprofile.tax_address or 'province' not in user.userprofile.tax_address or\
+                    'country' not in user.userprofile.tax_address:
+                return build_response(request, 400, 'Incomplete billing address, there is a missing field')
+
             user.userprofile.save()
 
         return build_response(request, 200, 'OK')
