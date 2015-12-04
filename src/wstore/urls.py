@@ -20,11 +20,13 @@
 
 from django.conf.urls import patterns, url
 
+from wstore.admin.users import views as user_views
 from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
 
 urlpatterns = patterns('',
     # API
+    url(r'^charging/api/userManagement/users/(?P<username>[\w -]+)/?$', user_views.UserProfileEntry(permitted_methods=('GET', 'PATCH'))),
     url(r'^charging/api/assetManagement/assets/?$', offering_views.AssetCollection(permitted_methods=('GET',))),
     url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
     url(r'^charging/api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),

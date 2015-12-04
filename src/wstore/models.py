@@ -115,22 +115,16 @@ class UserProfile(models.Model):
         return roles
 
     def get_user_roles(self):
-        from django.conf import settings
         roles = []
 
         for o in self.organizations:
             org = Organization.objects.get(pk=o['organization'])
 
-            if settings.OILAUTH:
-                # Check actor_id
-                if org.actor_id == self.actor_id:
-                    roles = o['roles']
-                    break
-            else:
-                # Check organization name
-                if org.name == self.user.username:
-                    roles = o['roles']
-                    break
+            # Check organization name
+            if org.name == self.user.username:
+                roles = o['roles']
+                break
+
         return roles
 
     def is_user_org(self):

@@ -21,4 +21,5 @@
 
 from wstore.asset_manager.test.asset_manager_tests import *
 from wstore.store_commons.tests import *
+from wstore.admin.users.tests import *
 
