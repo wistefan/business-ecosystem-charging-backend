@@ -38,11 +38,18 @@ class OrderingManager:
         offering_url = item['productOffering']['href']
         r = requests.get(offering_url)
 
+        if r.status_code != 200:
+            raise OrderingError('The product offering specified in order item ' + item['id'] + 'does not exists')
+
         offering_info = r.json()
 
         # Download product specification to obtain related parties
         product_url = offering_info['productSpecification']['href']
         r1 = requests.get(product_url)
+
+        if r1.status_code != 200:
+            raise OrderingError('The product specification specified in order item ' + item['id'] + 'does not exists')
+
         product_info = r1.json()
 
         # Get offering provider (Owner role)
