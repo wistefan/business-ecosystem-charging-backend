@@ -35,7 +35,8 @@ from wstore.admin.searchers import ResourceBrowser
 
 class Context(models.Model):
 
-    site = models.OneToOneField(Site)
+    site = models.OneToOneField(Site, related_name='site')
+    local_site = models.OneToOneField(Site, related_name='local_site')
     top_rated = ListField()
     newest = ListField()
     user_refs = DictField()
