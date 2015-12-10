@@ -28,7 +28,6 @@ from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField
 
-from wstore.admin.markets.models import *
 from wstore.admin.repositories.models import *
 from wstore.admin.rss.models import *
 from wstore.admin.searchers import ResourceBrowser
@@ -84,8 +83,7 @@ class Organization(models.Model):
         return found
 
 
-from wstore.asset_manager.models import Offering, Resource, ResourcePlugin, MarketOffering
-from wstore.ordering.models import Purchase
+from wstore.asset_manager.models import Resource, ResourcePlugin
 
 
 class UserProfile(models.Model):
@@ -169,15 +167,20 @@ def create_user_profile(sender, instance, created, **kwargs):
 def create_context(sender, instance, created, **kwargs):
 
     if created:
-        context = Context.objects.get_or_create(site=instance)[0]
-        context.allowed_currencies = {
-            'allowed': [{
-                'currency': 'EUR',
-                'in_use': False
-            }],
-            'default': 'EUR'
-        }
-        context.save()
+        if not len(Context.objects.all()):
+            context = Context.objects.get_or_create(site=instance)[0]
+            context.allowed_currencies = {
+                'allowed': [{
+                    'currency': 'EUR',
+                    'in_use': False
+                }],
+                'default': 'EUR'
+            }
+            context.save()
+        else:
+            context = Context.objects.all()[0]
+            context.local_site = instance
+            context.save()
 
 
 # Creates a new user profile when an user is created

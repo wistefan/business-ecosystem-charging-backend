@@ -34,7 +34,6 @@ from django.contrib.auth.models import User
 
 from wstore.charging_engine import charging_engine
 from wstore.charging_engine import views
-from wstore.models import Purchase
 from wstore.models import UserProfile
 from wstore.models import Organization
 from wstore.charging_engine.management.commands import resolve_use_charging

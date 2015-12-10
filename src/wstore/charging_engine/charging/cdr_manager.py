@@ -32,10 +32,11 @@ from wstore.models import RSS
 
 class CDRManager(object):
 
-    _purchase = None
+    _order = None
 
-    def __init__(self, purchase):
-        self._purchase = purchase
+    def __init__(self, order, contract):
+        self._order = order
+        self._contract = contract
 
     def _generate_cdr_part(self, part, model, cdr_info):
         # Create connection for raw database access
@@ -44,30 +45,20 @@ class CDRManager(object):
         # Take and increment the correlation number using
         # the mongoDB atomic access in order to avoid race
         # problems
-        currency = self._purchase.contract.pricing_model['general_currency']
+        currency = self._contract.pricing_model['general_currency']
 
-        if cdr_info['rss'].api_version == 1:
-            # Version 1 uses a global correlation number
-            corr_number = db.wstore_rss.find_and_modify(
-                query={'_id': ObjectId(cdr_info['rss'].pk)},
-                update={'$inc': {'correlation_number': 1}}
-            )['correlation_number']
-
-            currency = get_currency_code(self._purchase.contract.pricing_model['general_currency'])
-
-        else:
-            # Version 2 uses a correlation number per provider
-            corr_number = db.wstore_organization.find_and_modify(
-                query={'_id': ObjectId(self._purchase.owner_organization.pk)},
-                update={'$inc': {'correlation_number': 1}}
-            )['correlation_number']
+        # Version 2 uses a correlation number per provider
+        corr_number = db.wstore_organization.find_and_modify(
+            query={'_id': ObjectId(self._order.offering.owner_organization.pk)},
+            update={'$inc': {'correlation_number': 1}}
+        )['correlation_number']
 
         return {
             'provider': cdr_info['provider'],
             'service': cdr_info['service_name'],
             'defined_model': model,
             'correlation': str(corr_number),
-            'purchase': self._purchase.ref,
+            'order': self._order.ref,
             'offering': cdr_info['offering'],
             'product_class': cdr_info['product_class'],
             'description': cdr_info['description'],
@@ -80,7 +71,7 @@ class CDRManager(object):
             'country': cdr_info['country_code'],
             'time_stamp': cdr_info['time_stamp'],
             'customer': cdr_info['customer'],
-            'event': self._purchase.contract.revenue_class
+            'event': self._order.contract.revenue_class
         }
 
     def generate_cdr(self, applied_parts, time_stamp, price=None):
@@ -94,26 +85,20 @@ class CDRManager(object):
             rss = RSS.objects.all()[0]
 
             # Get the provider (Organization)
-            if rss.api_version == 1:
-                provider = settings.STORE_NAME.lower() + '-provider'
-            else:
-                provider = self._purchase.offering.owner_organization.actor_id
+            provider = settings.STORE_NAME.lower() + '-provider'
 
             # Set offering ID
-            offering = self._purchase.offering.name + ' ' + self._purchase.offering.version
+            off_model = self._contract.offering
+            offering = off_model.off_id + ' ' + off_model.name + ' ' + off_model.version
 
             # Get the customer
-            customer = self._purchase.owner_organization.name
+            customer = self._order.owner_organization.name
 
             # Get the country code
             country_code = '1'
 
             # Get the product class
-            if rss.api_version == 1:
-                product_class = self._purchase.contract.revenue_class
-            else:
-                off_model = self._purchase.offering
-                product_class = off_model.owner_organization.name + '/' + off_model.name + '/' + off_model.version
+            product_class = off_model.owner_organization.name + '/' + off_model.name + '/' + off_model.version
 
             cdr_info = {
                 'rss': rss,
@@ -135,9 +120,9 @@ class CDRManager(object):
                 # Create a payment part representing the whole payment
                 aggregated_part = {
                     'value': price,
-                    'currency': self._purchase.contract.pricing_model['general_currency']
+                    'currency': self._contract.pricing_model['general_currency']
                 }
-                cdr_info['description'] = 'Complete Charging event: ' + str(price) + ' ' + self._purchase.contract.pricing_model['general_currency']
+                cdr_info['description'] = 'Complete Charging event: ' + str(price) + ' ' + self._contract.pricing_model['general_currency']
                 cdrs.append(self._generate_cdr_part(aggregated_part, 'Charging event', cdr_info))
 
             else:
@@ -146,14 +131,14 @@ class CDRManager(object):
 
                     # A cdr is generated for every price part
                     for part in applied_parts['single_payment']:
-                        cdr_info['description'] = 'Single payment: ' + part['value'] + ' ' + self._purchase.contract.pricing_model['general_currency']
+                        cdr_info['description'] = 'Single payment: ' + part['value'] + ' ' + self._contract.pricing_model['general_currency']
                         cdrs.append(self._generate_cdr_part(part, 'Single payment event', cdr_info))
 
                 if 'subscription' in applied_parts:
 
                     # A cdr is generated by price part
                     for part in applied_parts['subscription']:
-                        cdr_info['description'] = 'Subscription: ' + part['value'] + ' ' + self._purchase.contract.pricing_model['general_currency'] + ' ' + part['unit']
+                        cdr_info['description'] = 'Subscription: ' + part['value'] + ' ' + self._contract.pricing_model['general_currency'] + ' ' + part['unit']
                         cdrs.append(self._generate_cdr_part(part, 'Subscription event', cdr_info))
 
                 if 'charges' in applied_parts:
@@ -165,9 +150,9 @@ class CDRManager(object):
                         }
                         if 'price_function' in part['model']:
                             cdr_info['description'] = part['model']['text_function']
-                            use_part['currency'] = self._purchase.contract.pricing_model['general_currency']
+                            use_part['currency'] = self._contract.pricing_model['general_currency']
                         else:
-                            use_part['currency'] = self._purchase.contract.pricing_model['general_currency']
+                            use_part['currency'] = self._contract.pricing_model['general_currency']
 
                             # Calculate the total consumption
                             use = 0

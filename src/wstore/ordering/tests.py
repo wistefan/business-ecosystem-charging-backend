@@ -34,15 +34,13 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
 import wstore.ordering.purchase_rollback
-from wstore.ordering import purchases_management
+from wstore.ordering import ordering_management
 from wstore.ordering import purchase_rollback
 
 from wstore.ordering import notify_provider
-from wstore.models import Offering, Context
+from wstore.models import Context
 from wstore.models import Organization
-from wstore.models import Purchase
 from wstore.models import UserProfile
-from wstore.charging_engine.models import Contract
 from wstore.ordering import views
 
 
@@ -67,9 +65,9 @@ class PurchasesCreationTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        purchases_management.generate_bill = fake_generate_bill
-        purchases_management.ChargingEngine = FakeChargingEngine
-        purchases_management.ChargingEngine.resolve_charging = MagicMock(name='resolve_charging')
+        ordering_management.generate_bill = fake_generate_bill
+        ordering_management.ChargingEngine = FakeChargingEngine
+        ordering_management.ChargingEngine.resolve_charging = MagicMock(name='resolve_charging')
 
         # Save the reference of the decorators
         cls._old_roll = types.FunctionType(
@@ -83,7 +81,7 @@ class PurchasesCreationTestCase(TestCase):
         # Mock class decorators
         wstore.ordering.purchase_rollback.rollback = MagicMock()
 
-        reload(purchases_management)
+        reload(ordering_management)
         # Mock purchases rollback
         super(PurchasesCreationTestCase, cls).setUpClass()
 
@@ -93,11 +91,11 @@ class PurchasesCreationTestCase(TestCase):
         super(PurchasesCreationTestCase, cls).tearDownClass()
 
     def setUp(self):
-        purchases_management.ChargingEngine.resolve_charging = MagicMock()
-        purchases_management.ChargingEngine.resolve_charging.return_value = None
-        purchases_management.SearchEngine = MagicMock()
+        ordering_management.ChargingEngine.resolve_charging = MagicMock()
+        ordering_management.ChargingEngine.resolve_charging.return_value = None
+        ordering_management.SearchEngine = MagicMock()
         se_obj = MagicMock()
-        purchases_management.SearchEngine.return_value = se_obj
+        ordering_management.SearchEngine.return_value = se_obj
         usdl_info = {
             'name': 'test_offering',
             'base_id': 'pk',
@@ -275,7 +273,7 @@ class PurchasesCreationTestCase(TestCase):
 
         error = None
         try:
-            purchase = purchases_management.create_purchase(user, offering, org_owned, payment_info)
+            purchase = ordering_management.create_purchase(user, offering, org_owned, payment_info)
         except Exception as e:
             error = e
 

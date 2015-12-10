@@ -25,17 +25,13 @@ from datetime import datetime
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
+from wstore.ordering.ordering_client import OrderingClient
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
-from wstore.models import Purchase
-from wstore.models import UserProfile
+from wstore.ordering.models import Order
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
-from wstore.ordering.purchase_rollback import rollback
-from wstore.ordering.notify_provider import notify_provider
 from wstore.store_commons.database import get_database_connection
 
 
@@ -65,7 +61,7 @@ class ServiceRecordCollection(Resource):
                 raise Exception('Invalid JSON content')
 
             # Get the purchase
-            purchase = Purchase.objects.get(ref=reference)
+            purchase = Order.objects.get(ref=reference)
             # Call the charging engine core with the SDR
             sdr_manager = SDRManager(purchase)
             sdr_manager.include_sdr(data)
@@ -79,7 +75,7 @@ class ServiceRecordCollection(Resource):
     def read(self, request, reference):
         # Check reference
         try:
-            purchase = Purchase.objects.get(ref=reference)
+            purchase = Order.objects.get(ref=reference)
         except:
             return build_response(request, 404, 'There is not any purchase with reference ' + reference)
 
@@ -143,9 +139,10 @@ class PayPalConfirmation(Resource):
 
     # This method is used to receive the PayPal confirmation
     # when the customer is paying using his PayPal account
-    @method_decorator(login_required)
+    # @authentication_required
     def read(self, request, reference):
-        purchase = None
+        order = None
+        client = OrderingClient()
         try:
             token = request.GET.get('paymentId')
             payer_id = request.GET.get('PayerID', '')
@@ -154,7 +151,7 @@ class PayPalConfirmation(Resource):
 
             # Uses an atomic operation to get and set the _lock value in the purchase
             # document
-            pre_value = db.wstore_purchase.find_one_and_update(
+            pre_value = db.wstore_order.find_one_and_update(
                 {'_id': ObjectId(reference)},
                 {'$set': {'_lock': True}}
             )
@@ -165,23 +162,23 @@ class PayPalConfirmation(Resource):
             if '_lock' in pre_value and pre_value['_lock']:
                 raise Exception('The timeout set by WStore has finished')
 
-            purchase = Purchase.objects.get(ref=reference)
+            order = Order.objects.get(pk=reference)
 
             # Check that the request user is authorized to end the payment
-            if request.user.userprofile.current_organization != purchase.owner_organization:
-                raise Exception('You are not authorized to execute the payment')
+            # if request.user.userprofile.current_organization != order.owner_organization:
+            #    raise Exception('You are not authorized to execute the payment')
 
             # If the purchase state value is different from pending means that
             # the timeout function has completely ended before acquire the resource
             # so _lock is set to false and the view ends
-            if purchase.state != 'pending':
-                db.wstore_purchase.find_one_and_update(
+            if order.state != 'pending':
+                db.wstore_order.find_one_and_update(
                     {'_id': ObjectId(reference)},
                     {'$set': {'_lock': False}}
                 )
                 raise Exception('The timeout set by WStore has finished')
 
-            pending_info = purchase.contract.pending_payment
+            pending_info = order.contract.pending_payment
 
             # Get the payment client
             # Load payment client
@@ -192,19 +189,22 @@ class PayPalConfirmation(Resource):
             payment_client = getattr(__import__(client_package, globals(), locals(), [client_class], -1), client_class)
 
             # build the payment client
-            client = payment_client(purchase)
+            client = payment_client(order)
             client.end_redirection_payment(token, payer_id)
 
-            charging_engine = ChargingEngine(purchase)
+            charging_engine = ChargingEngine(order)
             accounting = None
             if 'accounting' in pending_info:
                 accounting = pending_info['accounting']
 
-            charging_engine.end_charging(pending_info['price'], pending_info['concept'], pending_info['related_model'], accounting)
+            charging_engine.end_charging(pending_info['transactions'], pending_info['concept'], accounting)
         except Exception as e:
+            # Set the order to failed in the ordering API
+            client.update_state(order.order_id, 'Failed')
+
             # Rollback the purchase if existing
-            if purchase is not None:
-                rollback(purchase)
+            if order is not None:  # TODO: Take into account pay-per-use case
+                order.delete()
 
             msg = 'Your payment has been canceled. '
             msg += unicode(e)
@@ -216,23 +216,12 @@ class PayPalConfirmation(Resource):
             }
             return render(request, 'err_msg.html', context)
 
-        # Check if is the first payment
-        if len(purchase.contract.charges) == 1:
-
-            if purchase.organization_owned:
-                org = purchase.owner_organization
-                org.offerings_purchased.append(purchase.offering.pk)
-                org.save()
-            else:
-                # Add the offering to the user profile
-                user_profile = UserProfile.objects.get(user=purchase.customer)
-                user_profile.offerings_purchased.append(purchase.offering.pk)
-                user_profile.save()
-
-            notify_provider(purchase)
+        # Set order state as completed
+        client.update_state(order.order_id, 'inProgress')
+        client.update_state(order.order_id, 'Completed')
 
         # _lock is set to false
-        db.wstore_purchase.find_one_and_update(
+        db.wstore_order.find_one_and_update(
             {'_id': ObjectId(reference)},
             {'$set': {'_lock': False}}
         )
@@ -249,21 +238,18 @@ class PayPalCancelation(Resource):
 
     # This method is used when the user cancel a charge
     # when is using a PayPal account
-    @method_decorator(login_required)
+    # @authorization_required
     def read(self, request, reference):
         # In case the user cancels the payment is necessary to update
         # the database in order to avoid an inconsistent state
         try:
-            purchase = Purchase.objects.get(pk=reference)
+            order = Order.objects.get(pk=reference)
 
-            # Check that the request user is authorized to end the payment
-            if purchase.organization_owned:
-                if request.user.userprofile.current_organization != purchase.owner_organization:
-                    raise Exception()
-            else:
-                if request.user != purchase.customer:
-                    raise Exception('')
-            rollback(purchase)
+            # Set the order to failed in the ordering API
+            client = OrderingClient()
+            client.update_state(order.order_id, 'Failed')
+
+            order.delete()
         except:
             return build_response(request, 400, 'Invalid request')
 

@@ -28,13 +28,11 @@ from datetime import datetime
 from django.template import loader, Context
 from django.conf import settings
 
-from wstore.models import Resource
-
 
 class InvoiceBuilder(object):
 
-    def __init__(self, purchase):
-        self._purchase = purchase
+    def __init__(self, order):
+        self._order = order
         self._template_processors = {
             'initial': self._get_initial_parts,
             'renovation': self._get_renovation_parts,
@@ -165,86 +163,82 @@ class InvoiceBuilder(object):
         else:
             context['deduction'] = False
 
-    def generate_invoice(self, price, applied_parts, type_):
+    def generate_invoice(self, transactions, type_):
         """
         Create a PDF invoice based on the price components used to charge the user
-        :param price: Total amount charged to the customer
-        :param applied_parts: List of parts (price components) charged to the user
+        :param transactions: Total amount charged to the customer
         :param type_: Type of the charge, initial, renovation, pay-per-use
         """
 
-        currency = self._purchase.contract.pricing_model['general_currency']
+        for transaction in transactions:
+            currency = transaction['currency']
 
-        # Get invoice context parts and invoice template
-        parts, bill_template = self._template_processors[type_](applied_parts, currency)
+            # Get invoice context parts and invoice template
+            parts, bill_template = self._template_processors[type_](transaction['related_model'], currency)
 
-        tax = self._purchase.tax_address
+            tax = self._order.tax_address
+            customer_profile = self._order.customer.userprofile
 
-        offering = self._purchase.offering
-        customer_profile = self._purchase.customer.userprofile
+            # Search item contract
+            contract = self._order.get_item_contract(transaction['item_id'])
+            offering = contract.offering
 
-        resources = []
-        for res in offering.resources:
-            r = Resource.objects.get(pk=str(res))
-            resources.append((r.name, r.description))
+            last_charge = self._order.contract.last_charge
 
-        last_charge = self._purchase.contract.last_charge
+            if last_charge is None:
+                # If last charge is None means that it is the invoice generation
+                # associated with a free offering
+                date = str(datetime.now()).split(' ')[0]
+            else:
+                date = str(last_charge).split(' ')[0]
 
-        if last_charge is None:
-            # If last charge is None means that it is the invoice generation
-            # associated with a free offering
-            date = str(datetime.now()).split(' ')[0]
-        else:
-            date = str(last_charge).split(' ')[0]
+            # Load pricing info into the context
+            context = {
+                'BASEDIR': settings.BASEDIR,
+                'offering_name': offering.name,
+                'off_organization': offering.owner_organization.name,
+                'off_version': offering.version,
+                'ref': self._order.ref,
+                'date': date,
+                'organization': customer_profile.current_organization.name,
+                'customer': customer_profile.complete_name,
+                'address': tax.get('street'),
+                'postal': tax.get('postal'),
+                'city': tax.get('city'),
+                'province': tax.get('province'),
+                'country': tax.get('country'),
+                'taxes': [],
+                'subtotal': transaction['price'],  # TODO price without taxes
+                'tax': '0',
+                'total': transaction['price'],
+                'cur': currency  # General currency of the invoice
+            }
 
-        # Load pricing info into the context
-        context = {
-            'BASEDIR': settings.BASEDIR,
-            'offering_name': offering.name,
-            'off_organization': offering.owner_organization.name,
-            'off_version': offering.version,
-            'ref': self._purchase.ref,
-            'date': date,
-            'organization': customer_profile.current_organization.name,
-            'customer': customer_profile.complete_name,
-            'address': tax.get('street'),
-            'postal': tax.get('postal'),
-            'city': tax.get('city'),
-            'province': tax.get('province'),
-            'country': tax.get('country'),
-            'taxes': [],
-            'subtotal': price,  # TODO price without taxes
-            'tax': '0',
-            'total': price,
-            'resources': resources,
-            'cur': currency  # General currency of the invoice
-        }
+            # Include the corresponding parts in the context
+            # depending on the type of applied parts
+            self._context_processors[type_](context, parts)
 
-        # Include the corresponding parts in the context
-        # depending on the type of applied parts
-        self._context_processors[type_](context, parts)
+            # Render the invoice template
+            bill_code = bill_template.render(Context(context))
 
-        # Render the invoice template
-        bill_code = bill_template.render(Context(context))
+            # Create the bill code file
+            invoice_name = self._order.ref + '_' + contract.item_id + date
+            bill_path = os.path.join(settings.BILL_ROOT, invoice_name + '.html')
+            f = codecs.open(bill_path, 'wb', 'utf-8')
+            f.write(bill_code)
+            f.close()
 
-        # Create the bill code file
-        invoice_name = self._purchase.ref + '_' + date
-        bill_path = os.path.join(settings.BILL_ROOT, invoice_name + '.html')
-        f = codecs.open(bill_path, 'wb', 'utf-8')
-        f.write(bill_code)
-        f.close()
+            in_name = bill_path[:-4] + 'pdf'
 
-        in_name = bill_path[:-4] + 'pdf'
+            if os.path.exists(in_name):
+                in_name = bill_path[:-5] + '_1.pdf'
+                invoice_name += '_1'
 
-        if os.path.exists(in_name):
-            in_name = bill_path[:-5] + '_1.pdf'
-            invoice_name += '_1'
-
-        # Compile the bill file
-        try:
-            subprocess.call([settings.BASEDIR + '/create_invoice.sh', bill_path, in_name])
-        except:
-            raise Exception('Invoice generation problem')
+            # Compile the bill file
+            try:
+                subprocess.call([settings.BASEDIR + '/create_invoice.sh', bill_path, in_name])
+            except:
+                raise Exception('Invoice generation problem')
 
         # Remove temporal files
         for file_ in os.listdir(settings.BILL_ROOT):
@@ -252,6 +246,6 @@ class InvoiceBuilder(object):
             if not file_.endswith('.pdf'):
                 os.remove(os.path.join(settings.BILL_ROOT, file_))
 
-        # Load bill path into the purchase
-        self._purchase.bill.append(os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name + '.pdf'))
-        self._purchase.save()
+        # Load bill path into the order
+        self._order.bill.append(os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name + '.pdf'))
+        self._order.save()

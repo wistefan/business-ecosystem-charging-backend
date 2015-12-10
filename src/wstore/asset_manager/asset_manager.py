@@ -113,7 +113,7 @@ class AssetManager():
 
         return resource_data, current_organization
 
-    @rollback
+    @rollback()
     def upload_asset(self, provider, data, file_=None):
         """
         Uploads a new digital asset that will be used to create a product Specification

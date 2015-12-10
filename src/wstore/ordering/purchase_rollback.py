@@ -20,7 +20,6 @@
 
 from __future__ import unicode_literals
 
-from wstore.models import Purchase
 from wstore.models import UserProfile
 
 

@@ -28,7 +28,7 @@ from django.http import HttpResponse
 from store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
 from wstore.models import UserProfile, Organization
-from wstore.models import Purchase, Resource, Offering
+from wstore.models import Resource
 
 
 class ServeMedia(API_Resource):
@@ -88,15 +88,15 @@ class ServeMedia(API_Resource):
                 return build_response(request, 401, 'Unauthorized')
 
             user_profile = UserProfile.objects.get(user=request.user)
-            purchase = Purchase.objects.get(ref=name[:24])
+            #purchase = Purchase.objects.get(ref=name[:24])
 
-            if purchase.organization_owned:
-                user_org = user_profile.current_organization
-                if not purchase.owner_organization.name == user_org.name:
-                    return build_response(request, 404, 'Not found')
-            else:
-                if not purchase.customer == request.user:
-                    return build_response(request, 404, 'Not found')
+            #if purchase.organization_owned:
+            #    user_org = user_profile.current_organization
+            #    if not purchase.owner_organization.name == user_org.name:
+            #        return build_response(request, 404, 'Not found')
+            #else:
+            #    if not purchase.customer == request.user:
+            #        return build_response(request, 404, 'Not found')
 
         local_path = os.path.join(dir_path, name)
 

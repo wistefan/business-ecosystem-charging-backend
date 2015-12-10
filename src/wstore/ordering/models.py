@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -20,24 +20,65 @@
 
 from django.db import models
 from django.contrib.auth.models import User
-from djangotoolbox.fields import DictField
-from djangotoolbox.fields import ListField
+from djangotoolbox.fields import DictField, EmbeddedModelField, ListField
 
-from wstore.models import Offering
 from wstore.models import Organization
+from wstore.ordering.errors import OrderingError
 
 
-class Purchase(models.Model):
+class Offering(models.Model):
+    off_id = models.CharField(max_length=50)
+    owner_organization = models.ForeignKey(Organization)
+    name = models.CharField(max_length=200)
+    version = models.CharField(max_length=100)
+    description = models.CharField(max_length=1500)
 
+
+class Contract(models.Model):
+    item_id = models.CharField(max_length=50)
+    offering = EmbeddedModelField(Offering)
+
+    # Parsed version of the pricing model used to calculate charges
+    pricing_model = DictField()
+    # Date of the last charge to the customer
+    last_charge = models.DateTimeField(blank=True, null=True)
+    # List with the made charges
+    charges = ListField()
+    # List with the charged SDRs for that offering
+    applied_sdrs = ListField()
+    # List the pending SDRs for that offering
+    pending_sdrs = ListField()
+    # Revenue sharing product class
+    revenue_class = models.CharField(max_length=15, blank=True, null=True)
+
+
+class Order(models.Model):
     ref = models.CharField(max_length=50)
+    description = models.CharField(max_length=1500)
+    order_id = models.CharField(max_length=50)
     customer = models.ForeignKey(User)
-    organization_owned = models.BooleanField()
     owner_organization = models.ForeignKey(Organization, null=True, blank=True)
-    date = models.DateTimeField()
-    offering = models.ForeignKey(Offering)
+
     state = models.CharField(max_length=50)
-    bill = ListField()
+    bills = ListField()
     tax_address = DictField()
+
+    # List of contracts attached to the current order
+    contracts = ListField(EmbeddedModelField(Contract))
+
+    # Pending payment info used in asynchronous charges
+    pending_payment = DictField()
+
+    def get_item_contract(self, item_id):
+        # Search related contract
+        for c in self._order.contracts:
+            if c.item_id == item_id:
+                contract = c
+                break
+        else:
+            raise OrderingError('Invalid item id')
+
+        return contract
 
     class Meta:
         app_label = 'wstore'

@@ -20,84 +20,11 @@
 
 import urllib2
 from urlparse import urljoin
-from django.contrib.auth.models import User
+
 from django.db import models
 from djangotoolbox.fields import ListField, DictField, EmbeddedModelField
 
-from wstore.models import Marketplace
 from wstore.models import Organization, Context
-
-
-class MarketOffering(models.Model):
-    marketplace = models.ForeignKey(Marketplace)
-    offering_name = models.CharField(max_length=100)
-
-
-class Offering(models.Model):
-    name = models.CharField(max_length=50)
-    owner_organization = models.ForeignKey(Organization)
-    owner_admin_user = models.ForeignKey(User)
-    version = models.CharField(max_length=20)
-    state = models.CharField(max_length=50)
-    description_url = models.CharField(max_length=200, null=True, blank=True)
-    marketplaces = ListField(EmbeddedModelField(MarketOffering))
-    resources = ListField()
-    rating = models.FloatField(default=0)
-    comments = ListField()
-    tags = ListField()
-    image_url = models.CharField(max_length=100)
-    related_images = ListField()
-    offering_description = DictField()
-    notification_url = models.CharField(max_length=100)
-    creation_date = models.DateTimeField()
-    publication_date = models.DateTimeField(null=True, blank=True)
-    applications = ListField()
-    open = models.BooleanField(default=False)
-
-    def is_owner(self, user):
-        """
-        Check if the user is the owner of the offering
-        """
-        owns = False
-        if user.userprofile.current_organization == self.owner_organization and \
-                (self.owner_admin_user == user or user.pk in user.userprofile.current_organization.managers):
-
-            owns = True
-
-        return owns
-
-    def _get_site(self):
-        return Context.objects.all()[0].site.domain
-
-    def get_uri(self):
-        """
-        Return the URI of the Offering to be used in USDL documents
-        """
-        site = self._get_site()
-
-        offering_id = urllib2.quote(self.owner_organization.name + '/' + self.name + '/' + self.version)
-        return urljoin(site, 'api/offering/asset_manager/' + offering_id)
-
-    def get_image_url(self):
-        """
-        Returns the complete URL of the offering image
-        """
-        site = self._get_site()
-
-        return urljoin(site, self.image_url)
-
-    def get_acquire_url(self):
-        site = self._get_site()
-
-        offering_id = urllib2.quote(self.owner_organization.name + '/' + self.name + '/' + self.version)
-        return urljoin(site, 'offering/' + offering_id)
-
-    def __unicode__(self):
-        return self.name
-
-    class Meta:
-        app_label = 'wstore'
-        unique_together = ('name', 'owner_organization', 'version')
 
 
 # This embedded class is used to save old versions

@@ -36,8 +36,8 @@ class PayPalClient(PaymentClient):
     _purchase = None
     _checkout_url = None
 
-    def __init__(self, purchase):
-        self._purchase = purchase
+    def __init__(self, order):
+        self._order = order
         # Configure API connection
         paypalrestsdk.configure({
             "mode": MODE,
@@ -45,7 +45,7 @@ class PayPalClient(PaymentClient):
             "client_secret": PAYPAL_CLIENT_SECRET
         })
 
-    def start_redirection_payment(self, price, currency):
+    def start_redirection_payment(self, transactions):
         # Build URL
         url = Site.objects.all()[0].domain
         if url[-1] != '/':
@@ -58,16 +58,16 @@ class PayPalClient(PaymentClient):
                 'payment_method': 'paypal'
             },
             'redirect_urls': {
-                'return_url': url + 'api/contracting/' + self._purchase.ref + '/accept',
-                'cancel_url': url + 'api/contracting/' + self._purchase.ref + '/cancel'
+                'return_url': url + 'charging/api/orderManagement/orders/' + self._order.pk + '/accept',
+                'cancel_url': url + 'charging/api/orderManagement/orders/' + self._order.pk + '/cancel'
             },
             'transactions': [{
                 'amount': {
-                    'total': unicode(price),
-                    'currency': currency
+                    'total': unicode(t['price']),
+                    'currency': t['currency']
                 },
-                'description': 'Payment related to the offering: ' + self._purchase.offering.owner_organization.name + ' ' + self._purchase.offering.name + ' version ' + self._purchase.offering.version
-            }]
+                'description': t['description']
+            } for t in transactions]
         })
 
         # Create Payment

@@ -130,7 +130,6 @@ class ResourceRetrievingTestCase(TestCase):
             self.assertEquals(unicode(e), err_msg)
 
 
-
 class UploadAssetTestCase(TestCase):
 
     tags = ('asset-manager', )

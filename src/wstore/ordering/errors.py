@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -18,22 +18,12 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from djangotoolbox.fields import EmbeddedModelField
-
-from django.db import models
+from __future__ import unicode_literals
 
 
-class MarketCredentials(models.Model):
-    username = models.CharField(max_length=30, blank=True, null=True)
-    passwd = models.CharField(max_length=50, blank=True, null=True)
+class OrderingError(Exception):
+    def __init__(self, msg):
+        self.value = msg
 
-
-class Marketplace(models.Model):
-    name = models.CharField(max_length=50)
-    host = models.CharField(max_length=100)
-    api_version = models.IntegerField(default=1)
-    store_id = models.CharField(max_length=100)
-    credentials = EmbeddedModelField(MarketCredentials)
-
-    class Meta:
-        app_label = 'wstore'
+    def __unicode__(self):
+        return 'OrderingError: ' + self.value
