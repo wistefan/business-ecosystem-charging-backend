@@ -20,17 +20,13 @@
 
 from __future__ import unicode_literals
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.db import models
 from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField
 
-from wstore.admin.repositories.models import *
 from wstore.admin.rss.models import *
-from wstore.admin.searchers import ResourceBrowser
 
 
 class Context(models.Model):
