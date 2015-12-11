@@ -20,13 +20,16 @@
 
 from __future__ import unicode_literals
 from copy import deepcopy
+from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 
 from nose_parameterized import parameterized
 from mock import MagicMock, call
 
 from django.test import TestCase
+from wstore.models import Organization
 from wstore.ordering.errors import OrderingError
+from wstore.ordering.models import Order, Offering, Contract
 
 from wstore.ordering.tests.test_data import *
 from wstore.ordering import ordering_client, ordering_management
@@ -280,3 +283,65 @@ class OrderingClientTestCase(TestCase):
         })
 
         self._response.raise_for_status.assert_called_once_with()
+
+
+class OrderTestCase(TestCase):
+
+    tags = ('ordering', )
+
+    def setUp(self):
+        # Build users and organizations
+        customer = User.objects.create_user('test_user')
+
+        owner_org = Organization.objects.create(name='test_org')
+
+        # Build offerings and contracts
+        offering1 = Offering(
+            off_id='1',
+            owner_organization=owner_org,
+            name='Offering1',
+            version='1.0',
+            description='Offering1'
+        )
+
+        offering2 = Offering(
+            off_id='2',
+            owner_organization=owner_org,
+            name='Offering2',
+            version='1.0',
+            description='Offering2'
+        )
+
+        self._contract1 = Contract(
+            item_id='1',
+            offering=offering1,
+        )
+
+        self._contract2 = Contract(
+            item_id='2',
+            offering=offering2,
+        )
+
+        # Build order
+        self._order = Order.objects.create(
+            description='',
+            order_id='1',
+            customer=customer,
+            state='pending',
+            contracts=[self._contract1, self._contract2]
+        )
+
+    def test_get_item_contract(self):
+        contract = self._order.get_item_contract('2')
+        self.assertEquals(self._contract2, contract)
+
+    def test_get_item_contract_invalid(self):
+        error = None
+        try:
+            self._order.get_item_contract('3')
+        except OrderingError as e:
+            error = e
+
+        self.assertFalse(error is None)
+        self.assertEquals('OrderingError: Invalid item id', unicode(e))
+
