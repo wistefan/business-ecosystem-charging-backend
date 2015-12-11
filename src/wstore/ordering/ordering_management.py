@@ -39,7 +39,7 @@ class OrderingManager:
         r = requests.get(offering_url)
 
         if r.status_code != 200:
-            raise OrderingError('The product offering specified in order item ' + item['id'] + 'does not exists')
+            raise OrderingError('The product offering specified in order item ' + item['id'] + ' does not exists')
 
         offering_info = r.json()
 
@@ -48,7 +48,7 @@ class OrderingManager:
         r1 = requests.get(product_url)
 
         if r1.status_code != 200:
-            raise OrderingError('The product specification specified in order item ' + item['id'] + 'does not exists')
+            raise OrderingError('The product specification specified in order item ' + item['id'] + ' does not exists')
 
         product_info = r1.json()
 
