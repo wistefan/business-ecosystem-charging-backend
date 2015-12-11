@@ -53,7 +53,6 @@ class Contract(models.Model):
 
 
 class Order(models.Model):
-    ref = models.CharField(max_length=50)
     description = models.CharField(max_length=1500)
     order_id = models.CharField(max_length=50)
     customer = models.ForeignKey(User)
@@ -71,7 +70,7 @@ class Order(models.Model):
 
     def get_item_contract(self, item_id):
         # Search related contract
-        for c in self._order.contracts:
+        for c in self.contracts:
             if c.item_id == item_id:
                 contract = c
                 break
