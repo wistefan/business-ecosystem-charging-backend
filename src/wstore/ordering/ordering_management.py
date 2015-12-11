@@ -53,11 +53,12 @@ class OrderingManager:
         product_info = r1.json()
 
         # Get offering provider (Owner role)
-        provider = None
         for party in product_info['relatedParty']:
             if party['role'].lower() == 'owner':
                 provider = Organization.objects.get(name=party['id'])
                 break
+        else:
+            raise OrderingError('The product specification included in the order item ' + item['id'] + ' does not contain a valid provider')
 
         # Check if the offering contains a description
         description = ''
