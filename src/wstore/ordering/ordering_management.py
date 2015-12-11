@@ -77,8 +77,8 @@ class OrderingManager:
 
         # Build pricing if included
         pricing = {}
-        if 'productPrice' in item and len(item['productPrice']):
-            price = item['productPrice'][0]
+        if 'product' in item and 'productPrice' in item['product'] and len(item['product']['productPrice']):
+            price = item['product']['productPrice'][0]
 
             pricing['general_currency'] = price['price']['currencyCode']
             unit_field = {
