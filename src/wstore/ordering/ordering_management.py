@@ -103,7 +103,7 @@ class OrderingManager:
             if price['priceType'].lower() not in model_mapper:
                 raise OrderingError('Invalid price model ' + price['priceType'])
 
-            pricing[model_mapper[price['priceType'].lower()]] = price_unit
+            pricing[model_mapper[price['priceType'].lower()]] = [price_unit]
 
         # Calculate the revenue sharing class
         revenue_class = None
