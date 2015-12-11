@@ -81,6 +81,15 @@ class OrderingManager:
         if 'product' in item and 'productPrice' in item['product'] and len(item['product']['productPrice']):
             price = item['product']['productPrice'][0]
 
+            model_mapper = {
+                'one time': 'single_payment',
+                'recurring': 'subscription',
+                'usage': 'pay_per_use'
+            }
+
+            if price['priceType'].lower() not in model_mapper:
+                raise OrderingError('Invalid price model ' + price['priceType'])
+
             pricing['general_currency'] = price['price']['currencyCode']
             unit_field = {
                 'usage': 'unitOfMeasure',
@@ -94,15 +103,6 @@ class OrderingManager:
                 'tax_rate': price['price']['taxRate'],
                 'duty_free': price['price']['dutyFreeAmount']
             }
-
-            model_mapper = {
-                'one time': 'single_payment',
-                'recurring': 'subscription',
-                'usage': 'pay_per_use'
-            }
-
-            if price['priceType'].lower() not in model_mapper:
-                raise OrderingError('Invalid price model ' + price['priceType'])
 
             pricing[model_mapper[price['priceType'].lower()]] = [price_unit]
 
