@@ -195,8 +195,8 @@ class ChargingEngine:
         if applied_accounting:
             pending_payment['accounting'] = applied_accounting
 
-        self._order.contract.pending_payment = pending_payment
-        self._order.contract.save()
+        self._order.pending_payment = pending_payment
+        self._order.save()
 
     def _process_initial_charge(self):
         """
