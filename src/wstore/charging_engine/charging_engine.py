@@ -98,15 +98,11 @@ class ChargingEngine:
         client.start_redirection_payment(transactions)
         checkout_url = client.get_checkout_url()
 
-        if checkout_url:
-            # Set timeout for PayPal transaction to 5 minutes
-            t = threading.Timer(300, self._timeout_handler)
-            t.start()
+        # Set timeout for PayPal transaction to 5 minutes
+        t = threading.Timer(300, self._timeout_handler)
+        t.start()
 
-            return checkout_url
-        else:
-            self._order.state = 'paid'
-            self._order.save()
+        return checkout_url
 
     def _calculate_renovation_date(self, unit):
 
