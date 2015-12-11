@@ -85,12 +85,12 @@ class OrderingManager:
             unit_field = {
                 'usage': 'unitOfMeasure',
                 'recurring': 'recurringChargePeriod',
-                'one time': ''
+                'one time': 'priceType'
             }
 
             price_unit = {
                 'value': price['price']['taxIncludedAmount'],
-                'unit': unit_field[price['priceType'].lower()],
+                'unit': price[unit_field[price['priceType'].lower()]].lower(),
                 'tax_rate': price['price']['taxRate'],
                 'duty_free': price['price']['dutyFreeAmount']
             }
