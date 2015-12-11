@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 
 import time
 import threading
+import importlib
 from bson import ObjectId
 from datetime import datetime
 
@@ -87,10 +88,9 @@ class ChargingEngine:
 
         # Load payment client
         cln_str = settings.PAYMENT_CLIENT
-        client_class = cln_str.split('.')[-1]
-        client_package = cln_str.partition('.' + client_class)[0]
+        client_package, client_class = cln_str.rsplit('.', 1)
 
-        payment_client = getattr(__import__(client_package, globals(), locals(), [client_class], -1), client_class)
+        payment_client = getattr(importlib.import_module(client_package), client_class)
 
         # build the payment client
         client = payment_client(self._order)
