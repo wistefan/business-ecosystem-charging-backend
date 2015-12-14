@@ -33,8 +33,8 @@ from wstore.charging_engine.models import Unit
 from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
-from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order
+from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 
 
@@ -63,12 +63,15 @@ class ChargingEngine:
             if pre_value['state'] == 'pending':
                 # Refresh the purchase
                 order = Order.objects.get(pk=self._order.pk)
+                ordering_client = OrderingClient()
+                ordering_client.update_state(order.order_id, 'Failed')
                 order.delete()
 
-            db.wstore_order.find_one_and_update(
-                {'_id': ObjectId(self._order.pk)},
-                {'$set': {'_lock': False}}
-            )
+            else:
+                db.wstore_order.find_one_and_update(
+                    {'_id': ObjectId(self._order.pk)},
+                    {'$set': {'_lock': False}}
+                )
 
     def _fix_price(self, price):
 
