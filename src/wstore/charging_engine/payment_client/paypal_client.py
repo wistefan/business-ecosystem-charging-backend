@@ -17,6 +17,7 @@
 # You should have received a copy of the European Union Public Licence
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from decimal import Decimal
 
 import paypalrestsdk
 
@@ -58,8 +59,8 @@ class PayPalClient(PaymentClient):
                 'payment_method': 'paypal'
             },
             'redirect_urls': {
-                'return_url': url + 'charging/api/orderManagement/orders/' + self._order.pk + '/accept',
-                'cancel_url': url + 'charging/api/orderManagement/orders/' + self._order.pk + '/cancel'
+                'return_url': url + 'payment?action=accept&ref=' + self._order.pk,
+                'cancel_url': url + 'payment?action=cancel&ref=' + self._order.pk
             },
             'transactions': [{
                 'amount': {
@@ -72,7 +73,37 @@ class PayPalClient(PaymentClient):
 
         # Create Payment
         if not payment.create():
-            raise Exception("The payment cannot be created: " + payment.error)
+
+            # Check if the error is due to a problem supporting multiple transactions
+            details = payment.error['details']
+            if len(transactions) > 1 and len(details) == 1 and \
+                    details[0]['issue'] == 'Only single payment transaction currently supported':
+
+                # Aggregate transactions in a single payment if possible
+                current_curr = transactions[0]['currency']
+                total = Decimal('0')
+                items = ''
+
+                for t in transactions:
+                    # Only if all the transactions have the same currency they can be aggregated
+                    if t['currency'] != current_curr:
+                        break
+
+                    total += Decimal(t['price'])
+                    items += t['item_id'] + ':' + t['price'] + '<' + t['description'] + '>'
+                else:
+                    msg = 'All your order items have been aggregated, since PayPal is not able '
+                    msg += 'to process multiple transactions in this moment.                   '
+                    msg += 'Order composed of the following items ' + items
+
+                    self.start_redirection_payment([{
+                        'price': unicode(total),
+                        'currency': current_curr,
+                        'description': msg
+                    }])
+                    return
+
+            raise Exception("The payment cannot be created: " + payment.error.message)
 
         # Extract URL where redirecting the customer
         response = payment.to_dict()
