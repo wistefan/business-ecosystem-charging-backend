@@ -27,3 +27,11 @@ class OrderingError(Exception):
 
     def __unicode__(self):
         return 'OrderingError: ' + self.value
+
+
+class PaymentError(Exception):
+    def __init__(self, msg):
+        self.value = msg
+
+    def __unicode__(self):
+        return self.value

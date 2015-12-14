@@ -36,6 +36,6 @@ urlpatterns = patterns('',
     url(r'^charging/api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',))),
 
     url(r'^charging/api/orderManagement/orders/?$', ordering_views.OrderingCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/orders/(?P<reference>[\w]+)/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('GET',))),
-    url(r'^charging/api/orderManagement/orders/(?P<reference>[\w]+)/cancel/?$', charging_views.PayPalCancelation(permitted_methods=('GET',)))
+    url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
+    url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',)))
 )
