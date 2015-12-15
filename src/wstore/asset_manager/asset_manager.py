@@ -80,6 +80,7 @@ class AssetManager():
             content_type=resource_data['content_type'].lower(),
             resource_type=resource_data['resource_type'],
             state=resource_data['state'],
+            is_public=resource_data['is_public'],
             meta_info=resource_data['metadata']
         )
         self.rollback_logger['models'].append(resource)
@@ -94,7 +95,8 @@ class AssetManager():
             'product_ref': '',
             'version': '',
             'resource_type': '',
-            'state': ''
+            'state': '',
+            'is_public': data.get('isPublic', False)
         }
 
         current_organization = provider.userprofile.current_organization

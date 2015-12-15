@@ -118,6 +118,7 @@ class Resource(models.Model):
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
     state = models.CharField(max_length=20)
     resource_type = models.CharField(max_length=100)
+    is_public = models.BooleanField(default=False)
     meta_info = DictField()
 
     def get_url(self):

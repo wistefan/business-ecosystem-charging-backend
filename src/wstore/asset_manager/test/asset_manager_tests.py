@@ -238,6 +238,7 @@ class UploadAssetTestCase(TestCase):
                 content_type='application/x-widget',
                 resource_type='',
                 state='',
+                is_public=False,
                 meta_info={}
             )
         else:
