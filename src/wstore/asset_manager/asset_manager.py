@@ -49,7 +49,7 @@ class AssetManager():
             raise ValueError('Invalid file name format: Unsupported character')
 
         # Create provider dir for assets if it does not exists
-        provider_dir = os.path.join(settings.MEDIA_ROOT, 'resources')
+        provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets')
         provider_dir = os.path.join(provider_dir, provider)
 
         if not os.path.isdir(provider_dir):

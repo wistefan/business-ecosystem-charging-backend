@@ -212,29 +212,29 @@ class UploadAssetTestCase(TestCase):
 
             # Check calls
             self.assertEquals("http://locationurl.com/", location)
-            asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/resources/test_user")
-            asset_manager.os.path.exists.assert_called_once_with("/home/test/media/resources/test_user/example.wgt")
-            self.open_mock.assert_called_once_with("/home/test/media/resources/test_user/example.wgt", "wb")
+            asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
+            asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
+            self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")
             self.open_mock().write.assert_called_once_with("Test data content")
 
             # Check rollback logger
             self.assertEquals({
-                'files': ["/home/test/media/resources/test_user/example.wgt"],
+                'files': ["/home/test/media/assets/test_user/example.wgt"],
                 'models': [self.res_mock]
             }, am.rollback_logger)
 
             # Check file calls
             if self._file is not None:
                 self._file.seek.assert_called_once_with(0)
-                asset_manager.os.mkdir.assert_called_once_with("/home/test/media/resources/test_user")
+                asset_manager.os.mkdir.assert_called_once_with("/home/test/media/assets/test_user")
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
                 product_ref='',
                 provider=self._user.userprofile.current_organization,
                 version='',
-                download_link='http://testdomain.com/media/resources/test_user/example.wgt',
-                resource_path='/media/resources/test_user/example.wgt',
+                download_link='http://testdomain.com/media/assets/test_user/example.wgt',
+                resource_path='/media/assets/test_user/example.wgt',
                 content_type='application/x-widget',
                 resource_type='',
                 state='',
