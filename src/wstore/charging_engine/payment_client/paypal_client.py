@@ -24,6 +24,7 @@ import paypalrestsdk
 from django.contrib.sites.models import Site
 
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
+from wstore.ordering.errors import PaymentError
 
 
 # Paypal creadetials
@@ -103,7 +104,7 @@ class PayPalClient(PaymentClient):
                     }])
                     return
 
-            raise Exception("The payment cannot be created: " + payment.error.message)
+            raise PaymentError("The payment cannot be created: " + payment.error.message)
 
         # Extract URL where redirecting the customer
         response = payment.to_dict()
@@ -119,7 +120,7 @@ class PayPalClient(PaymentClient):
         payment = paypalrestsdk.Payment.find(token)
 
         if not payment.execute({"payer_id": payer_id}):
-            raise Exception("The payment cannot be executed: " + payment.error)
+            raise PaymentError("The payment cannot be executed: " + payment.error)
 
     def get_checkout_url(self):
         return self._checkout_url
