@@ -50,7 +50,8 @@ class OrderingManagementTestCase(TestCase):
         # Mock Offering model
         ordering_management.Offering = MagicMock()
         self._offering_inst = MagicMock()
-        ordering_management.Offering.return_value = self._offering_inst
+        ordering_management.Offering.objects.filter.return_value = []
+        ordering_management.Offering.objects.create.return_value = self._offering_inst
 
         # Mock Contract model
         ordering_management.Contract = MagicMock()
@@ -76,8 +77,10 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Organization.objects.get.return_value = self._org_inst
 
     def _check_offering_call(self, description="Example offering description"):
-        ordering_management.Offering.assert_called_once_with(
+        ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
+        ordering_management.Offering.objects.create.assert_called_once_with(
             off_id="5",
+            href="http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)",
             owner_organization=self._org_inst,
             name="Example offering",
             description=description,
@@ -91,6 +94,22 @@ class OrderingManagementTestCase(TestCase):
             revenue_class=revenue_class,
             offering=self._offering_inst
         )
+
+    def _check_offering_retrieving_call(self):
+        ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
+        ordering_management.Offering.objects.get.assert_called_once_with(off_id="5")
+        self.assertEquals('Example offering description', self._offering_inst.description)
+        self.assertEquals('1.0', self._offering_inst.version)
+        self.assertEquals('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)', self._offering_inst.href)
+        self._offering_inst.save.assert_called_once_with()
+
+    def _check_request_calls(self):
+        # Check offering and product downloads
+        self.assertEquals(2, ordering_management.requests.get.call_count)
+        self.assertEquals([
+            call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
+            call('http://producturl.com/')
+        ], ordering_management.requests.get.call_args_list)
 
     def _basic_add_checker(self):
         # Check offering creation
@@ -106,10 +125,12 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         }, "single-payment")
+        ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
+        self._check_request_calls()
 
     def _recurring_add_checker(self):
         # Check offering creation
-        self._check_offering_call()
+        self._check_offering_retrieving_call()
 
         self._check_contract_call({
             'general_currency': 'EUR',
@@ -120,6 +141,7 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         }, 'subscription')
+        ordering_management.requests.get.assert_called_once_with('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)')
 
     def _usage_add_checker(self):
         self._check_offering_call(description="")
@@ -133,11 +155,17 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         }, 'use')
+        ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
+        self._check_request_calls()
 
     def _free_add_checker(self):
         self._check_offering_call()
 
         self._check_contract_call({}, None)
+
+    def _existing_offering(self):
+        ordering_management.Offering.objects.filter.return_value = [self._offering_inst]
+        ordering_management.Offering.objects.get.return_value = self._offering_inst
 
     def _no_offering_description(self):
         new_off = deepcopy(OFFERING_PRODUCT)
@@ -172,7 +200,7 @@ class OrderingManagementTestCase(TestCase):
 
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, _basic_add_checker),
-        ('recurring_add', RECURRING_ORDER, _recurring_add_checker),
+        ('recurring_add', RECURRING_ORDER, _recurring_add_checker, _existing_offering),
         ('usage_add', USAGE_ORDER, _usage_add_checker, _no_offering_description),
         ('free_add', FREE_ORDER, _free_add_checker),
         ('no_product_add', NOPRODUCT_ORDER, _free_add_checker),
@@ -202,7 +230,6 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals('http://redirectionurl.com/', redirect_url)
 
             # Check common calls
-            ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
 
             ordering_management.Order.objects.create.assert_called_once_with(
@@ -214,13 +241,6 @@ class OrderingManagementTestCase(TestCase):
                 contracts=[self._contract_inst],
                 description=""
             )
-
-            # Check offering and product downloads
-            self.assertEquals(2, ordering_management.requests.get.call_count)
-            self.assertEquals([
-                call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-                call('http://producturl.com/')
-            ], ordering_management.requests.get.call_args_list)
 
             # Check particular calls
             checker(self)

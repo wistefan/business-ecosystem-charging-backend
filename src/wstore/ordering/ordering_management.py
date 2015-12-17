@@ -36,42 +36,57 @@ class OrderingManager:
 
     def _get_offering(self, item):
         offering_url = item['productOffering']['href']
+
         r = requests.get(offering_url)
 
         if r.status_code != 200:
             raise OrderingError('The product offering specified in order item ' + item['id'] + ' does not exists')
 
         offering_info = r.json()
-
-        # Download product specification to obtain related parties
-        product_url = offering_info['productSpecification']['href']
-        r1 = requests.get(product_url)
-
-        if r1.status_code != 200:
-            raise OrderingError('The product specification specified in order item ' + item['id'] + ' does not exists')
-
-        product_info = r1.json()
-
-        # Get offering provider (Owner role)
-        for party in product_info['relatedParty']:
-            if party['role'].lower() == 'owner':
-                provider = Organization.objects.get(name=party['id'])
-                break
-        else:
-            raise OrderingError('The product specification included in the order item ' + item['id'] + ' does not contain a valid provider')
+        offering_id = offering_info['id']
 
         # Check if the offering contains a description
         description = ''
         if 'description' in offering_info:
             description = offering_info['description']
 
-        return Offering(
-            off_id=offering_info['id'],
-            owner_organization=provider,
-            name=offering_info['name'],
-            description=description,
-            version=offering_info['version']
-        )
+        # Check if the offering has been already loaded in the system
+        if len(Offering.objects.filter(off_id=offering_id)) > 0:
+            offering = Offering.objects.get(off_id=offering_id)
+
+            offering.description = description
+
+            offering.version = offering_info['version']
+            offering.href = offering_url
+            offering.save()
+        else:
+            # Download product specification to obtain related parties
+            product_url = offering_info['productSpecification']['href']
+            r1 = requests.get(product_url)
+
+            if r1.status_code != 200:
+                raise OrderingError('The product specification specified in order item ' + item['id'] + ' does not exists')
+
+            product_info = r1.json()
+
+            # Get offering provider (Owner role)
+            for party in product_info['relatedParty']:
+                if party['role'].lower() == 'owner':
+                    provider = Organization.objects.get(name=party['id'])
+                    break
+            else:
+                raise OrderingError('The product specification included in the order item ' + item['id'] + ' does not contain a valid provider')
+
+            offering = Offering.objects.create(
+                off_id=offering_id,
+                href=offering_url,
+                owner_organization=provider,
+                name=offering_info['name'],
+                description=description,
+                version=offering_info['version']
+            )
+
+        return offering
 
     def _build_contract(self, item):
         # TODO: Check that the ordering API is actually validating that the chosen pricing and characteristics are valid for the given product

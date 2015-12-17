@@ -28,6 +28,7 @@ from wstore.ordering.errors import OrderingError
 
 class Offering(models.Model):
     off_id = models.CharField(max_length=50)
+    href = models.URLField()
     owner_organization = models.ForeignKey(Organization)
     name = models.CharField(max_length=200)
     version = models.CharField(max_length=100)
@@ -36,7 +37,7 @@ class Offering(models.Model):
 
 class Contract(models.Model):
     item_id = models.CharField(max_length=50)
-    offering = EmbeddedModelField(Offering)
+    offering = models.ForeignKey(Offering)
 
     # Parsed version of the pricing model used to calculate charges
     pricing_model = DictField()
