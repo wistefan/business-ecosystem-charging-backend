@@ -75,17 +75,7 @@ class ChargingEngine:
 
     def _fix_price(self, price):
 
-        price = str(price)
-
-        if price.find('.') != -1:
-            splited_price = price.split('.')
-
-            if len(splited_price[1]) > 2:
-                price = splited_price[0] + '.' + splited_price[1][:2]
-            elif len(splited_price[1]) < 2:
-                price += '0'
-
-        return price
+        return '{0:.2f}'.format(price)
 
     def _charge_client(self, transactions):
 

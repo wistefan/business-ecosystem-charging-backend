@@ -169,7 +169,7 @@ class PayPalConfirmation(Resource):
             # If the value of _lock before setting it to true was true, means
             # that the time out function has acquired it previously so the
             # view ends
-            if '_lock' in pre_value and pre_value['_lock']:
+            if not pre_value or '_lock' in pre_value and pre_value['_lock']:
                 raise PaymentError('The timeout set to process the payment has finished')
 
             if not Order.objects.filter(pk=reference):
