@@ -43,29 +43,42 @@ class ProductValidator():
             'media type': [],
             'location': []
         }
+        asset_type = None
+        media_type = None
+        location = None
 
-        if 'productSpecCharacteristic' not in product_spec:
-            raise ProductError('The product specification does not contain the productSpecCharacteristic field')
+        if 'productSpecCharacteristic' in product_spec:
 
-        # Extract the needed characteristics for processing digital assets
-        for char in product_spec['productSpecCharacteristic']:
-            if char['name'].lower() in expected_chars:
-                expected_chars[char['name'].lower()].append(self._get_characteristic_value(char))
+            # Extract the needed characteristics for processing digital assets
+            is_digital = False
+            for char in product_spec['productSpecCharacteristic']:
+                if char['name'].lower() in expected_chars:
+                    is_digital = True
+                    expected_chars[char['name'].lower()].append(self._get_characteristic_value(char))
 
-        for char_name in expected_chars:
-            # Validate the existance of the characteristic
-            if not len(expected_chars[char_name]):
-                raise ProductError('The product specification must contain a ' + char_name + ' characteristic')
+            for char_name in expected_chars:
+                # Validate the existance of the characteristic
+                if not len(expected_chars[char_name]) and is_digital:
+                    raise ProductError('Digital product specifications must contain a ' + char_name + ' characteristic')
 
-            # Validate that only a value has been provided
-            if len(expected_chars[char_name]) > 1:
-                raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
+                # Validate that only a value has been provided
+                if len(expected_chars[char_name]) > 1:
+                    raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
 
-        return expected_chars['asset type'][0], expected_chars['media type'][0], expected_chars['location'][0]
+            if is_digital:
+                asset_type = expected_chars['asset type'][0]
+                media_type = expected_chars['media type'][0]
+                location = expected_chars['location'][0]
+
+        return asset_type, media_type, location
 
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
         asset_t, media_type, url = self._parse_characteristics(product_spec)
+
+        # If none of the digital assets characteristics have been include means that is a physical product
+        if asset_t is None and media_type is None and url is None:
+            return
 
         # Search the asset type
         try:
