@@ -60,8 +60,8 @@ class PayPalClient(PaymentClient):
                 'payment_method': 'paypal'
             },
             'redirect_urls': {
-                'return_url': url + 'payment?action=accept&ref=' + self._order.pk,
-                'cancel_url': url + 'payment?action=cancel&ref=' + self._order.pk
+                'return_url': url + 'payment#?action=accept&ref=' + self._order.pk,
+                'cancel_url': url + 'payment#?action=cancel&ref=' + self._order.pk
             },
             'transactions': [{
                 'amount': {
