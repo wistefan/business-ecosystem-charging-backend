@@ -339,7 +339,7 @@ class PayPalConfirmationTestCase(TestCase):
         }, _unauthorized, None, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled'
+            'message': 'The payment has been canceled due to an unexpected error'
         }, _exception, None, True, True)
     ])
     @override_settings(PAYMENT_METHOD=None)

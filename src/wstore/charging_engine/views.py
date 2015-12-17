@@ -218,12 +218,13 @@ class PayPalConfirmation(Resource):
                 ordering_client.update_state(order.order_id, 'Failed')
                 order.delete()
 
-            msg = 'The payment has been canceled'
+            expl = ' due to an unexpected error'
             err_code = 500
             if isinstance(e, PaymentError) or isinstance(e, ValueError):
-                msg += ': ' + unicode(e)
+                expl = ': ' + unicode(e)
                 err_code = 403
 
+            msg = 'The payment has been canceled' + expl
             return build_response(request, err_code, msg)
 
         # Set order state as completed
