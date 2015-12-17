@@ -88,10 +88,9 @@ class ProductValidatorTestCase(TestCase):
         ('url_asset', BASIC_PRODUCT, False, _only_url),
         ('url_file_allowed', BASIC_PRODUCT, False, _support_file),
         ('invalid_action', INVALID_ACTION, True, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, update, upgrade, and delete'),
-        ('missing_chars', MISSING_CHAR, True, None, ProductError, 'ProductError: The product specification does not contain the productSpecCharacteristic field'),
-        ('missing_media', MISSING_MEDIA, True, None, ProductError, 'ProductError: The product specification must contain a media type characteristic'),
-        ('missing_type', MISSING_TYPE, True, None, ProductError, 'ProductError: The product specification must contain a asset type characteristic'),
-        ('missing_location', MISSING_LOCATION, True, None, ProductError, 'ProductError: The product specification must contain a location characteristic'),
+        ('missing_media', MISSING_MEDIA, True, None, ProductError, 'ProductError: Digital product specifications must contain a media type characteristic'),
+        ('missing_type', MISSING_TYPE, True, None, ProductError, 'ProductError: Digital product specifications must contain a asset type characteristic'),
+        ('missing_location', MISSING_LOCATION, True, None, ProductError, 'ProductError: Digital product specifications must contain a location characteristic'),
         ('multiple_char', MULTIPLE_LOCATION, True, None, ProductError, 'ProductError: The product specification must not contain more than one location characteristic'),
         ('multiple_values', MULTIPLE_VALUES, True, None, ProductError, 'ProductError: The characteristic Location must not contain multiple values'),
         ('not_supported', BASIC_PRODUCT, True, _not_supported, ProductError, 'ProductError: The given product specification contains a not supported asset type: Widget'),
@@ -136,3 +135,15 @@ class ProductValidatorTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(err_msg, unicode(e))
+
+    @parameterized.expand([
+        ('no_chars', NO_CHARS_PRODUCT),
+        ('no_digital_chars', EMPTY_CHARS_PRODUCT)
+    ])
+    def test_validate_physical(self, name, product):
+        validator = product_validator.ProductValidator()
+        validator.validate('create', self._provider, product)
+
+        self.assertEquals(0, product_validator.ResourcePlugin.objects.get.call_count)
+        self.assertEquals(0, product_validator.Resource.objects.get.call_count)
+        self.assertEquals(0, product_validator.Resource.objects.create.call_count)

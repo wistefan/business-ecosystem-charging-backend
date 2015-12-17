@@ -612,3 +612,96 @@ INVALID_LOCATION = {
         ]
     }
 }
+
+NO_CHARS_PRODUCT = {
+    "productNumber": "I42-340-DX",
+    "version": "2.0",
+    "lastUpdate": "2013-04-19T16:42:23-04:00",
+    "name": "Basic dataset",
+    "description": "An example dataset",
+    "isBundle": False,
+    "brand": "CoNWeT",
+    "lifecycleStatus": "Active",
+    "validFor": {
+        "startDateTime": "2013-04-19T16:42:23-04:00",
+        "endDateTime": "2013-06-19T00:00:00-04:00"
+    },
+    "relatedParty": [
+        {
+            "role": "Owner",
+            "id": "test_user",
+            "href": "http ://serverLocation:port/partyManagement/partyRole/1234"
+        }
+    ],
+    "attachment": [
+        {
+            "id": "22",
+            "href": "http://serverlocation:port/documentManagement/attachment/22",
+            "type": "Picture",
+            "url": "http://xxxxx"
+        }
+    ],
+    "bundledProductSpecification": [],
+    "serviceSpecification": [],
+    "resourceSpecification": []
+}
+
+EMPTY_CHARS_PRODUCT = {
+    "productNumber": "I42-340-DX",
+    "version": "2.0",
+    "lastUpdate": "2013-04-19T16:42:23-04:00",
+    "name": "Basic dataset",
+    "description": "An example dataset",
+    "isBundle": False,
+    "brand": "CoNWeT",
+    "lifecycleStatus": "Active",
+    "validFor": {
+        "startDateTime": "2013-04-19T16:42:23-04:00",
+        "endDateTime": "2013-06-19T00:00:00-04:00"
+    },
+    "relatedParty": [
+       {
+            "role": "Owner",
+            "id": "test_user",
+            "href": "http ://serverLocation:port/partyManagement/partyRole/1234"
+        }
+    ],
+    "attachment": [
+        {
+            "id": "22",
+            "href": "http://serverlocation:port/documentManagement/attachment/22",
+            "type": "Picture",
+            "url": "http://xxxxx"
+        }
+    ],
+    "bundledProductSpecification": [],
+    "serviceSpecification": [],
+    "resourceSpecification": [],
+    "productSpecCharacteristic": [
+        {
+            "id": "42",
+            "name": "Custom char",
+            "description": "Custom characteristic of the product",
+            "valueType": "string",
+            "configurable": False,
+            "validFor": {
+                "startDateTime": "2013-04-19T16:42:23-04:00",
+                "endDateTime": ""
+            },
+            "productSpecCharacteristicValue": [
+                {
+                    "valueType": "string",
+                    "default": True,
+                    "value": "Custom value",
+                    "unitOfMeasure": "",
+                    "valueFrom": "",
+                    "valueTo": "",
+                    "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                        "endDateTime": ""
+                    }
+                }
+            ]
+        }
+    ]
+}
