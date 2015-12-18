@@ -74,7 +74,6 @@ class ChargingEngine:
                 )
 
     def _fix_price(self, price):
-
         return '{0:.2f}'.format(price)
 
     def _charge_client(self, transactions):
@@ -215,9 +214,10 @@ class ChargingEngine:
 
             if len(related_model):
                 # Call the price resolver
-                price = self._price_resolver.resolve_price(related_model)
+                price, duty_free = self._price_resolver.resolve_price(related_model)
                 transactions.append({
                     'price': self._fix_price(price),
+                    'duty_free': self._fix_price(duty_free),
                     'description': contract.offering.description,
                     'currency': contract.pricing_model['general_currency'],
                     'related_model': related_model,

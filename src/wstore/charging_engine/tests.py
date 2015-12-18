@@ -111,6 +111,7 @@ class ChargingEngineTestCase(TestCase):
 
         return [{
             'price': '12.00',
+            'duty_free': '10.00',
             'description': 'Offering 1 description',
             'currency': 'EUR',
             'related_model': {
@@ -124,6 +125,7 @@ class ChargingEngineTestCase(TestCase):
             'item': '1'
         }, {
             'price': '12.00',
+            'duty_free': '10.00',
             'description': 'Offering 2 description',
             'currency': 'EUR',
             'related_model': {
