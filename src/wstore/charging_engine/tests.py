@@ -97,11 +97,13 @@ class ChargingEngineTestCase(TestCase):
     def _set_initial_contracts(self):
         contract1 = MagicMock()
         contract1.offering.description = 'Offering 1 description'
+        contract1.offering.pk = '111111'
         contract1.item_id = '1'
         contract1.pricing_model = self._get_single_payment()
 
         contract2 = MagicMock()
         contract2.offering.description = 'Offering 2 description'
+        contract2.offering.pk = '222222'
         contract2.item_id = '2'
         contract2.pricing_model = self._get_subscription()
 

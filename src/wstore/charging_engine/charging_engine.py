@@ -124,6 +124,10 @@ class ChargingEngine:
             contract.pricing_model['subscription'] = updated_subscriptions
             related_model['subscription'] = updated_subscriptions
 
+        # Save offerings in org profile
+        self._order.owner_organization.acquired_offerings.append(contract.offering.pk)
+        self._order.owner_organization.save()
+
     def _end_use_charge(self, contract, related_model, accounting=None):
         # Move SDR from pending to applied
         self._order.contract.applied_sdrs.extend(self._order.contract.pending_sdrs)
