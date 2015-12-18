@@ -76,7 +76,13 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Organization = MagicMock()
         ordering_management.Organization.objects.get.return_value = self._org_inst
 
-    def _check_offering_call(self, description="Example offering description"):
+        # Mock Product validator
+        self._validator_inst = MagicMock()
+        ordering_management.ProductValidator = MagicMock()
+        ordering_management.ProductValidator.return_value = self._validator_inst
+        self._validator_inst.parse_characteristics.return_value = ('type', 'media_type', 'http://location.com')
+
+    def _check_offering_call(self, description="Example offering description", is_digital=True):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
         ordering_management.Offering.objects.create.assert_called_once_with(
             off_id="5",
@@ -84,7 +90,8 @@ class OrderingManagementTestCase(TestCase):
             owner_organization=self._org_inst,
             name="Example offering",
             description=description,
-            version="1.0"
+            version="1.0",
+            is_digital=is_digital
         )
 
     def _check_contract_call(self, pricing, revenue_class):
@@ -103,14 +110,6 @@ class OrderingManagementTestCase(TestCase):
         self.assertEquals('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)', self._offering_inst.href)
         self._offering_inst.save.assert_called_once_with()
 
-    def _check_request_calls(self):
-        # Check offering and product downloads
-        self.assertEquals(2, ordering_management.requests.get.call_count)
-        self.assertEquals([
-            call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-            call('http://producturl.com/')
-        ], ordering_management.requests.get.call_args_list)
-
     def _basic_add_checker(self):
         # Check offering creation
         self._check_offering_call()
@@ -126,7 +125,9 @@ class OrderingManagementTestCase(TestCase):
             }]
         }, "single-payment")
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
-        self._check_request_calls()
+
+    def _non_digital_add_checker(self):
+        self._check_offering_call(is_digital=False)
 
     def _recurring_add_checker(self):
         # Check offering creation
@@ -141,7 +142,6 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         }, 'subscription')
-        ordering_management.requests.get.assert_called_once_with('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)')
 
     def _usage_add_checker(self):
         self._check_offering_call(description="")
@@ -156,12 +156,14 @@ class OrderingManagementTestCase(TestCase):
             }]
         }, 'use')
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
-        self._check_request_calls()
 
     def _free_add_checker(self):
         self._check_offering_call()
 
         self._check_contract_call({}, None)
+
+    def _non_digital_offering(self):
+        self._validator_inst.parse_characteristics.return_value = (None, None, None)
 
     def _existing_offering(self):
         ordering_management.Offering.objects.filter.return_value = [self._offering_inst]
@@ -198,8 +200,14 @@ class OrderingManagementTestCase(TestCase):
         }]
         self._response.json.return_value = new_off
 
+    def _already_owned(self):
+        self._existing_offering()
+        self._offering_inst.pk = '11111'
+        self._customer.current_organization.acquired_offerings = ['11111']
+
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, _basic_add_checker),
+        ('non_digital_add', BASIC_ORDER, _non_digital_add_checker, _non_digital_offering),
         ('recurring_add', RECURRING_ORDER, _recurring_add_checker, _existing_offering),
         ('usage_add', USAGE_ORDER, _usage_add_checker, _no_offering_description),
         ('free_add', FREE_ORDER, _free_add_checker),
@@ -209,7 +217,8 @@ class OrderingManagementTestCase(TestCase):
         ('invalid_offering', BASIC_ORDER, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),
         ('invalid_product', BASIC_ORDER, None, _missing_product, 'OrderingError: The product specification specified in order item 1 does not exists'),
         ('no_parties', BASIC_ORDER, None, _no_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
-        ('invalid_party', BASIC_ORDER, None, _inv_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider')
+        ('invalid_party', BASIC_ORDER, None, _inv_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
+        ('already_owned', BASIC_ORDER, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5')
     ])
     def test_process_order(self, name, order, checker, side_effect=None, err_msg=None):
 
@@ -232,6 +241,13 @@ class OrderingManagementTestCase(TestCase):
             # Check common calls
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
 
+            # Check offering and product downloads
+            self.assertEquals(2, ordering_management.requests.get.call_count)
+            self.assertEquals([
+                call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
+                call('http://producturl.com/')
+            ], ordering_management.requests.get.call_args_list)
+
             ordering_management.Order.objects.create.assert_called_once_with(
                 order_id="12",
                 customer=self._customer,
@@ -245,7 +261,7 @@ class OrderingManagementTestCase(TestCase):
             # Check particular calls
             checker(self)
         else:
-            self.assertEquals(err_msg, unicode(e))
+            self.assertEquals(err_msg, unicode(error))
 
 
 class OrderingClientTestCase(TestCase):

@@ -37,7 +37,7 @@ class ProductValidator():
 
         return characteristic['productSpecCharacteristicValue'][0]['value']
 
-    def _parse_characteristics(self, product_spec):
+    def parse_characteristics(self, product_spec):
         expected_chars = {
             'asset type': [],
             'media type': [],
@@ -74,7 +74,7 @@ class ProductValidator():
 
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
-        asset_t, media_type, url = self._parse_characteristics(product_spec)
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
 
         # If none of the digital assets characteristics have been include means that is a physical product
         if asset_t is None and media_type is None and url is None:

@@ -27,22 +27,41 @@ from wstore.store_commons.rollback import rollback
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order, Contract, Offering
+from wstore.asset_manager.product_validator import ProductValidator
 
 
 class OrderingManager:
 
     def __init__(self):
-        pass
+        self._customer = None
+        self._validator = ProductValidator()
 
-    def _get_offering(self, item):
-        offering_url = item['productOffering']['href']
-
-        r = requests.get(offering_url)
+    def _download(self, url, element, item_id):
+        r = requests.get(url)
 
         if r.status_code != 200:
-            raise OrderingError('The product offering specified in order item ' + item['id'] + ' does not exists')
+            raise OrderingError('The ' + element + ' specified in order item ' + item_id + ' does not exists')
 
-        offering_info = r.json()
+        return r.json()
+
+    def _download_models(self, item):
+        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
+        product_info = self._download(offering_info['productSpecification']['href'], 'product specification', item['id'])
+
+        return offering_info, product_info
+
+    def _get_offering(self, item):
+
+        # Download related product offering and product specification
+        offering_info, product_info = self._download_models(item)
+
+        # Check if the product is a digital one
+        asset_type, media_type, location = self._validator.parse_characteristics(product_info)
+
+        is_digital = True
+        if asset_type is None and media_type is None and location is None:
+            is_digital = False
+
         offering_id = offering_info['id']
 
         # Check if the offering contains a description
@@ -54,21 +73,16 @@ class OrderingManager:
         if len(Offering.objects.filter(off_id=offering_id)) > 0:
             offering = Offering.objects.get(off_id=offering_id)
 
+            # If the offering defines a digital product, check if the customer already owns it
+            if is_digital and offering.pk in self._customer.current_organization.acquired_offerings:
+                raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
+
             offering.description = description
 
             offering.version = offering_info['version']
-            offering.href = offering_url
+            offering.href = offering_info['href']
             offering.save()
         else:
-            # Download product specification to obtain related parties
-            product_url = offering_info['productSpecification']['href']
-            r1 = requests.get(product_url)
-
-            if r1.status_code != 200:
-                raise OrderingError('The product specification specified in order item ' + item['id'] + ' does not exists')
-
-            product_info = r1.json()
-
             # Get offering provider (Owner role)
             for party in product_info['relatedParty']:
                 if party['role'].lower() == 'owner':
@@ -79,12 +93,15 @@ class OrderingManager:
 
             offering = Offering.objects.create(
                 off_id=offering_id,
-                href=offering_url,
+                href=offering_info['href'],
                 owner_organization=provider,
                 name=offering_info['name'],
                 description=description,
-                version=offering_info['version']
+                version=offering_info['version'],
+                is_digital=is_digital
             )
+
+            self.rollback_logger['models'].append(offering)
 
         return offering
 
@@ -137,8 +154,7 @@ class OrderingManager:
             offering=self._get_offering(item)
         )
 
-    def _process_add_items(self, user, items, order_id, description):
-        # TODO: Check that for digital product the offering is not already owned
+    def _process_add_items(self, items, order_id, description):
 
         new_contracts = []
         for item in items:
@@ -146,10 +162,10 @@ class OrderingManager:
 
         order = Order.objects.create(
             order_id=order_id,
-            customer=user,
-            owner_organization=user.current_organization,
+            customer=self._customer,
+            owner_organization=self._customer.current_organization,
             state='pending',
-            tax_address=user.userprofile.tax_address,
+            tax_address=self._customer.userprofile.tax_address,
             contracts=new_contracts,
             description=description
         )
@@ -159,14 +175,16 @@ class OrderingManager:
         charging_engine = ChargingEngine(order)
         return charging_engine.resolve_charging()
 
-    def _process_modify_items(self, user, items):
+    def _process_modify_items(self, items):
         pass
 
-    def _process_delete_items(self, user, items):
+    def _process_delete_items(self, items):
         pass
 
     @rollback()
     def process_order(self, customer, order):
+
+        self._customer = customer
 
         # Check initial state of the order. It must be Acknowledged
         if order['state'].lower() != 'acknowledged':
@@ -184,10 +202,10 @@ class OrderingManager:
 
         # Process order items separately depending on its action. no_change items are not processed
         if len(items['modify']):
-            self._process_modify_items(customer, items['modify'])
+            self._process_modify_items(items['modify'])
 
         if len(items['delete']):
-            self._process_delete_items(customer, items['delete'])
+            self._process_delete_items(items['delete'])
 
         # The processing of add items can generate a redirection URL
         redirection_url = None
@@ -197,6 +215,6 @@ class OrderingManager:
             if 'description' in order:
                 description = order['description']
 
-            redirection_url = self._process_add_items(customer, items['add'], order['id'], description)
+            redirection_url = self._process_add_items(items['add'], order['id'], description)
 
         return redirection_url
