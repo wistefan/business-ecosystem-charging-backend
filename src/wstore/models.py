@@ -32,7 +32,7 @@ from wstore.admin.rss.models import *
 class Context(models.Model):
 
     site = models.OneToOneField(Site, related_name='site')
-    local_site = models.OneToOneField(Site, related_name='local_site')
+    local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
     top_rated = ListField()
     newest = ListField()
     user_refs = DictField()
@@ -55,11 +55,9 @@ class Organization(models.Model):
 
     name = models.CharField(max_length=50, unique=True)
     notification_url = models.CharField(max_length=300, null=True, blank=True)
-    offerings_purchased = ListField()
-    rated_offerings = ListField()
+    acquired_offerings = ListField()
     private = models.BooleanField(default=True)
     correlation_number = models.IntegerField(default=0)
-    payment_info = DictField()
     tax_address = DictField()
     managers = ListField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
@@ -88,35 +86,16 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User)
     organizations = ListField()
     current_organization = models.ForeignKey(Organization)
-    offerings_purchased = ListField()
-    offerings_provided = ListField()
-    rated_offerings = ListField()
     tax_address = DictField()
     complete_name = models.CharField(max_length=100)
-    payment_info = DictField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
 
     access_token = models.CharField(max_length=150, null=True, blank=True)
-    refresh_token = models.CharField(max_length=150, null=True, blank=True)
-    provider_requested = models.BooleanField(default=False)
 
     def get_current_roles(self):
         roles = []
         for o in self.organizations:
             if o['organization'] == self.current_organization.pk:
-                roles = o['roles']
-                break
-
-        return roles
-
-    def get_user_roles(self):
-        roles = []
-
-        for o in self.organizations:
-            org = Organization.objects.get(pk=o['organization'])
-
-            # Check organization name
-            if org.name == self.user.username:
                 roles = o['roles']
                 break
 
@@ -135,9 +114,6 @@ class UserProfile(models.Model):
                 result = True
 
         return result
-
-    def refreshing_token(self):
-        pass
 
 
 def create_user_profile(sender, instance, created, **kwargs):
