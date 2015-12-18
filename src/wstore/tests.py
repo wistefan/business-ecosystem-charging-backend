@@ -18,6 +18,8 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from mock import call
+
 from wstore.asset_manager.test.asset_manager_tests import *
 from wstore.store_commons.tests import *
 from wstore.admin.users.tests import *
@@ -59,9 +61,22 @@ class ServeMediaTestCase(TestCase):
         order_inst.owner_organization = self._org
         views.Order.objects.get.return_value = order_inst
 
-    def _validate_res_call(self,):
+        # Mock offering
+        views.Offering = MagicMock()
+        self._offering_inst = MagicMock()
+        self._offering_inst.asset = self._asset_inst
+        views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst]
+
+    def _validate_res_call(self):
         views.Resource.objects.get.assert_called_once_with(resource_path='/media/assets/test_user/widget.wgt')
         self.assertEquals(0, views.Order.objects.get.call_count)
+
+    def _validate_off_call(self):
+        self._validate_res_call()
+        self.assertEquals([
+            call(pk='offpk1'),
+            call(pk='offpk2')
+        ], views.Offering.objects.get.call_args_list)
 
     def _validate_order_call(self):
         views.Order.objects.get.assert_called_once_with(pk='111111111111111111111111')
@@ -110,14 +125,23 @@ class ServeMediaTestCase(TestCase):
     def _not_found(self):
         views.os.path.isfile.return_value = False
 
+    def _acquired(self):
+        self._user.userprofile.current_organization = MagicMock()
+        self._user.userprofile.current_organization.acquired_offerings = ['offpk1', 'offpk2']
+
     @parameterized.expand([
         ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt'),
+        ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt', _acquired),
         ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt', _public_asset),
         ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, '/home/test/media/bills/111111111111111111111111_userbill.pdf', _usexfiles),
         ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
             'result': 'error',
             'message': 'The specified asset does not exists'
         }), _asset_error),
+        ('asset_anonymous', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (401, {
+            'result': 'error',
+            'message': 'You must be authenticated to download the specified asset'
+        }), _not_loged),
         ('asset_unauthorized', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (403, {
             'result': 'error',
             'message': 'You are not authorized to download the specified asset'
@@ -145,9 +169,6 @@ class ServeMediaTestCase(TestCase):
     ])
     @override_settings(MEDIA_ROOT='/home/test/media/', MEDIA_URL='/media/')
     def test_serve_media(self, name, path, file_name, call_validator, res_validator, expected, side_effect=None):
-
-        #if name == 'invoice':
-        #    import ipdb; ipdb.set_trace()
 
         if side_effect is not None:
             side_effect(self)

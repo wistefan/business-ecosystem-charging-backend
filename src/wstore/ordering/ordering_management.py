@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 
 import requests
 
-from wstore.models import Organization
+from wstore.models import Organization, Resource
 from wstore.store_commons.rollback import rollback
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
@@ -58,9 +58,9 @@ class OrderingManager:
         # Check if the product is a digital one
         asset_type, media_type, location = self._validator.parse_characteristics(product_info)
 
-        is_digital = True
-        if asset_type is None and media_type is None and location is None:
-            is_digital = False
+        asset = None
+        if asset_type is not None and media_type is not None and location is not None:
+            asset = Resource.objects.get(download_link=location)
 
         offering_id = offering_info['id']
 
@@ -74,7 +74,7 @@ class OrderingManager:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            if is_digital and offering.pk in self._customer.current_organization.acquired_offerings:
+            if asset is not None and offering.pk in self._customer.current_organization.acquired_offerings:
                 raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
 
             offering.description = description
@@ -98,7 +98,8 @@ class OrderingManager:
                 name=offering_info['name'],
                 description=description,
                 version=offering_info['version'],
-                is_digital=is_digital
+                is_digital=asset is not None,
+                asset=asset
             )
 
             self.rollback_logger['models'].append(offering)

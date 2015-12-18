@@ -29,7 +29,7 @@ from store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
 
 from wstore.models import Resource
-from wstore.ordering.models import Order
+from wstore.ordering.models import Order, Offering
 
 
 class ServeMedia(API_Resource):
@@ -49,10 +49,18 @@ class ServeMedia(API_Resource):
                 return build_response(request, 404, 'The specified asset does not exists')
 
             # Check if the user has permissions to download the asset
-            if not asset.is_public and (request.user.is_anonymous() or
-                    request.user.userprofile.current_organization != asset.provider):
+            if not asset.is_public:
+                if request.user.is_anonymous():
+                    return build_response(request, 401, 'You must be authenticated to download the specified asset')
 
-                return build_response(request, 403, 'You are not authorized to download the specified asset')
+                if request.user.userprofile.current_organization != asset.provider:
+                    # Check if the user has acquired the asset
+                    for off in request.user.userprofile.current_organization.acquired_offerings:
+                        offering = Offering.objects.get(pk=off)
+                        if offering.asset == asset:
+                            break
+                    else:
+                        return build_response(request, 403, 'You are not authorized to download the specified asset')
 
         elif path.startswith('bills'):
             if request.user.is_anonymous():

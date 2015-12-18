@@ -82,7 +82,12 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.ProductValidator.return_value = self._validator_inst
         self._validator_inst.parse_characteristics.return_value = ('type', 'media_type', 'http://location.com')
 
-    def _check_offering_call(self, description="Example offering description", is_digital=True):
+        # Mock Resource
+        self._asset_instance = MagicMock()
+        ordering_management.Resource = MagicMock()
+        ordering_management.Resource.objects.get.return_value = self._asset_instance
+
+    def _check_offering_call(self, asset, description="Example offering description", is_digital=True):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
         ordering_management.Offering.objects.create.assert_called_once_with(
             off_id="5",
@@ -91,7 +96,8 @@ class OrderingManagementTestCase(TestCase):
             name="Example offering",
             description=description,
             version="1.0",
-            is_digital=is_digital
+            is_digital=is_digital,
+            asset=asset
         )
 
     def _check_contract_call(self, pricing, revenue_class):
@@ -112,7 +118,7 @@ class OrderingManagementTestCase(TestCase):
 
     def _basic_add_checker(self):
         # Check offering creation
-        self._check_offering_call()
+        self._check_offering_call(self._asset_instance)
 
         # Check contract creation
         self._check_contract_call({
@@ -127,7 +133,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _non_digital_add_checker(self):
-        self._check_offering_call(is_digital=False)
+        self._check_offering_call(None, is_digital=False)
 
     def _recurring_add_checker(self):
         # Check offering creation
@@ -144,7 +150,7 @@ class OrderingManagementTestCase(TestCase):
         }, 'subscription')
 
     def _usage_add_checker(self):
-        self._check_offering_call(description="")
+        self._check_offering_call(self._asset_instance, description="")
 
         self._check_contract_call({
             'general_currency': 'EUR',
@@ -158,7 +164,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _free_add_checker(self):
-        self._check_offering_call()
+        self._check_offering_call(self._asset_instance)
 
         self._check_contract_call({}, None)
 

@@ -22,7 +22,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from djangotoolbox.fields import DictField, EmbeddedModelField, ListField
 
-from wstore.models import Organization
+from wstore.models import Organization, Resource
 from wstore.ordering.errors import OrderingError
 
 
@@ -34,6 +34,7 @@ class Offering(models.Model):
     version = models.CharField(max_length=100)
     description = models.CharField(max_length=1500)
     is_digital = models.BooleanField(default=True)
+    asset = models.ForeignKey(Resource, null=True, blank=True)
 
 
 class Contract(models.Model):
