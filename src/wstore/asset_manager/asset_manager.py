@@ -135,12 +135,12 @@ class AssetManager():
 
     def get_resource_info(self, resource):
         return {
-            'product_ref': resource.product_ref,
+            'productHref': resource.product_ref,
             'version': resource.version,
-            'content_type': resource.content_type,
+            'contentType': resource.content_type,
             'state': resource.state,
             'href': resource.download_link,
-            'resource_type': resource.resource_type,
+            'resourceType': resource.resource_type,
             'metadata': resource.meta_info
         }
 

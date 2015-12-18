@@ -22,42 +22,42 @@ from __future__ import unicode_literals
 
 
 RESOURCE_DATA1 = {
-    'product_ref': 'http://tmforum.com/catalog/resource1',
+    'productHref': 'http://tmforum.com/catalog/resource1',
     'version': '1.0',
-    'content_type': 'text/plain',
+    'contentType': 'text/plain',
     'state': 'Active',
     'href': 'http://localhost/media/resources/resource1',
-    'resource_type': 'API',
+    'resourceType': 'API',
     'metadata': {}
 }
 
 RESOURCE_DATA2 = {
-    'product_ref': 'http://tmforum.com/catalog/resource2',
+    'productHref': 'http://tmforum.com/catalog/resource2',
     'version': '2.0',
-    'content_type': 'text/plain',
+    'contentType': 'text/plain',
     'state': 'Active',
     'href': 'http://localhost/media/resources/resource2',
-    'resource_type': 'API',
+    'resourceType': 'API',
     'metadata': {}
 }
 
 RESOURCE_DATA3 = {
-    'product_ref': 'http://tmforum.com/catalog/resource3',
+    'productHref': 'http://tmforum.com/catalog/resource3',
     'version': '2.0',
-    'content_type': 'text/plain',
+    'contentType': 'text/plain',
     'state': 'Active',
     'href': 'http://localhost/media/resources/resource3',
-    'resource_type': 'API',
+    'resourceType': 'API',
     'metadata': {}
 }
 
 RESOURCE_DATA4 = {
-    'product_ref': 'http://tmforum.com/catalog/resource4',
+    'productHref': 'http://tmforum.com/catalog/resource4',
     'version': '1.0',
-    'content_type': 'text/plain',
+    'contentType': 'text/plain',
     'state': 'Active',
     'href': 'http://localhost/media/resources/resource4',
-    'resource_type': 'API',
+    'resourceType': 'API',
     'metadata': {}
 }
 
