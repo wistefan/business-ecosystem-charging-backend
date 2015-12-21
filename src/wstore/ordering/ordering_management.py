@@ -20,7 +20,9 @@
 
 from __future__ import unicode_literals
 
+import re
 import requests
+from decimal import Decimal
 
 from wstore.models import Organization, Resource
 from wstore.store_commons.rollback import rollback
@@ -106,38 +108,103 @@ class OrderingManager:
 
         return offering
 
+    def _parse_price(self, model_mapper, price):
+
+        if price['priceType'].lower() not in model_mapper:
+            raise OrderingError('Invalid price model ' + price['priceType'])
+
+        unit_field = {
+            'one time': 'priceType',
+            'recurring': 'recurringChargePeriod',
+            'usage': 'unitOfMeasure'
+        }
+
+        return {
+            'value': price['price']['taxIncludedAmount'],
+            'unit': price[unit_field[price['priceType'].lower()]].lower(),
+            'tax_rate': price['price']['taxRate'],
+            'duty_free': price['price']['dutyFreeAmount']
+        }
+
+    def _parse_alteration(self, alteration, type_):
+        # Alterations cannot specify usage models
+        if alteration['priceType'].lower() != 'one time' and alteration['priceType'].lower() != 'recurring':
+            raise OrderingError('Invalid priceType in price alteration, it must be one time or recurring')
+
+        # Check if it is a fixed value or a percentage
+        if 'percentage' in alteration['price'] and Decimal(alteration['price']['percentage']) > Decimal(0):
+            value = alteration['price']['percentage']
+        else:
+            value = {
+                'value': alteration['price']['taxIncludedAmount'],
+                'duty_free': alteration['price']['dutyFreeAmount']
+            }
+
+        alt_model = {
+            'type': type_,
+            'value': value,
+            'period': alteration['priceType'].lower()
+        }
+
+        # Parse condition
+        if 'priceCondition' in alteration and len(alteration['priceCondition']):
+            exp = re.compile('^(eq|lt|gt|le|ge) \d+(\.\d+)?$')
+
+            if not exp.match(alteration['priceCondition']):
+                raise OrderingError('Invalid priceCondition in price alteration, format must be: [eq | lt | gt | le | ge] value')
+
+            op, value = alteration['priceCondition'].split(' ')
+
+            alt_model['condition'] = {
+                'operation': op,
+                'value': value
+            }
+
+        return alt_model
+
     def _build_contract(self, item):
         # TODO: Check that the ordering API is actually validating that the chosen pricing and characteristics are valid for the given product
 
         # Build pricing if included
         pricing = {}
         if 'product' in item and 'productPrice' in item['product'] and len(item['product']['productPrice']):
-            price = item['product']['productPrice'][0]
-
             model_mapper = {
                 'one time': 'single_payment',
                 'recurring': 'subscription',
                 'usage': 'pay_per_use'
             }
 
-            if price['priceType'].lower() not in model_mapper:
-                raise OrderingError('Invalid price model ' + price['priceType'])
+            # Parse base model
+            price = item['product']['productPrice'][0]
+
+            price_unit = self._parse_price(model_mapper, price)
 
             pricing['general_currency'] = price['price']['currencyCode']
-            unit_field = {
-                'usage': 'unitOfMeasure',
-                'recurring': 'recurringChargePeriod',
-                'one time': 'priceType'
-            }
-
-            price_unit = {
-                'value': price['price']['taxIncludedAmount'],
-                'unit': price[unit_field[price['priceType'].lower()]].lower(),
-                'tax_rate': price['price']['taxRate'],
-                'duty_free': price['price']['dutyFreeAmount']
-            }
-
             pricing[model_mapper[price['priceType'].lower()]] = [price_unit]
+
+            # Process price alterations
+            if 'productOfferPriceAlteration' in price:
+                alteration = price['productOfferPriceAlteration']
+
+                # Check type of alteration (discount or fee)
+                if 'discount' in alteration['name'].lower() and 'fee' not in alteration['name'].lower():
+                    # Is a discount
+                    pricing['alteration'] = self._parse_alteration(alteration, 'discount')
+
+                elif 'discount' not in alteration['name'].lower() and 'fee' in alteration['name'].lower():
+                    # Is a fee
+                    if 'priceCondition' not in alteration or not len(alteration['priceCondition']):
+                        # In this case the alteration is processed as another price
+                        price_unit = self._parse_price(model_mapper, alteration)
+
+                        if model_mapper[alteration['priceType'].lower()] not in pricing:
+                            pricing[model_mapper[alteration['priceType'].lower()]] = []
+
+                        pricing[model_mapper[alteration['priceType'].lower()]].append(price_unit)
+                    else:
+                        pricing['alteration'] = self._parse_alteration(alteration, 'fee')
+                else:
+                    raise OrderingError('Invalid price alteration, it is not possible to determine if it is a discount or a fee')
 
         # Calculate the revenue sharing class
         revenue_class = None

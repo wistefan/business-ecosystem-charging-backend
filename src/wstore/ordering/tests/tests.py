@@ -168,6 +168,82 @@ class OrderingManagementTestCase(TestCase):
 
         self._check_contract_call({}, None)
 
+    def _basic_discount_checker(self):
+        self._check_offering_call(self._asset_instance)
+        self._check_contract_call({
+            'general_currency': 'EUR',
+            'pay_per_use': [{
+                'value': '12.00',
+                'unit': 'megabyte',
+                'tax_rate': '20.00',
+                'duty_free': '10.00'
+            }],
+            'alteration': {
+                'type': 'discount',
+                'period': 'one time',
+                'value': 50
+            }
+        }, 'use')
+
+    def _recurring_fee_checker(self):
+        self._check_offering_call(self._asset_instance)
+        self._check_contract_call({
+            'general_currency': 'EUR',
+            'pay_per_use': [{
+                'value': '12.00',
+                'unit': 'megabyte',
+                'tax_rate': '20.00',
+                'duty_free': '10.00'
+            }],
+            'alteration': {
+                'type': 'fee',
+                'period': 'recurring',
+                'value': {
+                    'value': '1.00',
+                    'duty_free': '0.80'
+                },
+                'condition': {
+                    'operation': 'gt',
+                    'value': '300.00'
+                }
+            }
+        }, 'use')
+
+    def _double_price_checker(self):
+        self._check_offering_call(self._asset_instance)
+        self._check_contract_call({
+            'general_currency': 'EUR',
+            'pay_per_use': [{
+                'value': '12.00',
+                'unit': 'megabyte',
+                'tax_rate': '20.00',
+                'duty_free': '10.00'
+            }],
+            'single_payment': [{
+                'value': '8.00',
+                'unit': 'one time',
+                'tax_rate': '20.00',
+                'duty_free': '6.00'
+            }]
+        }, 'use')
+
+    def _double_usage_checker(self):
+        self._check_offering_call(self._asset_instance)
+        self._check_contract_call({
+            'general_currency': 'EUR',
+            'pay_per_use': [{
+                'value': '12.00',
+                'unit': 'megabyte',
+                'tax_rate': '20.00',
+                'duty_free': '10.00'
+            }, {
+                'value': '8.00',
+                'unit': 'second',
+                'tax_rate': '20.00',
+                'duty_free': '6.00'
+            }]
+        }, 'use')
+
     def _non_digital_offering(self):
         self._validator_inst.parse_characteristics.return_value = (None, None, None)
 
@@ -218,6 +294,13 @@ class OrderingManagementTestCase(TestCase):
         ('usage_add', USAGE_ORDER, _usage_add_checker, _no_offering_description),
         ('free_add', FREE_ORDER, _free_add_checker),
         ('no_product_add', NOPRODUCT_ORDER, _free_add_checker),
+        ('discount', DISCOUNT_ORDER, _basic_discount_checker),
+        ('recurring_fee', RECURRING_FEE_ORDER, _recurring_fee_checker),
+        ('double_price', DOUBLE_PRICE_ORDER, _double_price_checker),
+        ('double_price_usage', DOUBLE_USAGE_ORDER, _double_usage_checker),
+        ('invalid_alt', INV_ALTERATION_ORDER, None, None, 'OrderingError: Invalid price alteration, it is not possible to determine if it is a discount or a fee'),
+        ('usage_alteration', USAGE_ALTERATION_ORDER, None, None, 'OrderingError: Invalid priceType in price alteration, it must be one time or recurring'),
+        ('inv_alteration_cond', INV_CONDITION_ORDER, None, None, 'OrderingError: Invalid priceCondition in price alteration, format must be: [eq | lt | gt | le | ge] value'),
         ('invalid_initial_state', INVALID_STATE_ORDER, None, None, 'OrderingError: Only acknowledged orders can be initially processed'),
         ('invalid_model', INVALID_MODEL_ORDER, None, None, 'OrderingError: Invalid price model Invalid'),
         ('invalid_offering', BASIC_ORDER, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),

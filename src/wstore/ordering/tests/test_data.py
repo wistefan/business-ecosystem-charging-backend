@@ -197,6 +197,344 @@ NOPRODUCT_ORDER = {
    ]
 }
 
+DISCOUNT_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+         "id": "1",
+         "action": "add",
+         "billingAccount": [{
+               "id": "1789",
+               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+         }],
+         "productOffering": {
+            "id": "20",
+            "href": "http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)"
+         },
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Shipping Discount",
+                "description": "One time shipping discount",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23.0Z"
+                },
+                "priceType": "one time",
+                "unitOfMeasure": "",
+                "price": {
+                    "percentage": 50
+                },
+                "recurringChargePeriod": "",
+                "priceCondition": ""
+            }
+            }]
+         }
+      }
+   ]
+}
+
+RECURRING_FEE_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+         "id": "1",
+         "action": "add",
+         "billingAccount": [{
+               "id": "1789",
+               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+         }],
+         "productOffering": {
+            "id": "20",
+            "href": "http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)"
+         },
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Recurring Fee",
+                "description": "A fixed fee added in every charge",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23.0Z"
+                },
+                "priceType": "recurring",
+                "unitOfMeasure": "",
+                "price": {
+                    "taxIncludedAmount": "1.00",
+                    "dutyFreeAmount": "0.80",
+                    "taxRate": "20.00",
+                    "currencyCode": "EUR",
+                    "percentage": 0
+                },
+                "recurringChargePeriod": "",
+                "priceCondition": "gt 300.00"
+            }
+            }]
+         }
+      }
+   ]
+}
+
+DOUBLE_PRICE_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+         "id": "1",
+         "action": "add",
+         "billingAccount": [{
+               "id": "1789",
+               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+         }],
+         "productOffering": {
+            "id": "20",
+            "href": "http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)"
+         },
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Initial fee",
+                "description": "An initial fee for the charge",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23.0Z"
+                },
+                "priceType": "one time",
+                "unitOfMeasure": "",
+                "price": {
+                    "taxIncludedAmount": "8.00",
+                    "dutyFreeAmount": "6.00",
+                    "taxRate": "20.00",
+                    "currencyCode": "EUR",
+                    "percentage": 0
+                },
+                "recurringChargePeriod": ""
+            }
+            }]
+         }
+      }
+   ]
+}
+
+DOUBLE_USAGE_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+         "id": "1",
+         "action": "add",
+         "billingAccount": [{
+               "id": "1789",
+               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+         }],
+         "productOffering": {
+            "id": "20",
+            "href": "http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)"
+         },
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Initial fee",
+                "description": "An initial fee for the charge",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23.0Z"
+                },
+                "priceType": "usage",
+                "unitOfMeasure": "second",
+                "price": {
+                    "taxIncludedAmount": "8.00",
+                    "dutyFreeAmount": "6.00",
+                    "taxRate": "20.00",
+                    "currencyCode": "EUR",
+                    "percentage": 0
+                },
+                "recurringChargePeriod": ""
+            }
+            }]
+         }
+      }
+   ]
+}
+
+USAGE_ALTERATION_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+        "action": "add",
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Initial fee",
+                "priceType": "usage",
+                "unitOfMeasure": "",
+                "price": {
+                    "taxIncludedAmount": "8.00",
+                    "dutyFreeAmount": "6.00",
+                    "taxRate": "20.00",
+                    "currencyCode": "EUR",
+                    "percentage": 0
+                },
+                "recurringChargePeriod": "",
+                "priceCondition": "gt 300"
+            }
+            }]
+         }
+      }
+   ]
+}
+
+INV_CONDITION_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+        "action": "add",
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "Initial fee",
+                "priceType": "recurring",
+                "unitOfMeasure": "",
+                "price": {
+                    "percentage": 20
+                },
+                "recurringChargePeriod": "",
+                "priceCondition": "gty 300"
+            }
+            }]
+         }
+      }
+   ]
+}
+
+INV_ALTERATION_ORDER = {
+    "id": "12",
+    "state": "Acknowledged",
+    "orderItem": [
+      {
+        "action": "add",
+         "product": {
+             "productPrice": [{
+             "priceType": "Usage",
+             "unitOfMeasure": "megabyte",
+             "price": {
+                "taxIncludedAmount": "12.00",
+                "dutyFreeAmount": "10.00",
+                "taxRate": "20.00",
+                "currencyCode": "EUR",
+                "percentage": 0
+             },
+             "recurringChargePeriod": "",
+             "name": "Recurring Monthly Charge",
+             "description": "A monthly recurring payment",
+             "validFor": {
+                 "startDateTime": "2013-04-19T20:42:23.000+0000",
+                 "endDateTime": "2013-06-19T04:00:00.000+0000"
+             },
+             "productOfferPriceAlteration": {
+                "name": "an alteration"
+            }}]
+         }
+      }
+   ]
+}
+
 INVALID_STATE_ORDER = {
     "id": "12",
     "state": "inProgress"
