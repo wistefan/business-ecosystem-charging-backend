@@ -24,6 +24,7 @@ import os
 import codecs
 import subprocess
 from datetime import datetime
+from decimal import Decimal
 
 from django.template import loader, Context
 from django.conf import settings
@@ -47,19 +48,17 @@ class InvoiceBuilder(object):
     def _process_subscription_parts(self, applied_parts, parts, currency):
         if 'subscription' in applied_parts:
             for part in applied_parts['subscription']:
-                parts['subs_parts'].append((part['label'], part['value'], currency, part['unit'], str(part['renovation_date'])))
-                parts['subs_subtotal'] += float(part['value'])
+                parts['subs_parts'].append((part['duty_free'], part['tax_rate'], part['value'], currency, part['unit'], str(part['renovation_date'])))
 
     def _get_initial_parts(self, applied_parts, currency):
         # If initial can only contain single payments and subscriptions
         parts = {
             'single_parts': [],
             'subs_parts': [],
-            'subs_subtotal': 0
         }
         if 'single_payment' in applied_parts:
             for part in applied_parts['single_payment']:
-                parts['single_parts'].append((part['label'], part['value'], currency))
+                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value'], currency))
 
         self._process_subscription_parts(applied_parts, parts, currency)
 
@@ -192,13 +191,15 @@ class InvoiceBuilder(object):
             else:
                 date = str(last_charge).split(' ')[0]
 
+            # Calculate total taxes applied
+            tax_value = Decimal(transaction['price']) - Decimal(transaction['duty_free'])
+
             # Load pricing info into the context
             context = {
-                'BASEDIR': settings.BASEDIR,
                 'offering_name': offering.name,
                 'off_organization': offering.owner_organization.name,
                 'off_version': offering.version,
-                'ref': self._order.ref,
+                'ref': self._order.pk,
                 'date': date,
                 'organization': customer_profile.current_organization.name,
                 'customer': customer_profile.complete_name,
@@ -207,9 +208,8 @@ class InvoiceBuilder(object):
                 'city': tax.get('city'),
                 'province': tax.get('province'),
                 'country': tax.get('country'),
-                'taxes': [],
-                'subtotal': transaction['price'],  # TODO price without taxes
-                'tax': '0',
+                'subtotal': transaction['duty_free'],
+                'tax': unicode(tax_value),
                 'total': transaction['price'],
                 'cur': currency  # General currency of the invoice
             }
