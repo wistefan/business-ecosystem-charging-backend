@@ -84,7 +84,7 @@ class UserEntryTestCase(TestCase):
             'organization': '11111',
             'roles': ['customer']
         }]
-        self.request.user.userprofile.tax_address = {
+        self.request.user.userprofile.current_organization.tax_address = {
             'street': 'fakestreet'
         }
         self.request.user.userprofile.get_current_roles.return_value = ['provider']
@@ -158,7 +158,7 @@ class UserEntryTestCase(TestCase):
         self.request.body = 'invalid'
 
     def _incomplete_profile(self):
-        self.request.user.userprofile.tax_address = {}
+        self.org.tax_address = {}
 
     CORRECT_RES = {
         'result': 'correct',
@@ -228,7 +228,7 @@ class UserEntryTestCase(TestCase):
             'country': 'initialcountry'
         }
 
-        self.request.user.userprofile.tax_address = deepcopy(initial_address)
+        self.org.tax_address = deepcopy(initial_address)
 
         # Include data request
         self.request.body = json.dumps(data)
@@ -252,11 +252,11 @@ class UserEntryTestCase(TestCase):
             expected = initial_address.copy()
             expected.update(data['billingAddress'])
 
-            self.assertEquals(expected, self.request.user.userprofile.tax_address)
-            self.request.user.userprofile.save.assert_called_once_with()
+            self.assertEquals(expected, self.org.tax_address)
+            self.org.save.assert_called_once_with()
         else:
             # Check that userprofile has not been modified
             if 'billingAddress' not in data:
-                self.assertEquals(initial_address, self.request.user.userprofile.tax_address)
+                self.assertEquals(initial_address, self.org.tax_address)
 
-            self.assertFalse(self.request.user.userprofile.save.called)
+            self.assertFalse(self.org.save.called)

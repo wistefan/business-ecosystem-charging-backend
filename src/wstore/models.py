@@ -86,7 +86,6 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User)
     organizations = ListField()
     current_organization = models.ForeignKey(Organization)
-    tax_address = DictField()
     complete_name = models.CharField(max_length=100)
     actor_id = models.CharField(null=True, blank=True, max_length=100)
 

@@ -69,7 +69,7 @@ class UserProfileEntry(Resource):
 
             user_profile['organizations'].append(org_info)
 
-        user_profile['billingAddress'] = profile.tax_address
+        user_profile['billingAddress'] = profile.current_organization.tax_address
 
         # Include roles for the user
         user_profile['currentRoles'] = profile.get_current_roles()
@@ -91,31 +91,31 @@ class UserProfileEntry(Resource):
         except:
             return build_response(request, 400, 'Invalid JSON content')
 
-        # Update the user
-        user = User.objects.get(username=username)
+        # Get user org for storing the billing address
+        user_org = Organization.objects.get(name=username)
 
         if 'billingAddress' in data:
             # Check that the billing information is correct
             if 'street' in data['billingAddress']:
-                user.userprofile.tax_address['street'] = data['billingAddress']['street']
+                user_org.tax_address['street'] = data['billingAddress']['street']
 
             if 'postal' in data['billingAddress']:
-                user.userprofile.tax_address['postal'] = data['billingAddress']['postal']
+                user_org.tax_address['postal'] = data['billingAddress']['postal']
 
             if 'city' in data['billingAddress']:
-                user.userprofile.tax_address['city'] = data['billingAddress']['city']
+                user_org.tax_address['city'] = data['billingAddress']['city']
 
             if 'province' in data['billingAddress']:
-                user.userprofile.tax_address['province'] = data['billingAddress']['province']
+                user_org.tax_address['province'] = data['billingAddress']['province']
 
             if 'country' in data['billingAddress']:
-                user.userprofile.tax_address['country'] = data['billingAddress']['country']
+                user_org.tax_address['country'] = data['billingAddress']['country']
 
-            if 'street' not in user.userprofile.tax_address or 'postal' not in user.userprofile.tax_address or\
-                    'city' not in user.userprofile.tax_address or 'province' not in user.userprofile.tax_address or\
-                    'country' not in user.userprofile.tax_address:
+            if 'street' not in user_org.tax_address or 'postal' not in user_org.tax_address or\
+                    'city' not in user_org.tax_address or 'province' not in user_org.tax_address or\
+                    'country' not in user_org.tax_address:
                 return build_response(request, 400, 'Incomplete billing address, there is a missing field')
 
-            user.userprofile.save()
+            user_org.save()
 
         return build_response(request, 200, 'OK')
