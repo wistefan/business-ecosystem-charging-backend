@@ -48,25 +48,31 @@ class OrderingCollection(Resource):
             return build_response(request, 400, 'The provided data is not a valid JSON object')
 
         # Check that the user has a billing address
+        response = None
         if 'street' not in user.userprofile.current_organization.tax_address:
-            return build_response(request, 400, 'The customer has not defined a billing address')
+            response = build_response(request, 400, 'The customer has not defined a billing address')
 
         try:
             om = OrderingManager()
             redirect_url = om.process_order(user, order)
         except Exception as e:
-            client = OrderingClient()
-            client.update_state(order['id'], 'Failed')
 
             err_msg = 'Your order could not be processed'
             if isinstance(e, OrderingError):
                 err_msg = unicode(e)
 
-            return build_response(request, 400, err_msg)
+            response = build_response(request, 400, err_msg)
 
-        if redirect_url is not None:
-            return HttpResponse(json.dumps({
+        if response is not None:
+            client = OrderingClient()
+            client.update_state(order['id'], 'Failed')
+
+        elif redirect_url is not None:
+            response = HttpResponse(json.dumps({
                 'redirectUrl': redirect_url
             }), status=200, mimetype='application/json; charset=utf-8')
 
-        return build_response(request, 200, 'OK')
+        else:
+            response = build_response(request, 200, 'OK')
+
+        return response
