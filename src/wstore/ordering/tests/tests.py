@@ -68,7 +68,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.requests = MagicMock()
         self._response = MagicMock()
         self._response.status_code = 200
-        self._response.json.return_value = OFFERING_PRODUCT
+        self._response.json.side_effect = [OFFERING, PRODUCT]
         ordering_management.requests.get.return_value = self._response
 
         # Mock organization model
@@ -252,9 +252,9 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Offering.objects.get.return_value = self._offering_inst
 
     def _no_offering_description(self):
-        new_off = deepcopy(OFFERING_PRODUCT)
+        new_off = deepcopy(OFFERING)
         del(new_off['description'])
-        self._response.json.return_value = new_off
+        self._response.json.side_effect = [new_off, PRODUCT]
 
     def _missing_offering(self):
         self._response.status_code = 404
@@ -270,46 +270,53 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.requests.get = get
 
     def _no_parties(self):
-        new_off = deepcopy(OFFERING_PRODUCT)
-        new_off["relatedParty"] = []
-        self._response.json.return_value = new_off
+        new_prod = deepcopy(PRODUCT)
+        new_prod["relatedParty"] = []
+        self._response.json.side_effect = [OFFERING, new_prod]
 
     def _inv_parties(self):
-        new_off = deepcopy(OFFERING_PRODUCT)
-        new_off["relatedParty"] = [{
+        new_prod = deepcopy(PRODUCT)
+        new_prod["relatedParty"] = [{
             "id": "test_user2",
             "role": "Partner"
         }]
-        self._response.json.return_value = new_off
+        self._response.json.side_effect = [OFFERING, new_prod]
 
     def _already_owned(self):
         self._existing_offering()
         self._offering_inst.pk = '11111'
         self._customer.current_organization.acquired_offerings = ['11111']
 
+    def _multiple_pricing(self):
+        OFFERING['productOfferingPrice'].append(BASIC_PRICING)
+
     @parameterized.expand([
-        ('basic_add', BASIC_ORDER, _basic_add_checker),
-        ('non_digital_add', BASIC_ORDER, _non_digital_add_checker, _non_digital_offering),
-        ('recurring_add', RECURRING_ORDER, _recurring_add_checker, _existing_offering),
-        ('usage_add', USAGE_ORDER, _usage_add_checker, _no_offering_description),
-        ('free_add', FREE_ORDER, _free_add_checker),
-        ('no_product_add', NOPRODUCT_ORDER, _free_add_checker),
-        ('discount', DISCOUNT_ORDER, _basic_discount_checker),
-        ('recurring_fee', RECURRING_FEE_ORDER, _recurring_fee_checker),
-        ('double_price', DOUBLE_PRICE_ORDER, _double_price_checker),
-        ('double_price_usage', DOUBLE_USAGE_ORDER, _double_usage_checker),
-        ('invalid_alt', INV_ALTERATION_ORDER, None, None, 'OrderingError: Invalid price alteration, it is not possible to determine if it is a discount or a fee'),
-        ('usage_alteration', USAGE_ALTERATION_ORDER, None, None, 'OrderingError: Invalid priceType in price alteration, it must be one time or recurring'),
-        ('inv_alteration_cond', INV_CONDITION_ORDER, None, None, 'OrderingError: Invalid priceCondition in price alteration, format must be: [eq | lt | gt | le | ge] value'),
-        ('invalid_initial_state', INVALID_STATE_ORDER, None, None, 'OrderingError: Only acknowledged orders can be initially processed'),
-        ('invalid_model', INVALID_MODEL_ORDER, None, None, 'OrderingError: Invalid price model Invalid'),
-        ('invalid_offering', BASIC_ORDER, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),
-        ('invalid_product', BASIC_ORDER, None, _missing_product, 'OrderingError: The product specification specified in order item 1 does not exists'),
-        ('no_parties', BASIC_ORDER, None, _no_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
-        ('invalid_party', BASIC_ORDER, None, _inv_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
-        ('already_owned', BASIC_ORDER, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5')
+        ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
+        ('non_digital_add', BASIC_ORDER, BASIC_PRICING, _non_digital_add_checker, _non_digital_offering),
+        ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker, _existing_offering),
+        ('usage_add', USAGE_ORDER, USAGE_PRICING, _usage_add_checker, _no_offering_description),
+        ('free_add', FREE_ORDER, {}, _free_add_checker),
+        ('no_product_add', NOPRODUCT_ORDER, {}, _free_add_checker),
+        ('discount', USAGE_ORDER, DISCOUNT_PRICING, _basic_discount_checker, _multiple_pricing),
+        ('recurring_fee', USAGE_ORDER, RECURRING_FEE_PRICING, _recurring_fee_checker),
+        ('double_price', USAGE_ORDER, DOUBLE_PRICE_PRICING, _double_price_checker),
+        ('double_price_usage', USAGE_ORDER, DOUBLE_USAGE_PRICING, _double_usage_checker),
+        ('pricing_not_found', USAGE_ORDER, BASIC_PRICING, None, None, 'OrderingError: The product price included in orderItem 1 does not match with any of the prices included in the related offering'),
+        ('multiple_pricing', BASIC_ORDER, BASIC_PRICING, None, _multiple_pricing, 'OrderingError: The product price included in orderItem 1 matches with multiple pricing models of the related offering'),
+        ('invalid_alt', USAGE_ORDER, INV_ALTERATION_PRICING, None, None, 'OrderingError: Invalid price alteration, it is not possible to determine if it is a discount or a fee'),
+        ('usage_alteration', USAGE_ORDER, USAGE_ALTERATION_PRICING, None, None, 'OrderingError: Invalid priceType in price alteration, it must be one time or recurring'),
+        ('inv_alteration_cond', USAGE_ORDER, INV_CONDITION_PRICING, None, None, 'OrderingError: Invalid priceCondition in price alteration, format must be: [eq | lt | gt | le | ge] value'),
+        ('invalid_initial_state', INVALID_STATE_ORDER, BASIC_PRICING,  None, None, 'OrderingError: Only acknowledged orders can be initially processed'),
+        ('invalid_model', INVALID_MODEL_ORDER, INVALID_MODEL_PRICING,  None, None, 'OrderingError: Invalid price model Invalid'),
+        ('invalid_offering', BASIC_ORDER, {}, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),
+        ('invalid_product', BASIC_ORDER, {}, None, _missing_product, 'OrderingError: The product specification specified in order item 1 does not exists'),
+        ('no_parties', BASIC_ORDER, {}, None, _no_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
+        ('invalid_party', BASIC_ORDER, {}, None, _inv_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
+        ('already_owned', BASIC_ORDER, {}, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5')
     ])
-    def test_process_order(self, name, order, checker, side_effect=None, err_msg=None):
+    def test_process_order(self, name, order, pricing, checker, side_effect=None, err_msg=None):
+
+        OFFERING['productOfferingPrice'] = [pricing]
 
         if side_effect is not None:
             side_effect(self)

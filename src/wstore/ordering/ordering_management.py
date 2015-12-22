@@ -106,7 +106,7 @@ class OrderingManager:
 
             self.rollback_logger['models'].append(offering)
 
-        return offering
+        return offering, offering_info
 
     def _parse_price(self, model_mapper, price):
 
@@ -162,20 +162,50 @@ class OrderingManager:
 
         return alt_model
 
+    def _get_effective_pricing(self, item_id, product_price, offering_info):
+        # Search the pricing chosen by the user
+        matches = 0
+        price = None
+        for off_price in offering_info['productOfferingPrice']:
+
+            # Validate that all pricing fields matches
+            if off_price['priceType'] == product_price['priceType'] and \
+                (('unitOfMeasure' not in off_price and 'unitOfMeasure' not in product_price) or
+                  ('unitOfMeasure' in off_price and 'unitOfMeasure' in product_price and off_price['unitOfMeasure'] == product_price['unitOfMeasure'])) and \
+                    (('recurringChargePeriod' not in off_price and 'recurringChargePeriod' not in product_price) or
+                      ('recurringChargePeriod' in off_price and 'recurringChargePeriod' in product_price and off_price['recurringChargePeriod'] == product_price['recurringChargePeriod'])) and \
+                        Decimal(off_price['price']['taxIncludedAmount']) == Decimal(product_price['price']['amount']) and \
+                          off_price['price']['currencyCode'] == product_price['price']['currency']:
+
+                matches += 1
+                price = off_price
+
+        if not matches:
+            raise OrderingError('The product price included in orderItem ' + item_id + ' does not match with any of the prices included in the related offering')
+        elif matches > 1:
+            raise OrderingError('The product price included in orderItem ' + item_id + ' matches with multiple pricing models of the related offering')
+
+        return price
+
     def _build_contract(self, item):
         # TODO: Check that the ordering API is actually validating that the chosen pricing and characteristics are valid for the given product
+
+        # Build offering
+        offering, offering_info = self._get_offering(item)
 
         # Build pricing if included
         pricing = {}
         if 'product' in item and 'productPrice' in item['product'] and len(item['product']['productPrice']):
+
             model_mapper = {
                 'one time': 'single_payment',
                 'recurring': 'subscription',
                 'usage': 'pay_per_use'
             }
 
-            # Parse base model
-            price = item['product']['productPrice'][0]
+            # The productPrice field in the orderItem does not contain all the needed
+            # information (neither taxes nor alterations), so extract pricing from the offering
+            price = self._get_effective_pricing(item['id'], item['product']['productPrice'][0], offering_info)
 
             price_unit = self._parse_price(model_mapper, price)
 
@@ -219,7 +249,7 @@ class OrderingManager:
             item_id=item['id'],
             pricing_model=pricing,
             revenue_class=revenue_class,
-            offering=self._get_offering(item)
+            offering=offering
         )
 
     def _process_add_items(self, items, order_id, description):
