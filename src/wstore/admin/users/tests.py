@@ -87,7 +87,7 @@ class UserEntryTestCase(TestCase):
         self.request.user.userprofile.tax_address = {
             'street': 'fakestreet'
         }
-        self.request.user.userprofile.get_user_roles.return_value = ['provider']
+        self.request.user.userprofile.get_current_roles.return_value = ['provider']
 
     def _org_manager_staff(self):
         self._basic_user()
@@ -108,7 +108,7 @@ class UserEntryTestCase(TestCase):
                 'name': 'test_org',
                 'roles': ['customer']
             }],
-            'roles': ['provider'],
+            'currentRoles': ['provider'],
             'billingAddress': {
                 'street': 'fakestreet'
             }
@@ -122,7 +122,7 @@ class UserEntryTestCase(TestCase):
                 'name': 'test_org',
                 'roles': ['customer', 'manager']
             }],
-            'roles': ['provider', 'admin'],
+            'currentRoles': ['provider', 'admin'],
             'billingAddress': {
                 'street': 'fakestreet'
             }

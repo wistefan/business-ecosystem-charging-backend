@@ -72,10 +72,10 @@ class UserProfileEntry(Resource):
         user_profile['billingAddress'] = profile.tax_address
 
         # Include roles for the user
-        user_profile['roles'] = profile.get_user_roles()
+        user_profile['currentRoles'] = profile.get_current_roles()
 
         if user.is_staff:
-            user_profile['roles'].append('admin')
+            user_profile['currentRoles'].append('admin')
 
         return HttpResponse(json.dumps(user_profile), status=200, mimetype='application/json')
 
