@@ -261,7 +261,7 @@ class OrderingManager:
         order = Order.objects.create(
             order_id=order_id,
             customer=self._customer,
-            owner_organization=self._customer.current_organization,
+            owner_organization=self._customer.userprofile.current_organization,
             state='pending',
             tax_address=self._customer.userprofile.tax_address,
             contracts=new_contracts,

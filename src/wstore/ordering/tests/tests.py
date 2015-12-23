@@ -347,7 +347,7 @@ class OrderingManagementTestCase(TestCase):
             ordering_management.Order.objects.create.assert_called_once_with(
                 order_id="12",
                 customer=self._customer,
-                owner_organization=self._customer.current_organization,
+                owner_organization=self._customer.userprofile.current_organization,
                 state='pending',
                 tax_address=self._customer.userprofile.tax_address,
                 contracts=[self._contract_inst],
