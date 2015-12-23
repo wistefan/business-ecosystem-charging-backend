@@ -258,12 +258,13 @@ class OrderingManager:
         for item in items:
             new_contracts.append(self._build_contract(item))
 
+        current_org = self._customer.userprofile.current_organization
         order = Order.objects.create(
             order_id=order_id,
             customer=self._customer,
-            owner_organization=self._customer.userprofile.current_organization,
+            owner_organization=current_org,
             state='pending',
-            tax_address=self._customer.userprofile.tax_address,
+            tax_address=current_org.tax_address,
             contracts=new_contracts,
             description=description
         )
