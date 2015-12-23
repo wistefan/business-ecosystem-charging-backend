@@ -215,6 +215,7 @@ class PayPalConfirmation(Resource):
             # Rollback the purchase if existing
             if order is not None:  # TODO: Take into account pay-per-use case
                 # Set the order to failed in the ordering API
+                ordering_client.update_state(order.order_id, 'InProgress')
                 ordering_client.update_state(order.order_id, 'Failed')
                 order.delete()
 
@@ -228,7 +229,7 @@ class PayPalConfirmation(Resource):
             return build_response(request, err_code, msg)
 
         # Set order state as completed
-        ordering_client.update_state(order.order_id, 'inProgress')
+        ordering_client.update_state(order.order_id, 'InProgress')
         ordering_client.update_state(order.order_id, 'Completed')
 
         # _lock is set to false

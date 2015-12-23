@@ -65,6 +65,7 @@ class OrderingCollection(Resource):
 
         if response is not None:
             client = OrderingClient()
+            client.update_state(order['id'], 'InProgress')
             client.update_state(order['id'], 'Failed')
 
         elif redirect_url is not None:

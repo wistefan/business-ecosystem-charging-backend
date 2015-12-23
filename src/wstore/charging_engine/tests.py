@@ -391,10 +391,13 @@ class PayPalConfirmationTestCase(TestCase):
             self._charging_inst.end_charging.assert_called_once_with([], 'initial', acc)
 
             self.assertEquals([
-                call('1', 'inProgress'),
+                call('1', 'InProgress'),
                 call('1', 'Completed')
             ], self._ordering_inst.update_state.call_args_list)
 
         elif to_del:
-            self._ordering_inst.update_state.assert_called_once_with('1', 'Failed')
+            self.assertEquals([
+                call('1', 'InProgress'),
+                call('1', 'Failed')
+            ], self._ordering_inst.update_state.call_args_list)
             self._order_inst.delete.assert_called_once_with()
