@@ -68,7 +68,7 @@ class OrderingClient:
         }
 
         # Make PATCH request
-        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + order_id
+        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order_id)
         url = urljoin(self._ordering_api, path)
 
         r = requests.patch(url, patch)
