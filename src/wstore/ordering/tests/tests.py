@@ -410,7 +410,7 @@ class OrderingClientTestCase(TestCase):
         client = ordering_client.OrderingClient()
         client.update_state('1', 'inProgress')
 
-        ordering_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/1', {
+        ordering_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/1', json={
             'state': 'inProgress'
         })
 

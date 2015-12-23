@@ -71,6 +71,6 @@ class OrderingClient:
         path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order_id)
         url = urljoin(self._ordering_api, path)
 
-        r = requests.patch(url, patch)
+        r = requests.patch(url, json=patch)
 
         r.raise_for_status()
