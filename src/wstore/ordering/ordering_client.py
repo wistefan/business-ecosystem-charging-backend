@@ -54,21 +54,42 @@ class OrderingClient:
             msg += 'and that the ordering API is up and running'
             raise ImproperlyConfigured(msg)
 
-    def update_state(self, order_id, state):
+    def get_order(self, order_id):
+        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order_id)
+        url = urljoin(self._ordering_api, path)
+
+        r = requests.get(url)
+        r.raise_for_status()
+
+        return r.json()
+
+    def update_state(self, order, state, items=None):
         """
         Change the state of a given order including its order items
-        :param order_id: Order object as returned by the ordering API
+        :param order: Order object as returned by the ordering API
         :param state: New state
+        :param items: list of order items to be updated
         :return:
         """
 
         # Build patch body
         patch = {
-            'state': state,
+            'orderItem': [],
         }
 
+        # By default all the order items are updated
+        if items is None:
+            items = order['orderItem']
+
+        for orderItem in order['orderItem']:
+            for item in items:
+                if orderItem['id'] == item['id']:
+                    orderItem['state'] = state
+
+            patch['orderItem'].append(orderItem)
+
         # Make PATCH request
-        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order_id)
+        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order['id'])
         url = urljoin(self._ordering_api, path)
 
         r = requests.patch(url, json=patch)

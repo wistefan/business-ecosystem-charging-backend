@@ -63,8 +63,11 @@ class ChargingEngine:
             if pre_value['state'] == 'pending':
                 # Refresh the purchase
                 order = Order.objects.get(pk=self._order.pk)
+
                 ordering_client = OrderingClient()
-                ordering_client.update_state(order.order_id, 'Failed')
+                raw_order = ordering_client.get_order(order.order_id)
+
+                ordering_client.update_state(raw_order, 'Failed')
                 order.delete()
 
             else:

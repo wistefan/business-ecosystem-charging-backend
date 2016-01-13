@@ -157,6 +157,9 @@ class PayPalConfirmation(Resource):
             token = data['paymentId']
             payer_id = data['payerId']
 
+            if not Order.objects.filter(pk=reference):
+                raise ValueError('The provided reference does not identify a valid order')
+
             db = get_database_connection()
 
             # Uses an atomic operation to get and set the _lock value in the purchase
@@ -172,10 +175,8 @@ class PayPalConfirmation(Resource):
             if not pre_value or '_lock' in pre_value and pre_value['_lock']:
                 raise PaymentError('The timeout set to process the payment has finished')
 
-            if not Order.objects.filter(pk=reference):
-                raise ValueError('The provided reference does not identify a valid order')
-
             order = Order.objects.get(pk=reference)
+            raw_order = ordering_client.get_order(order.order_id)
 
             # Check that the request user is authorized to end the payment
             if request.user.userprofile.current_organization != order.owner_organization:
@@ -213,10 +214,10 @@ class PayPalConfirmation(Resource):
         except Exception as e:
 
             # Rollback the purchase if existing
-            if order is not None:  # TODO: Take into account pay-per-use case
+            if order is not None and raw_order is not None:  # TODO: Take into account pay-per-use case
                 # Set the order to failed in the ordering API
-                ordering_client.update_state(order.order_id, 'InProgress')
-                ordering_client.update_state(order.order_id, 'Failed')
+                ordering_client.update_state(raw_order, 'InProgress')
+                ordering_client.update_state(raw_order, 'Failed')
                 order.delete()
 
             expl = ' due to an unexpected error'
@@ -228,9 +229,16 @@ class PayPalConfirmation(Resource):
             msg = 'The payment has been canceled' + expl
             return build_response(request, err_code, msg)
 
-        # Set order state as completed
-        ordering_client.update_state(order.order_id, 'InProgress')
-        ordering_client.update_state(order.order_id, 'Completed')
+        # Set all order items as in progress
+        ordering_client.update_state(raw_order, 'InProgress')
+
+        # Set order items of digital products as completed
+        digital_items = []
+        for item in raw_order['orderItem']:
+            if order.get_item_contract(item['id']).offering.is_digital:
+                digital_items.append(item)
+
+        ordering_client.update_state(raw_order, 'Completed', digital_items)
 
         # _lock is set to false
         db.wstore_order.find_one_and_update(
@@ -254,9 +262,11 @@ class PayPalCancellation(Resource):
             data = json.loads(request.body)
             order = Order.objects.get(pk=data['reference'])
 
-            # Set the order to failed in the ordering API
             client = OrderingClient()
-            client.update_state(order.order_id, 'Failed')
+            raw_order = client.get_order(order.order_id)
+
+            # Set the order to failed in the ordering API
+            client.update_state(raw_order, 'Failed')
 
             order.delete()
         except:
