@@ -143,6 +143,7 @@ class PayPalConfirmation(Resource):
     @supported_request_mime_types(('application/json',))
     @authentication_required
     def create(self, request):
+
         order = None
         ordering_client = OrderingClient()
         try:

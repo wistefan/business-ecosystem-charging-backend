@@ -179,10 +179,10 @@ class InvoiceBuilder(object):
             customer_profile = self._order.customer.userprofile
 
             # Search item contract
-            contract = self._order.get_item_contract(transaction['item_id'])
+            contract = self._order.get_item_contract(transaction['item'])
             offering = contract.offering
 
-            last_charge = self._order.contract.last_charge
+            last_charge = contract.last_charge
 
             if last_charge is None:
                 # If last charge is None means that it is the invoice generation
@@ -222,7 +222,7 @@ class InvoiceBuilder(object):
             bill_code = bill_template.render(Context(context))
 
             # Create the bill code file
-            invoice_name = self._order.ref + '_' + contract.item_id + date
+            invoice_name = self._order.pk + '_' + contract.item_id + date
             bill_path = os.path.join(settings.BILL_ROOT, invoice_name + '.html')
             f = codecs.open(bill_path, 'wb', 'utf-8')
             f.write(bill_code)
@@ -240,12 +240,12 @@ class InvoiceBuilder(object):
             except:
                 raise Exception('Invoice generation problem')
 
+            # Load bill path into the order
+            self._order.bills.append(os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name + '.pdf'))
+            self._order.save()
+
         # Remove temporal files
         for file_ in os.listdir(settings.BILL_ROOT):
 
             if not file_.endswith('.pdf'):
                 os.remove(os.path.join(settings.BILL_ROOT, file_))
-
-        # Load bill path into the order
-        self._order.bill.append(os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name + '.pdf'))
-        self._order.save()
