@@ -381,8 +381,12 @@ class OrderingClientTestCase(TestCase):
         ordering_client.requests = MagicMock()
         self._response = MagicMock()
         self._response.status_code = 200
+        self._response.json.return_value = {
+            'id': '1'
+        }
         ordering_client.requests.post.return_value = self._response
         ordering_client.requests.patch.return_value = self._response
+        ordering_client.requests.get.return_value = self._response
 
     def test_ordering_subscription(self):
         client = ordering_client.OrderingClient()
@@ -412,15 +416,60 @@ class OrderingClientTestCase(TestCase):
 
         self.assertEquals(msg, unicode(e))
 
-    def test_update_state(self):
+    @parameterized.expand([
+        ('complete', {
+            'orderItem': [{
+                'id': '1',
+                'state': 'InProgress'
+            }, {
+                'id': '2',
+                'state': 'InProgress'
+            }]
+        }),
+        ('partial', {
+            'orderItem': [{
+                'id': '1',
+                'state': 'Acknowledged'
+            }, {
+                'id': '2',
+                'state': 'InProgress'
+            }]
+        }, [{'id': '2'}])
+    ])
+    def test_update_state(self, name, expected, items=None):
         client = ordering_client.OrderingClient()
-        client.update_state('1', 'inProgress')
+        order = {
+            'id': '20',
+            'orderItem': [{
+                'id': '1',
+                'state': 'Acknowledged'
+            }, {
+                'id': '2',
+                'state': 'Acknowledged'
+            }]
+        }
+        client.update_state(order, 'InProgress', items)
 
-        ordering_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/1', json={
-            'state': 'inProgress'
-        })
+        ordering_client.requests.patch.assert_called_once_with(
+            'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/20',
+            json=expected)
 
         self._response.raise_for_status.assert_called_once_with()
+
+    def test_get_order(self):
+        client = ordering_client.OrderingClient()
+
+        response = client.get_order('1')
+
+        self.assertEquals({
+            'id': '1'
+        }, response)
+
+        ordering_client.requests.get.assert_called_once_with(
+            'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/1'
+        )
+        self._response.raise_for_status.assert_called_once_with()
+
 
 
 class OrderTestCase(TestCase):
