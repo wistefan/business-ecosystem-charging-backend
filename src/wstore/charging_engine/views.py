@@ -25,7 +25,6 @@ from datetime import datetime
 
 from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import render
 from wstore.ordering.ordering_client import OrderingClient
 
 from wstore.store_commons.resource import Resource

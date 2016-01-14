@@ -71,6 +71,7 @@ class ChargingEngineTestCase(TestCase):
         charging_engine.InvoiceBuilder = MagicMock()
         self._invoice_inst = MagicMock()
         charging_engine.InvoiceBuilder.return_value = self._invoice_inst
+        charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
 
     def _get_single_payment(self):
         return {
@@ -147,7 +148,6 @@ class ChargingEngineTestCase(TestCase):
 
         self._order.contracts = [contract]
 
-    @override_settings(PAYMENT_METHOD=None)
     def test_initial_payment(self,):
 
         self._order.state = 'pending'
@@ -259,6 +259,16 @@ class PayPalConfirmationTestCase(TestCase):
 
         # Mock ordering client
         self._ordering_inst = MagicMock()
+        self._raw_order = {
+            'id': '1',
+            'orderItem': [{
+                'id': '1'
+            }, {
+                'id': '2'
+            }]
+        }
+        self._ordering_inst.get_order.return_value = self._raw_order
+
         views.OrderingClient = MagicMock()
         views.OrderingClient.return_value = self._ordering_inst
 
@@ -291,6 +301,8 @@ class PayPalConfirmationTestCase(TestCase):
         self._charging_inst = MagicMock()
         views.ChargingEngine.return_value = self._charging_inst
 
+        views.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
+
     def tearDown(self):
         reload(wstore.store_commons.utils.http)
         reload(views)
@@ -319,35 +331,43 @@ class PayPalConfirmationTestCase(TestCase):
     def _exception(self):
         self._charging_inst.end_charging.side_effect = Exception('Unexpected')
 
+    def _non_digital_assets(self):
+        offering_mock = MagicMock()
+        offering_mock.offering.is_digital = False
+        self._order_inst.get_item_contract.return_value = offering_mock
+
     @parameterized.expand([
         ('basic', BASIC_PAYPAL, {
             'result': 'correct',
             'message': 'Ok'
-        }),
+        }, [{'id': '1'}, {'id': '2'}]),
+        ('non_digital', BASIC_PAYPAL, {
+            'result': 'correct',
+            'message': 'Ok'
+        }, [], _non_digital_assets),
         ('accounting', BASIC_PAYPAL, {
             'result': 'correct',
             'message': 'Ok'
-        }, _accounting_included, []),
-        ('missing_ref', MISSING_REF, MISSING_RESP, None, None, True),
-        ('missing_payerid', MISSING_PAYER, MISSING_RESP, None, None, True),
-        ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, True),
+        }, [{'id': '1'}, {'id': '2'}], _accounting_included, []),
+        ('missing_ref', MISSING_REF, MISSING_RESP, None, None, None, True),
+        ('missing_payerid', MISSING_PAYER, MISSING_RESP, None, None, None, True),
+        ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, None, True),
         ('invalid_ref', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled: The provided reference does not identify a valid order'
-        }, _invalid_ref, None, True),
-        ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, _lock_closed, None, True),
-        ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, _timeout, None, True, True),
+        }, None, _invalid_ref, None, True),
+        ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _lock_closed, None, True),
+        ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, None, True, True),
         ('unauthorized', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled: You are not authorized to execute the payment'
-        }, _unauthorized, None, True, True),
+        }, None, _unauthorized, None, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled due to an unexpected error'
-        }, _exception, None, True, True)
+        }, None, _exception, None, True, True)
     ])
-    @override_settings(PAYMENT_METHOD=None)
-    def test_paypal_confirmation(self, name, data, expected_resp, side_effect=None, acc=None, error=False, to_del=False):
+    def test_paypal_confirmation(self, name, data, expected_resp, completed=None, side_effect=None, acc=None, error=False, to_del=False):
 
         if side_effect is not None:
             side_effect(self)
@@ -390,14 +410,17 @@ class PayPalConfirmationTestCase(TestCase):
             views.ChargingEngine.assert_called_once_with(self._order_inst)
             self._charging_inst.end_charging.assert_called_once_with([], 'initial', acc)
 
+            self._ordering_inst.get_order.assert_called_once_with('1')
+
+            self.assertEquals([call('1'), call('2')], self._order_inst.get_item_contract.call_args_list)
             self.assertEquals([
-                call('1', 'InProgress'),
-                call('1', 'Completed')
+                call(self._raw_order, 'InProgress'),
+                call(self._raw_order, 'Completed', completed)
             ], self._ordering_inst.update_state.call_args_list)
 
         elif to_del:
             self.assertEquals([
-                call('1', 'InProgress'),
-                call('1', 'Failed')
+                call(self._raw_order, 'InProgress'),
+                call(self._raw_order, 'Failed')
             ], self._ordering_inst.update_state.call_args_list)
             self._order_inst.delete.assert_called_once_with()
