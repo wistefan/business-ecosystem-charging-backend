@@ -76,7 +76,7 @@ class OrderingManager:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            if asset is not None and offering.pk in self._customer.current_organization.acquired_offerings:
+            if asset is not None and offering.pk in self._customer.userprofile.current_organization.acquired_offerings:
                 raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
 
             offering.description = description

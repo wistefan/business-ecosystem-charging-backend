@@ -289,7 +289,7 @@ class OrderingManagementTestCase(TestCase):
     def _already_owned(self):
         self._existing_offering()
         self._offering_inst.pk = '11111'
-        self._customer.current_organization.acquired_offerings = ['11111']
+        self._customer.userprofile.current_organization.acquired_offerings = ['11111']
 
     def _multiple_pricing(self):
         OFFERING['productOfferingPrice'].append(BASIC_PRICING)
