@@ -29,7 +29,7 @@ from shutil import rmtree
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
-from wstore.asset_manager.resource_plugins.plugin_manager import PluginManager
+from wstore.asset_manager.resource_plugins.plugin_validator import PluginValidator
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins import plugin_loader
 from wstore.models import ResourcePlugin
@@ -44,17 +44,18 @@ class PluginLoaderTestCase(TestCase):
 
     def setUp(self):
         # Create PluginManager mock
-        plugin_loader.PluginManager = MagicMock(name="PluginManager")
+        plugin_loader.PluginValidator = MagicMock(name="PluginManager")
         self.manager_mock = MagicMock()
         self.manager_mock.validate_plugin_info.return_value = None
 
-        plugin_loader.PluginManager.return_value = self.manager_mock
+        plugin_loader.PluginValidator.return_value = self.manager_mock
 
     def _remove_plugin_dir(self, plugin_name):
         plugin_dir = os.path.join(os.path.join('wstore', 'test'), plugin_name)
         rmtree(plugin_dir, True)
 
     def tearDown(self):
+        reload(plugin_loader)
         # Remove created plugin dir if needed
         try:
             os.remove(os.path.join(self.plugin_dir, '__init__.py'))
@@ -218,7 +219,7 @@ class PluginValidatorTestCase(TestCase):
     ])
     def test_plugin_info_validation(self, name, plugin_info, validation_msg=None):
 
-        plugin_manager = PluginManager()
+        plugin_manager = PluginValidator()
 
         reason = plugin_manager.validate_plugin_info(plugin_info)
         self.assertEquals(reason, validation_msg)

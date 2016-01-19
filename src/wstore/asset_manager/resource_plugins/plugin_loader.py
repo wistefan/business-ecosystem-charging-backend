@@ -29,7 +29,7 @@ from shutil import rmtree
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
-from wstore.asset_manager.resource_plugins.plugin_manager import PluginManager
+from wstore.asset_manager.resource_plugins.plugin_validator import PluginValidator
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins.plugin_rollback import installPluginRollback
 from wstore.models import ResourcePlugin, Resource
@@ -43,7 +43,7 @@ class PluginLoader():
     _plugins_module = None
 
     def __init__(self):
-        self._plugin_manager = PluginManager()
+        self._plugin_manager = PluginValidator()
         self._plugins_path = os.path.join(settings.BASEDIR, 'wstore')
         self._plugins_path = os.path.join(self._plugins_path, 'asset_manager')
         self._plugins_path = os.path.join(self._plugins_path, 'resource_plugins')

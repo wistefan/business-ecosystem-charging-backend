@@ -1,7 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -25,7 +25,7 @@ from wstore.store_commons.utils.version import is_valid_version
 from wstore.store_commons.utils.name import is_valid_id
 
 
-class PluginManager():
+class PluginValidator():
 
     def _validate_plugin_form(self, form_info):
         """
