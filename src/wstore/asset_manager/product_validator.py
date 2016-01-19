@@ -29,7 +29,10 @@ from wstore.asset_manager.errors import ProductError
 from wstore.models import Context
 
 
-class ProductValidator():
+class ProductValidator:
+
+    def __init__(self):
+        pass
 
     def _get_characteristic_value(self, characteristic):
         if len(characteristic['productSpecCharacteristicValue']) > 1:

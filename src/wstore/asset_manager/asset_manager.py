@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 import base64
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 import os
 from urlparse import urljoin
 
@@ -32,7 +33,10 @@ from wstore.store_commons.utils.name import is_valid_file
 from wstore.store_commons.errors import ConflictError
 
 
-class AssetManager():
+class AssetManager:
+
+    def __init__(self):
+        pass
 
     def _save_resource_file(self, provider, file_):
         # Load file contents
@@ -135,14 +139,27 @@ class AssetManager():
 
     def get_resource_info(self, resource):
         return {
+            'id': resource.pk,
             'productHref': resource.product_ref,
             'version': resource.version,
             'contentType': resource.content_type,
             'state': resource.state,
-            'href': resource.download_link,
+            'href': resource.get_uri(),
+            'location': resource.get_url(),
             'resourceType': resource.resource_type,
             'metadata': resource.meta_info
         }
+
+    def get_provider_asset_info(self, provider, asset_id):
+        try:
+            asset = Resource.objects.get(pk=asset_id)
+        except:
+            raise ObjectDoesNotExist('The specified digital asset does not exists')
+
+        if asset.provider != provider.userprofile.current_organization:
+            raise PermissionDenied('You are not authorized to retrieve digital asset information')
+
+        return self.get_resource_info(asset)
 
     def get_provider_assets_info(self, provider, pagination=None):
 

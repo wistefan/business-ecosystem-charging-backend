@@ -54,9 +54,8 @@ class Resource(models.Model):
     def get_uri(self):
         site_context = Context.objects.all()[0]
         base_uri = site_context.site.domain
-        resource_id = urllib2.quote(self.provider.name + '/' + self.name + '/' + self.version)
 
-        return urljoin(base_uri, 'api/offering/resources/' + resource_id)
+        return urljoin(base_uri, 'charging/api/assetManagement/assets/' + self.pk)
 
     class Meta:
         app_label = 'wstore'

@@ -19,6 +19,7 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from __future__ import unicode_literals
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.test.utils import override_settings
 
 from mock import MagicMock, mock_open
@@ -38,65 +39,50 @@ class ResourceRetrievingTestCase(TestCase):
 
     tags = ('asset-manager', )
 
-    def setUp(self):
+    def _mock_resource(self, info, provider):
         # Mock resource model
-        resource1 = MagicMock()
-        resource1.product_ref = 'http://tmforum.com/catalog/resource1'
-        resource1.version = '1.0'
-        resource1.content_type = 'text/plain'
-        resource1.state = 'Active'
-        resource1.download_link = 'http://localhost/media/resources/resource1'
-        resource1.resource_type = 'API'
-        resource1.meta_info = {}
+        resource = MagicMock()
+        resource.pk = info['pk']
+        resource.provider = provider
+        resource.product_ref = info['product_ref']
+        resource.version = info['version']
+        resource.content_type = info['content_type']
+        resource.state = info['state']
+        resource.download_link = info['download_link']
+        resource.resource_type = info['type']
+        resource.meta_info = {}
 
-        resource2 = MagicMock()
-        resource2.product_ref = 'http://tmforum.com/catalog/resource2'
-        resource2.version = '2.0'
-        resource2.content_type = 'text/plain'
-        resource2.state = 'Active'
-        resource2.open = False
-        resource2.download_link = 'http://localhost/media/resources/resource2'
-        resource2.resource_type = 'API'
-        resource2.meta_info = {}
+        resource.get_url.return_value = info['download_link']
+        resource.get_uri.return_value = info['uri']
 
-        resource3 = MagicMock()
-        resource3.product_ref = 'http://tmforum.com/catalog/resource3'
-        resource3.version = '2.0'
-        resource3.content_type = 'text/plain'
-        resource3.state = 'Active'
-        resource3.open = True
-        resource3.download_link = 'http://localhost/media/resources/resource3'
-        resource3.resource_type = 'API'
-        resource3.meta_info = {}
+        return resource
 
-        resource4 = MagicMock()
-        resource4.product_ref = 'http://tmforum.com/catalog/resource4'
-        resource4.version = '1.0'
-        resource4.content_type = 'text/plain'
-        resource4.state = 'Active'
-        resource4.open = True
-        resource4.download_link = 'http://localhost/media/resources/resource4'
-        resource4.resource_type = 'API'
-        resource4.meta_info = {}
-
-        asset_manager.Resource = MagicMock()
-
-        asset_manager.Resource.objects.filter.return_value = [
-            resource1,
-            resource2,
-            resource3,
-            resource4
-        ]
-
+    def setUp(self):
         self.user = MagicMock()
         self.org = MagicMock()
         self.user.userprofile.current_organization = self.org
+
+        asset_manager.Resource = MagicMock()
+
+        asset_manager.Resource.objects.filter.return_value = [self._mock_resource(r, self.org) for r in EXISTING_INFO]
+        asset_manager.Resource.objects.get.return_value = self._mock_resource(EXISTING_INFO[0], self.org)
+
 
     @classmethod
     def tearDownClass(cls):
         # Restore resource model
         reload(asset_manager)
         super(ResourceRetrievingTestCase, cls).tearDownClass()
+
+    def validate_response(self, result, expected_result, error, err_type, err_msg):
+        if err_type is None:
+            # Assert that no error occurs
+            self.assertEquals(error, None)
+            # Check result
+            self.assertEquals(result, expected_result)
+        else:
+            self.assertTrue(isinstance(error, err_type))
+            self.assertEquals(unicode(error), err_msg)
 
     @parameterized.expand([
         ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
@@ -114,21 +100,40 @@ class ResourceRetrievingTestCase(TestCase):
 
         # Call the method
         error = None
+        result = None
         try:
             am = asset_manager.AssetManager()
             result = am.get_provider_assets_info(self.user, pagination)
         except Exception as e:
             error = e
 
-        if not err_type:
-            # Assert that no error occurs
-            self.assertEquals(error, None)
-            # Check result
-            self.assertEquals(result, expected_result)
-        else:
-            self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(e), err_msg)
+        self.validate_response(result, expected_result, error, err_type, err_msg)
 
+    def _not_found(self):
+        asset_manager.Resource.objects.get.side_effect = Exception('Not found')
+
+    def _forbidden(self):
+        asset_manager.Resource.objects.get.return_value = self._mock_resource(EXISTING_INFO[0], MagicMock())
+
+    @parameterized.expand([
+        ('basic', RESOURCE_DATA1, ),
+        ('not_found', [], _not_found, ObjectDoesNotExist, 'The specified digital asset does not exists'),
+        ('forbidden', [], _forbidden, PermissionDenied, 'You are not authorized to retrieve digital asset information')
+    ])
+    def test_single_asset_retrieving(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
+
+        if side_effect is not None:
+            side_effect(self)
+
+        error = None
+        result = None
+        try:
+            am = asset_manager.AssetManager()
+            result = am.get_provider_asset_info(self.user, '111')
+        except Exception as e:
+            error = e
+
+        self.validate_response(result, expected_result, error, err_type, err_msg)
 
 class UploadAssetTestCase(TestCase):
 

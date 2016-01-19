@@ -27,7 +27,7 @@ from nose_parameterized import parameterized
 from django.test import TestCase
 from django.test.client import RequestFactory, MULTIPART_CONTENT
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.asset_manager import views
 from wstore.asset_manager.errors import ProductError
@@ -53,6 +53,7 @@ MISSING_ACTION = {
 MISSING_PRODUCT = {
     'action': 'create'
 }
+
 
 class AssetCollectionTestCase(TestCase):
 
@@ -98,7 +99,7 @@ class AssetCollectionTestCase(TestCase):
             'start': '1',
             'limit': '1'
         }),
-        ([], _no_provider, 403, 'Forbidden'),
+        ([], _no_provider, 403, 'You are not authorized to retrieve digital asset information'),
         ([], _call_exception, 400, 'Getting resources error')
     ])
     def test_get_assets(self, return_value, side_effect=None, code=200, error_msg=None, pagination=None):
@@ -137,6 +138,58 @@ class AssetCollectionTestCase(TestCase):
             self.assertEqual(type(body_response), dict)
             self.assertEqual(body_response['message'], error_msg)
             self.assertEqual(body_response['result'], 'error')
+
+    def _not_found_asset(self):
+        self.am_instance.get_provider_asset_info.side_effect = ObjectDoesNotExist('Not found')
+
+    def _not_owner_provider(self):
+        self.am_instance.get_provider_asset_info.side_effect = PermissionDenied('Not authorized')
+
+    def _call_exception_single(self):
+        self.am_instance.get_provider_asset_info.side_effect = Exception('Getting resources error')
+
+    @parameterized.expand([
+        ('basic', {
+            'id': '1111'
+        }, 200),
+        ('no_provider', {
+            'message': 'You are not authorized to retrieve digital asset information',
+            'result': 'error'
+        }, 403, _no_provider, False),
+        ('not_found', {
+            'message': 'Not found',
+            'result': 'error'
+        }, 404, _not_found_asset),
+        ('forbidden', {
+            'message': 'Not authorized',
+            'result': 'error'
+        }, 403, _not_owner_provider),
+        ('exception', {
+            'message': 'An unexpected error occurred',
+            'result': 'error'
+        }, 500, _call_exception_single)
+    ])
+    def test_get_asset(self, name, exp_value, exp_code, side_effect=None, called=True):
+        resource_entry = views.AssetEntry(permitted_methods=('GET',))
+        self.am_instance.get_provider_asset_info.return_value = exp_value
+
+        if side_effect is not None:
+            side_effect(self)
+
+        request = self.factory.get('/charging/api/assetsManagement/assets/1111', HTTP_ACCEPT='application/json')
+        request.user = self.user
+
+        response = resource_entry.read(request, '1111')
+        self.assertEquals(response.status_code, exp_code)
+        self.assertEqual(response.get('Content-type'), 'application/json; charset=utf-8')
+
+        body_response = json.loads(response.content)
+        self.assertEquals(body_response, exp_value)
+
+        if called:
+            self.am_instance.get_provider_asset_info.assert_called_once_with(self.user, '1111')
+        else:
+            self.assertEquals(self.am_instance.get_provider_asset_info.call_count, 0)
 
     def _creation_exception(self):
         self.am_instance.upload_asset.side_effect = Exception('Resource creation exception')

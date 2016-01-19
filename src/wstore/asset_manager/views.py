@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 import json
 
 from django.http import HttpResponse
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
@@ -54,13 +54,40 @@ class AssetCollection(Resource):
         profile = request.user.userprofile
 
         if 'provider' not in profile.get_current_roles():
-            return build_response(request, 403, 'Forbidden')
+            return build_response(request, 403, 'You are not authorized to retrieve digital asset information')
 
         try:
             asset_manager = AssetManager()
             response = asset_manager.get_provider_assets_info(request.user, pagination=pagination)
-        except Exception, e:
+        except Exception as e:
             return build_response(request, 400, unicode(e))
+
+        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
+
+
+class AssetEntry(Resource):
+
+    @authentication_required
+    def read(self, request, asset_id):
+        """
+        Retrieves the information associated to a given digital asset
+        :param request:
+        :param id:
+        :return:
+        """
+
+        if 'provider' not in request.user.userprofile.get_current_roles():
+            return build_response(request, 403, 'You are not authorized to retrieve digital asset information')
+
+        try:
+            asset_manager = AssetManager()
+            response = asset_manager.get_provider_asset_info(request.user, asset_id)
+        except ObjectDoesNotExist as e:
+            return build_response(request, 404, unicode(e))
+        except PermissionDenied as e:
+            return build_response(request, 403, unicode(e))
+        except:
+            return build_response(request, 500, 'An unexpected error occurred')
 
         return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
 
