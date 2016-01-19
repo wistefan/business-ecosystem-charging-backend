@@ -82,6 +82,10 @@ class ProductValidatorTestCase(TestCase):
     def _diff_media(self):
         self._asset_instance.content_type = 'text/plain'
 
+    def _existing_asset(self):
+        self._plugin_instance.formats = ["URL"]
+        product_validator.Resource.objects.filter.return_value = [self._asset_instance]
+
     @parameterized.expand([
         ('basic', BASIC_PRODUCT, True),
         ('file_url_allowed', BASIC_PRODUCT, True, _support_url),
@@ -98,7 +102,8 @@ class ProductValidatorTestCase(TestCase):
         ('inv_location', INVALID_LOCATION, True, None, ProductError, 'ProductError: The location characteristic included in the product specification is not a valid URL'),
         ('not_asset', BASIC_PRODUCT, True, _not_asset, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
         ('unauthorized', BASIC_PRODUCT, True, _not_owner, PermissionDenied, 'You are not authorized to use the digital asset specified in the location characteristic'),
-        ('diff_media', BASIC_PRODUCT, True, _diff_media, ProductError, 'ProductError: The specified media type characteristic is different from the one of the provided digital asset')
+        ('diff_media', BASIC_PRODUCT, True, _diff_media, ProductError, 'ProductError: The specified media type characteristic is different from the one of the provided digital asset'),
+        ('existing_asset', BASIC_PRODUCT, False, _existing_asset, ProductError, 'ProductError: There is already an existing product specification defined for the given digital asset')
     ])
     def test_validate_creation(self, name, data, is_file, side_effect=None, err_type=None, err_msg=None):
 

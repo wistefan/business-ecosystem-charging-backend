@@ -121,7 +121,7 @@ class PriceResolver():
        """
 
         price = 0
-        for payment in use_models: # TODO check if the payment can be applied
+        for payment in use_models:
             related_accounting = []
             # Check price function
             if 'price_function' in payment:
@@ -167,26 +167,30 @@ class PriceResolver():
        """
 
         price = 0
+        duty_free = 0
         # Check the pricing model
         if 'single_payment' in pricing_model:
             for payment in pricing_model['single_payment']:
-                price = price + float(payment['value'])
+                price += float(payment['value'])
+                duty_free += float(payment['duty_free'])
 
         if 'subscription' in pricing_model:
             for payment in pricing_model['subscription']:
-                price = price + float(payment['value'])
+                price += float(payment['value'])
+                duty_free += float(payment['duty_free'])
 
+        # TODO: Include taxes in pay-per-use payments
         if 'pay_per_use' in pricing_model:
             # Calculate the payment associated with the price component
-            price = price + self._pay_per_use_preprocesing(pricing_model['pay_per_use'], accounting_info)
+            price += self._pay_per_use_preprocesing(pricing_model['pay_per_use'], accounting_info)
 
         if 'deductions' in pricing_model:
             # Calculate deductions
-            price = price - self._pay_per_use_preprocesing(pricing_model['deductions'], accounting_info, discount=True)
+            price -= self._pay_per_use_preprocesing(pricing_model['deductions'], accounting_info, discount=True)
 
         # If the price is negative i.e too much deductions
         # the value is set to 0
         if price < 0:
             price = 0
 
-        return price
+        return price, duty_free

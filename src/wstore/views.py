@@ -27,7 +27,9 @@ from django.http import HttpResponse
 
 from store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
-from wstore.models import Purchase, Resource
+
+from wstore.models import Resource
+from wstore.ordering.models import Order, Offering
 
 
 class ServeMedia(API_Resource):
@@ -37,38 +39,47 @@ class ServeMedia(API_Resource):
         dir_path = os.path.join(settings.MEDIA_ROOT, path)
 
         # Protect the resources from not authorized downloads
-        if dir_path.endswith('assets'):
+        if path.startswith('assets'):
             # Retrieve the given digital asset
             try:
-                asset = Resource.objects.get(resource_path=path + '/' + name)
+                resource_path = os.path.join(settings.MEDIA_URL, path)
+                resource_path = os.path.join(resource_path, name)
+                asset = Resource.objects.get(resource_path=resource_path)
             except:
                 return build_response(request, 404, 'The specified asset does not exists')
 
             # Check if the user has permissions to download the asset
-            if not asset.is_public and (request.user.is_anonymous() or
-                    request.user.current_organization != asset.provider):
+            if not asset.is_public:
+                if request.user.is_anonymous():
+                    return build_response(request, 401, 'You must be authenticated to download the specified asset')
 
-                return build_response(request, 403, 'Your are not authorized to download the specified asset')
+                if request.user.userprofile.current_organization != asset.provider:
+                    # Check if the user has acquired the asset
+                    for off in request.user.userprofile.current_organization.acquired_offerings:
+                        offering = Offering.objects.get(pk=off)
+                        if offering.asset == asset:
+                            break
+                    else:
+                        return build_response(request, 403, 'You are not authorized to download the specified asset')
 
-        if dir_path.endswith('bills'):
+        elif path.startswith('bills'):
             if request.user.is_anonymous():
                 return build_response(request, 401, 'You must provide credentials for downloading invoices')
 
-            user_profile = request.user.userprofile
-            purchase = Purchase.objects.get(ref=name[:24])
+            try:
+                order = Order.objects.get(pk=name[:24])
+            except:
+                return build_response(request, 404, 'The specified invoice does not exists')
 
-            if purchase.organization_owned:
-                user_org = user_profile.current_organization
-                if not purchase.owner_organization.name == user_org.name:
-                    return build_response(request, 404, 'Not found')
-            else:
-                if not purchase.customer == request.user:
-                    return build_response(request, 404, 'Not found')
+            if order.owner_organization != request.user.userprofile.current_organization:
+                return build_response(request, 403, 'You are not authorized to download the specified invoice')
+        else:
+            return build_response(request, 404, 'Resource not found')
 
         local_path = os.path.join(dir_path, name)
 
         if not os.path.isfile(local_path):
-            return build_response(request, 404, 'Not found')
+            return build_response(request, 404, 'Resource not found')
 
         if not getattr(settings, 'USE_XSENDFILE', False):
             return serve(request, local_path, document_root='/')

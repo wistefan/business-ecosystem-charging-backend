@@ -26,7 +26,7 @@ from django.test.utils import override_settings
 from django.test import TestCase
 
 from wstore.charging_engine.charging import cdr_manager
-from wstore.models import Purchase, Organization
+from wstore.models import Organization
 
 __test__ = False
 

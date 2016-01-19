@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -18,16 +18,14 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from django.db import models
+from __future__ import unicode_literals
 
+import sys
 
-class Repository(models.Model):
-    name = models.CharField(max_length=50)
-    host = models.CharField(max_length=100)
-    is_default = models.BooleanField(default=False)
-    api_version = models.IntegerField(default=1)
-    offering_collection = models.CharField(max_length=100)
-    resource_collection = models.CharField(max_length=100)
+from wstore.ordering.ordering_client import OrderingClient
 
-    class Meta:
-        app_label = 'wstore'
+testing = sys.argv[1:2] == ['test']
+
+if not testing:
+    ordering = OrderingClient()
+    #ordering.create_ordering_subscription()

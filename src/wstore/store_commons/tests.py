@@ -118,7 +118,8 @@ class RollbackTestCase(TestCase):
         called_method = MagicMock()
         called_method.return_value = 'Returned'
 
-        wrapper = rollback.rollback(called_method)
+        wrap = rollback.rollback()
+        wrapper = wrap(called_method)
 
         ref = MagicMock()
 
@@ -131,8 +132,16 @@ class RollbackTestCase(TestCase):
             'models': []
         }, ref.rollback_logger)
 
-    def test_rollback_exception(self):
+    @parameterized.expand([
+        ('with_post', True),
+        ('without_post', False),
+    ])
+    def test_rollback_exception(self, name, has_post):
         model = MagicMock()
+
+        post_action = None
+        if has_post:
+            post_action = MagicMock()
 
         rollback.os = MagicMock()
 
@@ -141,7 +150,9 @@ class RollbackTestCase(TestCase):
             ref.rollback_logger['models'].append(model)
             raise ValueError('Value error')
 
-        wrapper = rollback.rollback(called_method)
+        wrap = rollback.rollback(post_action=post_action)
+        wrapper = wrap(called_method)
+
         error = False
         try:
             wrapper(MagicMock())
@@ -152,3 +163,6 @@ class RollbackTestCase(TestCase):
         self.assertTrue(error)
         rollback.os.remove.assert_called_once_with('/home/test/testfile.pdf')
         model.delete.assert_called_once_with()
+
+        if has_post:
+            post_action.assert_called_once_with()

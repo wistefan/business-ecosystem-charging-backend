@@ -37,7 +37,7 @@ class ProductValidator():
 
         return characteristic['productSpecCharacteristicValue'][0]['value']
 
-    def _parse_characteristics(self, product_spec):
+    def parse_characteristics(self, product_spec):
         expected_chars = {
             'asset type': [],
             'media type': [],
@@ -74,9 +74,9 @@ class ProductValidator():
 
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
-        asset_t, media_type, url = self._parse_characteristics(product_spec)
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
 
-        # If none of the digital assets characteristics have been include means that is a physical product
+        # If none of the digital assets characteristics have been included means that is a physical product
         if asset_t is None and media_type is None and url is None:
             return
 
@@ -117,6 +117,11 @@ class ProductValidator():
             if asset.content_type != media_type.lower():
                 raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
         else:
+            # If the asset is an URL and the resource model is created, that means that
+            # the asset have been already included in another product
+            if len(Resource.objects.filter(download_link=url)):
+                raise ProductError('There is already an existing product specification defined for the given digital asset')
+
             # Create the new asset model
             asset = Resource.objects.create(
                 resource_path='',

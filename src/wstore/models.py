@@ -20,23 +20,19 @@
 
 from __future__ import unicode_literals
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.db import models
 from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField
 
-from wstore.admin.markets.models import *
-from wstore.admin.repositories.models import *
 from wstore.admin.rss.models import *
-from wstore.admin.searchers import ResourceBrowser
 
 
 class Context(models.Model):
 
-    site = models.OneToOneField(Site)
+    site = models.OneToOneField(Site, related_name='site')
+    local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
     top_rated = ListField()
     newest = ListField()
     user_refs = DictField()
@@ -59,11 +55,9 @@ class Organization(models.Model):
 
     name = models.CharField(max_length=50, unique=True)
     notification_url = models.CharField(max_length=300, null=True, blank=True)
-    offerings_purchased = ListField()
-    rated_offerings = ListField()
+    acquired_offerings = ListField()
     private = models.BooleanField(default=True)
     correlation_number = models.IntegerField(default=0)
-    payment_info = DictField()
     tax_address = DictField()
     managers = ListField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
@@ -84,8 +78,7 @@ class Organization(models.Model):
         return found
 
 
-from wstore.asset_manager.models import Offering, Resource, ResourcePlugin, MarketOffering
-from wstore.contracting.models import Purchase
+from wstore.asset_manager.models import Resource, ResourcePlugin
 
 
 class UserProfile(models.Model):
@@ -93,35 +86,15 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User)
     organizations = ListField()
     current_organization = models.ForeignKey(Organization)
-    offerings_purchased = ListField()
-    offerings_provided = ListField()
-    rated_offerings = ListField()
-    tax_address = DictField()
     complete_name = models.CharField(max_length=100)
-    payment_info = DictField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
 
     access_token = models.CharField(max_length=150, null=True, blank=True)
-    refresh_token = models.CharField(max_length=150, null=True, blank=True)
-    provider_requested = models.BooleanField(default=False)
 
     def get_current_roles(self):
         roles = []
         for o in self.organizations:
             if o['organization'] == self.current_organization.pk:
-                roles = o['roles']
-                break
-
-        return roles
-
-    def get_user_roles(self):
-        roles = []
-
-        for o in self.organizations:
-            org = Organization.objects.get(pk=o['organization'])
-
-            # Check organization name
-            if org.name == self.user.username:
                 roles = o['roles']
                 break
 
@@ -140,9 +113,6 @@ class UserProfile(models.Model):
                 result = True
 
         return result
-
-    def refreshing_token(self):
-        pass
 
 
 def create_user_profile(sender, instance, created, **kwargs):
@@ -169,15 +139,20 @@ def create_user_profile(sender, instance, created, **kwargs):
 def create_context(sender, instance, created, **kwargs):
 
     if created:
-        context = Context.objects.get_or_create(site=instance)[0]
-        context.allowed_currencies = {
-            'allowed': [{
-                'currency': 'EUR',
-                'in_use': False
-            }],
-            'default': 'EUR'
-        }
-        context.save()
+        if not len(Context.objects.all()):
+            context = Context.objects.get_or_create(site=instance)[0]
+            context.allowed_currencies = {
+                'allowed': [{
+                    'currency': 'EUR',
+                    'in_use': False
+                }],
+                'default': 'EUR'
+            }
+            context.save()
+        else:
+            context = Context.objects.all()[0]
+            context.local_site = instance
+            context.save()
 
 
 # Creates a new user profile when an user is created

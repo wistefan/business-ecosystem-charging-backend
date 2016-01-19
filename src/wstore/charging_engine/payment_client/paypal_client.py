@@ -17,12 +17,14 @@
 # You should have received a copy of the European Union Public Licence
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from decimal import Decimal
 
 import paypalrestsdk
 
 from django.contrib.sites.models import Site
 
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
+from wstore.ordering.errors import PaymentError
 
 
 # Paypal creadetials
@@ -36,8 +38,8 @@ class PayPalClient(PaymentClient):
     _purchase = None
     _checkout_url = None
 
-    def __init__(self, purchase):
-        self._purchase = purchase
+    def __init__(self, order):
+        self._order = order
         # Configure API connection
         paypalrestsdk.configure({
             "mode": MODE,
@@ -45,7 +47,7 @@ class PayPalClient(PaymentClient):
             "client_secret": PAYPAL_CLIENT_SECRET
         })
 
-    def start_redirection_payment(self, price, currency):
+    def start_redirection_payment(self, transactions):
         # Build URL
         url = Site.objects.all()[0].domain
         if url[-1] != '/':
@@ -58,21 +60,51 @@ class PayPalClient(PaymentClient):
                 'payment_method': 'paypal'
             },
             'redirect_urls': {
-                'return_url': url + 'api/contracting/' + self._purchase.ref + '/accept',
-                'cancel_url': url + 'api/contracting/' + self._purchase.ref + '/cancel'
+                'return_url': url + 'payment#?action=accept&ref=' + self._order.pk,
+                'cancel_url': url + 'payment#?action=cancel&ref=' + self._order.pk
             },
             'transactions': [{
                 'amount': {
-                    'total': unicode(price),
-                    'currency': currency
+                    'total': unicode(t['price']),
+                    'currency': t['currency']
                 },
-                'description': 'Payment related to the offering: ' + self._purchase.offering.owner_organization.name + ' ' + self._purchase.offering.name + ' version ' + self._purchase.offering.version
-            }]
+                'description': t['description']
+            } for t in transactions]
         })
 
         # Create Payment
         if not payment.create():
-            raise Exception("The payment cannot be created: " + payment.error)
+
+            # Check if the error is due to a problem supporting multiple transactions
+            details = payment.error['details']
+            if len(transactions) > 1 and len(details) == 1 and \
+                    details[0]['issue'] == 'Only single payment transaction currently supported':
+
+                # Aggregate transactions in a single payment if possible
+                current_curr = transactions[0]['currency']
+                total = Decimal('0')
+                items = ''
+
+                for t in transactions:
+                    # Only if all the transactions have the same currency they can be aggregated
+                    if t['currency'] != current_curr:
+                        break
+
+                    total += Decimal(t['price'])
+                    items += t['item_id'] + ':' + t['price'] + '<' + t['description'] + '>'
+                else:
+                    msg = 'All your order items have been aggregated, since PayPal is not able '
+                    msg += 'to process multiple transactions in this moment.                   '
+                    msg += 'Order composed of the following items ' + items
+
+                    self.start_redirection_payment([{
+                        'price': unicode(total),
+                        'currency': current_curr,
+                        'description': msg
+                    }])
+                    return
+
+            raise PaymentError("The payment cannot be created: " + payment.error.message)
 
         # Extract URL where redirecting the customer
         response = payment.to_dict()
@@ -88,7 +120,7 @@ class PayPalClient(PaymentClient):
         payment = paypalrestsdk.Payment.find(token)
 
         if not payment.execute({"payer_id": payer_id}):
-            raise Exception("The payment cannot be executed: " + payment.error)
+            raise PaymentError("The payment cannot be executed: " + payment.error)
 
     def get_checkout_url(self):
         return self._checkout_url

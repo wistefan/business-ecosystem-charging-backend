@@ -23,40 +23,45 @@ from __future__ import unicode_literals
 import os
 
 
-def rollback(method):
+def rollback(post_action=None):
     """
     Make a rollback in case a failure occurs during the execution of a given method
-    :param method: Method to be wrapped
+    :param post_action: Callable to be executed as the last step of a rollback
     :return:
     """
 
-    def _remove_file(file_):
-        os.remove(file_)
+    def wrap(method):
+        def _remove_file(file_):
+            os.remove(file_)
 
-    def _remove_model(model):
-        model.delete()
+        def _remove_model(model):
+            model.delete()
 
-    def wrapper(self, *args, **kwargs):
-        # Inject rollback logger
-        self.rollback_logger = {
-            'files': [],
-            'models': []
-        }
+        def wrapper(self, *args, **kwargs):
+            # Inject rollback logger
+            self.rollback_logger = {
+                'files': [],
+                'models': []
+            }
 
-        try:
-            result = method(self, *args, **kwargs)
-        except Exception as e:
+            try:
+                result = method(self, *args, **kwargs)
+            except Exception as e:
 
-            # Remove created files
-            for file_ in self.rollback_logger['files']:
-                _remove_file(file_)
+                # Remove created files
+                for file_ in self.rollback_logger['files']:
+                    _remove_file(file_)
 
-            # Remove created models
-            for model in self.rollback_logger['models']:
-                _remove_model(model)
+                # Remove created models
+                for model in self.rollback_logger['models']:
+                    _remove_model(model)
 
-            raise e
+                if post_action is not None:
+                    post_action()
 
-        return result
+                raise e
 
-    return wrapper
+            return result
+
+        return wrapper
+    return wrap
