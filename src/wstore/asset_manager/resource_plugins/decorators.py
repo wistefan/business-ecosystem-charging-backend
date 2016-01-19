@@ -86,3 +86,24 @@ def on_product_spec_attachment(func):
         plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
 
     return wrapper
+
+
+def on_product_acquired(func):
+
+    @wraps(func)
+    def wrapper(self, contract, transaction, concept, time_stamp, accounting):
+        # Get digital asset from the contract
+        if contract.offering.is_digital:
+            asset = contract.offering.asset
+
+            # Load plugin module
+            plugin_model = _get_plugin_model(asset.resource_type)
+            plugin_module = load_plugin_module(plugin_model.module)
+
+            # Call method
+            func(self, contract, transaction, concept, time_stamp, accounting)
+
+            # Execute event
+            plugin_module.on_product_acquisition(asset, contract)
+
+    return wrapper
