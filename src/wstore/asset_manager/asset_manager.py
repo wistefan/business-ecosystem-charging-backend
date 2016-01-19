@@ -60,10 +60,16 @@ class AssetManager:
             os.mkdir(provider_dir)
 
         file_path = os.path.join(provider_dir, file_name)
+        resource_path = file_path[file_path.index(settings.MEDIA_URL):]
 
         # Check if the file already exists
         if os.path.exists(file_path):
-            raise ConflictError('The provided digital asset (' + file_name + ') already exists')
+            res = Resource.objects.get(resource_path=resource_path)
+            if len(res.state):
+                # If the resource has state field, it means that a product
+                # spec has been created, so it cannot be overridden
+                raise ConflictError('The provided digital asset (' + file_name + ') already exists')
+            res.delete()
 
         # Create file
         with open(file_path, "wb") as f:
@@ -71,7 +77,7 @@ class AssetManager:
 
         self.rollback_logger['files'].append(file_path)
 
-        return file_path[file_path.index(settings.MEDIA_URL):]
+        return resource_path
 
     def _create_resource_model(self, provider, resource_data):
         # Create the resource

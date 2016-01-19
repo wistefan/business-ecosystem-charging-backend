@@ -135,6 +135,7 @@ class ResourceRetrievingTestCase(TestCase):
 
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
+
 class UploadAssetTestCase(TestCase):
 
     tags = ('asset-manager', )
@@ -156,6 +157,7 @@ class UploadAssetTestCase(TestCase):
         self.res_mock = MagicMock()
         self.res_mock.get_url.return_value = "http://locationurl.com/"
         asset_manager.Resource.objects.create.return_value = self.res_mock
+        asset_manager.Resource.objects.get.return_value = self.res_mock
 
         asset_manager.os.path.isdir = MagicMock()
         asset_manager.os.path.exists = MagicMock()
@@ -184,16 +186,21 @@ class UploadAssetTestCase(TestCase):
     def _file_conflict(self):
         asset_manager.os.path.exists.return_value = True
 
+    def _file_conflict_err(self):
+        asset_manager.os.path.exists.return_value = True
+        self.res_mock.state = 'Active'
+
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
         ('file', {'contentType': 'application/x-widget'}, _use_file),
-        ('inv_file_name', MISSING_TYPE, None, ValueError, 'Missing required field: contentType'),
-        ('inv_file_name', UPLOAD_INV_FILENAME, None, ValueError, 'Invalid file name format: Unsupported character'),
-        ('existing', UPLOAD_CONTENT, _file_conflict, ConflictError, 'The provided digital asset (example.wgt) already exists'),
-        ('not_provided', {'contentType': 'application/x-widget'}, None, ValueError, 'The digital asset file has not been provided')
+        ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
+        ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
+        ('inv_file_name', UPLOAD_INV_FILENAME, None, False, ValueError, 'Invalid file name format: Unsupported character'),
+        ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset (example.wgt) already exists'),
+        ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset file has not been provided')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
-    def test_upload_asset(self, name, data, side_effect=None, err_type=None, err_msg=None):
+    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None):
 
         if side_effect is not None:
             side_effect(self)
@@ -231,6 +238,11 @@ class UploadAssetTestCase(TestCase):
             if self._file is not None:
                 self._file.seek.assert_called_once_with(0)
                 asset_manager.os.mkdir.assert_called_once_with("/home/test/media/assets/test_user")
+
+            # Check override calls
+            if override:
+                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='/media/assets/test_user/example.wgt')
+                self.res_mock.delete.assert_called_once_with()
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
