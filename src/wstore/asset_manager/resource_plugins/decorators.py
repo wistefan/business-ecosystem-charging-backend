@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -21,7 +21,8 @@
 
 from __future__ import unicode_literals
 
-from wstore.models import ResourcePlugin, Resource
+from wstore.models import ResourcePlugin
+from wstore.asset_manager.errors import ProductError
 from functools import wraps
 
 
@@ -39,176 +40,49 @@ def _get_plugin_model(name):
         plugin_model = ResourcePlugin.objects.get(name=name)
     except:
         # Validate resource type
-        raise ValueError('Invalid request: The specified resource type is not registered')
+        raise ProductError('The given product specification contains a not supported asset type: ' + name)
 
     return plugin_model
 
 
-def register_resource_validation_events(func):
+def on_product_spec_validation(func):
 
     @wraps(func)
-    def wrapper(provider, data, file_=None):
-        if 'resource_type' not in data:
-            raise ValueError('Invalid request: Missing required field resource_type')
+    def wrapper(self, provider, asset_t, media_type, url):
 
-        new_data = data
-        if data['resource_type'] != 'Downloadable' and data['resource_type'] != 'API':
-            plugin_model = _get_plugin_model(data['resource_type'])
-            plugin_module = load_plugin_module(plugin_model.module)
+        plugin_model = _get_plugin_model(asset_t)
+        plugin_module = load_plugin_module(plugin_model.module)
 
-            new_data = plugin_module.on_pre_create_validation(provider, data, file_=file_)
+        # On pre validation
+        plugin_module.on_pre_product_spec_validation(provider, asset_t, media_type, url)
 
-        resource_data = func(provider, new_data, file_=None)
+        # Call method
+        asset = func(self, provider, asset_t, media_type, url)
 
-        if data['resource_type'] != 'Downloadable' and data['resource_type'] != 'API':
-            plugin_module.on_post_create_validation(provider, data, file_=file)
+        # On post validation
+        plugin_module.on_post_product_spec_validation(provider, asset)
 
-        return resource_data
+        return asset
 
     return wrapper
 
 
-def register_resource_events(func):
+def on_product_spec_attachment(func):
 
     @wraps(func)
-    def wrapper(provider, user, data):
-        # Get plugin models
-        if data['resource_type'] != 'Downloadable' and data['resource_type'] != 'API':
+    def wrapper(self, asset, asset_t, product_spec):
 
-            plugin_model = _get_plugin_model(data['resource_type'])
+        # Load plugin module
+        plugin_model = _get_plugin_model(asset_t)
+        plugin_module = load_plugin_module(plugin_model.module)
 
-            # Validate format
-            if data['link'] != "" and 'URL' not in plugin_model.formats:
-                raise ValueError('Invalid plugin format: URL not allowed for the resource type')
-
-            if data['content_path'] != "" and 'FILE' not in plugin_model.formats:
-                raise ValueError('Invalid plugin format: File not allowed for the resource type')
-
-            # Validate mime types
-            if len(plugin_model.media_types) > 0 and data['content_type'] not in plugin_model.media_types:
-                raise ValueError('Invalid media type: ' + data['content_type'] + ' is not allowed for the resource type')
-
-            # Load plugin module
-            plugin_module = load_plugin_module(plugin_model.module)
-
-            # Call on pre create event handler
-            plugin_module.on_pre_create(provider, data)
-
-        if data['resource_type'] == 'API' and data['content_path'] != "":
-            raise ValueError('Invalid plugin format: File not allowed for the resource type')
+        # Call on pre create event handler
+        plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
 
         # Call method
-        func(provider, user, data)
+        func(self, asset, asset_t, product_spec)
 
         # Call on post create event handler
-        if data['resource_type'] != 'Downloadable' and data['resource_type'] != 'API':
-            resource = Resource.objects.get(name=data['name'], provider=provider, version=data['version'])
-            plugin_module.on_post_create(resource)
-
-    return wrapper
-
-
-def upgrade_resource_validation_events(func):
-
-    @wraps(func)
-    def wrapper(resource, data, file_=None):
-        new_data = data
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_model = _get_plugin_model(resource.resource_type)
-            plugin_module = load_plugin_module(plugin_model.module)
-
-            new_data = plugin_module.on_pre_upgrade_validation(resource, data, file_=file_)
-
-        resource_data = func(resource, new_data, file_=None)
-
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_module.on_post_upgrade_validation(resource, data, file_=file)
-
-        return resource_data
-
-    return wrapper
-
-
-def upgrade_resource_events(func):
-
-    @wraps(func)
-    def wrapper(resource, user):
-
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_model = _get_plugin_model(resource.resource_type)
-
-            # Validate format
-            if resource.download_link != "" and 'URL' not in plugin_model.formats:
-                raise ValueError('Invalid plugin format: URL not allowed for the resource type')
-
-            if resource.resource_path != "" and 'FILE' not in plugin_model.formats:
-                raise ValueError('Invalid plugin format: File not allowed for the resource type')
-
-            # Load plugin module
-            plugin_module = load_plugin_module(plugin_model.module)
-
-            # Call on pre upgrade event handler
-            plugin_module.on_pre_upgrade(resource)
-
-        if resource.resource_type == 'API' and resource.resource_path != "":
-            raise ValueError('Invalid plugin format: File not allowed for the resource type')
-
-        # Call method
-        func(resource, user)
-
-        # Call on post upgrade event handler
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_module.on_post_upgrade(resource)
-
-    return wrapper
-
-
-def update_resource_events(func):
-
-    @wraps(func)
-    def wrapper(resource, user):
-
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_model = _get_plugin_model(resource.resource_type)
-
-            # Validate media type
-            if len(plugin_model.media_types) > 0 and resource.content_type not in plugin_model.media_types:
-                raise ValueError('Invalid media type: ' + resource.content_type + ' is not allowed for the resource type')
-
-            # Load plugin module
-            plugin_module = load_plugin_module(plugin_model.module)
-
-            # Call on pre update event handler
-            plugin_module.on_pre_update(resource)
-
-        # Call method
-        func(resource, user)
-
-        # Call on post update event handler
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_module.on_post_update(resource)
-
-    return wrapper
-
-
-def delete_resource_events(func):
-
-    @wraps(func)
-    def wrapper(resource, user):
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_model = _get_plugin_model(resource.resource_type)
-
-            # Load plugin module
-            plugin_module = load_plugin_module(plugin_model.module)
-
-            # Call on pre delete event handler
-            plugin_module.on_pre_delete(resource)
-
-        # Call method
-        func(resource, user)
-
-        # Call on post delete event handler
-        if resource.resource_type != 'Downloadable' and resource.resource_type != 'API':
-            plugin_module.on_post_delete(resource)
+        plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
 
     return wrapper

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -27,6 +27,8 @@ from wstore.asset_manager.models import ResourcePlugin, Resource
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.asset_manager.errors import ProductError
 from wstore.models import Context
+
+from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment
 
 
 class ProductValidator:
@@ -75,19 +77,10 @@ class ProductValidator:
 
         return asset_type, media_type, location
 
-    def validate_creation(self, provider, product_spec):
-        # Extract product needed characteristics
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
-
-        # If none of the digital assets characteristics have been included means that is a physical product
-        if asset_t is None and media_type is None and url is None:
-            return
-
+    @on_product_spec_validation
+    def _validate_product(self, provider, asset_t, media_type, url):
         # Search the asset type
-        try:
-            asset_type = ResourcePlugin.objects.get(name=asset_t)
-        except:
-            raise ProductError('The given product specification contains a not supported asset type: ' + asset_t)
+        asset_type = ResourcePlugin.objects.get(name=asset_t)
 
         # Validate media type
         if len(asset_type.media_types) and media_type not in asset_type.media_types:
@@ -133,11 +126,24 @@ class ProductValidator:
                 content_type=media_type
             )
 
+        return asset
+
+    @on_product_spec_attachment
+    def _attach_product_info(self, asset, asset_t, product_spec):
         # Complete asset information
         asset.version = product_spec['version']
         asset.resource_type = asset_t
         asset.state = product_spec['lifecycleStatus']
         asset.save()
+
+    def validate_creation(self, provider, product_spec):
+        # Extract product needed characteristics
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
+
+        # If none of the digital assets characteristics have been included means that is a physical product
+        if asset_t is not None and media_type is not None and url is not None:
+            asset = self._validate_product(provider, asset_t, media_type, url)
+            self._attach_product_info(asset, asset_t, product_spec)
 
     def validate_update(self, provider, product_spec):
         pass

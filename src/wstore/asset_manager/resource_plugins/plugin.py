@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -22,40 +22,16 @@
 from __future__ import unicode_literals
 
 
-class Plugin():
+class Plugin:
 
-    def on_pre_create_validation(self, provider, data, file_=None):
-        return data
-
-    def on_post_create_validation(self, provider, data, file_=None):
+    def on_pre_product_spec_validation(self, provider, asset_t, media_type, url):
         pass
 
-    def on_pre_create(self, provider, data):
+    def on_post_product_spec_validation(self, provider, asset):
         pass
 
-    def on_post_create(self, resource):
+    def on_pre_product_spec_attachment(self, asset, asset_t, product_spec):
         pass
 
-    def on_pre_update(self, resource):
-        pass
-
-    def on_post_update(self, resource):
-        pass
-
-    def on_pre_upgrade_validation(self, resource, data, file_=None):
-        return data
-
-    def on_post_upgrade_validation(self, resource, data, file_=None):
-        pass
-
-    def on_pre_upgrade(self, resource):
-        pass
-
-    def on_post_upgrade(self, resource):
-        pass
-
-    def on_pre_delete(self, resource):
-        pass
-
-    def on_post_delete(self, resource):
+    def on_post_product_spec_attachment(self, asset, asset_t, product_spec):
         pass

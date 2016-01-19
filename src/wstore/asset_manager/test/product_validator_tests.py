@@ -35,13 +35,10 @@ class ProductValidatorTestCase(TestCase):
 
     tags = ('product-validator', )
 
-    def setUp(self):
-        self._provider = MagicMock()
+    def _mock_product_validator_imports(self):
+        reload(product_validator)
 
         product_validator.ResourcePlugin = MagicMock()
-        self._plugin_instance = MagicMock()
-        self._plugin_instance.media_types = ['application/x-widget']
-        self._plugin_instance.formats = ["FILE"]
         product_validator.ResourcePlugin.objects.get.return_value = self._plugin_instance
 
         product_validator.Resource = MagicMock()
@@ -57,6 +54,19 @@ class ProductValidatorTestCase(TestCase):
         self._context_inst.site.domain = "http://testlocation.org/"
         product_validator.Context.objects.all.return_value = [self._context_inst]
 
+    def setUp(self):
+        self._provider = MagicMock()
+
+        self._plugin_instance = MagicMock()
+        self._plugin_instance.media_types = ['application/x-widget']
+        self._plugin_instance.formats = ["FILE"]
+        self._plugin_instance.module = 'wstore.asset_manager.resource_plugins.plugin.Plugin'
+
+        import wstore.asset_manager.resource_plugins.decorators
+        wstore.asset_manager.resource_plugins.decorators.ResourcePlugin = MagicMock()
+        wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.return_value = self._plugin_instance
+        self._mock_product_validator_imports()
+
     def _support_url(self):
         self._plugin_instance.formats = ["FILE", "URL"]
 
@@ -68,7 +78,9 @@ class ProductValidatorTestCase(TestCase):
         self._context_inst.site.domain = "http://mydomain.org/"
 
     def _not_supported(self):
-        product_validator.ResourcePlugin.objects.get.side_effect = Exception('Not found')
+        import wstore.asset_manager.resource_plugins.decorators
+        wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.side_effect = Exception('Not found')
+        self._mock_product_validator_imports()
 
     def _inv_media(self):
         self._plugin_instance.media_types = ['text/plain']
