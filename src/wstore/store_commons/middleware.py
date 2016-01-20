@@ -133,10 +133,14 @@ def get_api_user(request):
 
     # Get User information from the request
     try:
+        token_info = request.META['HTTP_AUTHORIZATION'].split(' ')
         nick_name = request.META['HTTP_X_NICK_NAME']
         display_name = request.META['HTTP_X_DISPLAY_NAME']
         roles = request.META['HTTP_X_ROLES'].split(',')
     except:
+        return AnonymousUser()
+
+    if len(token_info) != 2 and token_info[0].lower() != 'bearer':
         return AnonymousUser()
 
     # Check if the user already exist
@@ -146,6 +150,7 @@ def get_api_user(request):
         user = User.objects.create(username=nick_name)
 
     # Update user info
+    user.userprofile.access_token = token_info[1]
     user.userprofile.complete_name = display_name
     user.userprofile.actor_id = nick_name
 
