@@ -36,5 +36,5 @@ class Plugin:
     def on_post_product_spec_attachment(self, asset, asset_t, product_spec):
         pass
 
-    def on_product_acquisition(self, asset, contract):
+    def on_product_acquisition(self, asset, contract, order):
         pass

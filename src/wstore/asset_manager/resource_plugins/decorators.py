@@ -104,6 +104,6 @@ def on_product_acquired(func):
             func(self, contract, transaction, concept, time_stamp, accounting)
 
             # Execute event
-            plugin_module.on_product_acquisition(asset, contract)
+            plugin_module.on_product_acquisition(asset, contract, self._order)
 
     return wrapper
