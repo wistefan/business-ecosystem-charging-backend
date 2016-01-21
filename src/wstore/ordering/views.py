@@ -26,8 +26,11 @@ from wstore.ordering.errors import OrderingError
 
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.ordering.ordering_client import OrderingClient
+from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
+from wstore.ordering.models import Order
+from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 
 
 class OrderingCollection(Resource):
@@ -77,3 +80,46 @@ class OrderingCollection(Resource):
             response = build_response(request, 200, 'OK')
 
         return response
+
+
+class InventoryCollection(Resource):
+
+    @supported_request_mime_types(('application/json', ))
+    def create(self, request):
+
+        try:
+            event = json.loads(request.body)
+        except:
+            return build_response(request, 400, 'The provided data is not a valid JSON object')
+
+        if event['eventType'] != 'ProductCreationNotification':
+            return build_response(request, 200, 'Ok')
+
+        product = event['event']['product']
+
+        # Extract order id
+        order_id = product['name'].split('=')[1]
+
+        # Get order
+        order = Order.objects.get(order_id=order_id)
+        contract = None
+
+        # Search contract
+        for cont in order.contracts:
+            if product['productOffering']['id'] == cont.offering.off_id:
+                contract = cont
+
+        if contract is None:
+            return build_response(request, 404, 'There is not a contract for the specified product')
+
+        # Activate asset
+        try:
+            on_product_acquired(order, contract)
+        except:
+            return build_response(request, 400, 'The asset has failed to be activated')
+
+        # Change product state to active
+        inventory_client = InventoryClient()
+        inventory_client.activate_product(product['id'])
+
+        return build_response(request, 200, 'Ok')

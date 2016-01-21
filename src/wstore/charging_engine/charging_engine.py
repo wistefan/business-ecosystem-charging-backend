@@ -36,7 +36,6 @@ from wstore.charging_engine.invoice_builder import InvoiceBuilder
 from wstore.ordering.models import Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
-from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 
 
 class ChargingEngine:
@@ -146,24 +145,6 @@ class ChargingEngine:
         related_model['charges'] = accounting['charges']
         related_model['deductions'] = accounting['deductions']
 
-    @on_product_acquired
-    def _end_contract(self, contract, transaction, concept, time_stamp, accounting):
-        # Update contracts
-        contract.charges.append({
-            'date': time_stamp,
-            'cost': transaction['price'],
-            'currency': transaction['currency'],
-            'concept': concept
-        })
-
-        contract.last_charge = time_stamp
-
-        self.end_processors[concept](contract, transaction['related_model'], accounting)
-
-        # If the customer has been charged create the CDR
-        cdr_manager = CDRManager(self._order, contract)
-        cdr_manager.generate_cdr(transaction['related_model'], str(time_stamp))
-
     def end_charging(self, transactions, concept, accounting=None):
         """
         Process the second step of a payment once the customer has approved the charge
@@ -183,7 +164,21 @@ class ChargingEngine:
 
         for transaction in transactions:
             contract = self._order.get_item_contract(transaction['item'])
-            self._end_contract(contract, transaction, concept, time_stamp, accounting)
+            # Update contracts
+            contract.charges.append({
+                'date': time_stamp,
+                'cost': transaction['price'],
+                'currency': transaction['currency'],
+                'concept': concept
+            })
+
+            contract.last_charge = time_stamp
+
+            self.end_processors[concept](contract, transaction['related_model'], accounting)
+
+            # If the customer has been charged create the CDR
+            cdr_manager = CDRManager(self._order, contract)
+            cdr_manager.generate_cdr(transaction['related_model'], str(time_stamp))
 
         self._order.save()
 
