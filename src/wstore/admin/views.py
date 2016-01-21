@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -18,64 +18,18 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from __future__ import unicode_literals
+
 import json
 
 from django.http import HttpResponse
 
-from wstore.admin.searchers import ResourceBrowser
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, \
-authentication_required
+    authentication_required
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.name import is_valid_id
 from wstore.models import Context
 from wstore.charging_engine.models import Unit
-
-
-def is_hidden_credit_card(number, profile_card):
-
-    hidden = False
-    if number.startswith('xxxxxxxxxxxx'):
-        if number[12:] == profile_card[12:]:
-            hidden = True
-
-    return hidden
-
-
-def is_valid_credit_card(number):
-    valid = True
-    digits = '1234567890'
-
-    if len(number) != 16:
-        valid = False
-
-    for d in number:
-        if not d in digits:
-            valid = False
-
-    return valid
-
-
-class ResourceSearch(Resource):
-
-    @authentication_required
-    def read(self, request):
-
-        # Get data contained in query string
-        querytext = request.GET.get('q', '')
-        indexname = request.GET.get('namespace', '')
-
-        # if indexname is empty, builds error response
-        if indexname is '':
-            return build_response(request, 400, 'The "namespace" field is required.')
-
-        # if indexname does not exist, builds error response
-        if not ResourceBrowser.is_stored(indexname):
-            return build_response(request, 400, 'The "namespace" field does not exist.')
-
-        # Search for stored resources
-        response = ResourceBrowser.search(indexname, querytext)
-
-        return HttpResponse(json.dumps(response), content_type='application/json')
 
 
 class UnitCollection(Resource):
@@ -87,11 +41,11 @@ class UnitCollection(Resource):
         for unit in Unit.objects.all():
             u = {
                 'name': unit.name,
-                'defined_model': unit.defined_model
+                'priceType': unit.defined_model
             }
 
-            if unit.defined_model == 'subscription':
-                u['renovation_period'] = unit.renovation_period
+            if unit.defined_model == 'recurring':
+                u['recurringChargePeriod'] = unit.renovation_period
 
             response.append(u)
 
@@ -103,7 +57,7 @@ class UnitCollection(Resource):
 
         # The that the user is an admin
         if not request.user.is_staff:
-            return build_response(request, 403, 'Forbidden')
+            return build_response(request, 403, 'You are not authorized to register pricing units')
 
         try:
             unit_data = json.loads(request.body)
@@ -111,35 +65,33 @@ class UnitCollection(Resource):
             return build_response(request, 400, 'Invalid JSON content')
 
         # Check the content of the request
-        if not 'name' in unit_data or not 'defined_model' in unit_data:
-            return build_response(request, 400, 'Missing required field')
+        if 'name' not in unit_data or 'priceType' not in unit_data:
+            return build_response(request, 400, 'Missing a required field, it must contain name and priceType')
 
         # Check that the new unit does not exist
         u = Unit.objects.filter(name=unit_data['name'])
         if len(u) > 0:
-            return build_response(request, 400, 'The unit already exists')
+            return build_response(request, 409, 'The unit already exists')
 
         # Check the pricing model defined
-        if unit_data['defined_model'].lower() != 'single payment' and \
-        unit_data['defined_model'].lower() != 'subscription' and \
-        unit_data['defined_model'].lower() != 'pay per use':
-            return build_response(request, 400, 'Invalid pricing model')
+        if unit_data['priceType'].lower() != 'recurring' and \
+                unit_data['priceType'].lower() != 'usage':
+            return build_response(request, 400, 'The specified priceType is not valid, must be recurring or usage')
 
         # Check the renovation period
-        if unit_data['defined_model'].lower() == 'subscription' and \
-        not 'renovation_period' in unit_data:
-            return build_response(request, 400, 'Missing renovation period')
+        if unit_data['priceType'].lower() == 'recurring' and \
+                'recurringChargePeriod' not in unit_data:
+            return build_response(request, 400, 'Recurring price types must contain a recurringChargePeriod')
 
+        unit = Unit(
+            name=unit_data['name'],
+            defined_model=unit_data['priceType'].lower()
+        )
         # Create the unit
-        if 'renovation_period' in unit_data:
-            Unit.objects.create(
-                name=unit_data['name'],
-                defined_model=unit_data['defined_model'].lower(),
-                renovation_period=unit_data['renovation_period'])
-        else:
-            Unit.objects.create(
-                name=unit_data['name'],
-                defined_model=unit_data['defined_model'].lower())
+        if 'recurringChargePeriod' in unit_data:
+            unit.renovation_period = unit_data['recurringChargePeriod']
+
+        unit.save()
 
         return build_response(request, 201, 'Created')
 
