@@ -32,8 +32,6 @@ from wstore.asset_manager.test.resource_test_data import *
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.testing import decorator_mock
 
-__test__ = False
-
 
 class ResourceRetrievingTestCase(TestCase):
 
