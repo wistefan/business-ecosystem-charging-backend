@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -32,7 +32,7 @@ from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order, Offering, Contract
 
 from wstore.ordering.tests.test_data import *
-from wstore.ordering import ordering_client, ordering_management
+from wstore.ordering import ordering_client, ordering_management, inventory_client
 
 
 class OrderingManagementTestCase(TestCase):
@@ -532,3 +532,82 @@ class OrderTestCase(TestCase):
         self.assertFalse(error is None)
         self.assertEquals('OrderingError: Invalid item id', unicode(e))
 
+
+class InventoryClientTestCase(TestCase):
+
+    tags = ('inventory', )
+
+    def setUp(self):
+        # Mock requests
+        inventory_client.requests = MagicMock()
+        self.response = MagicMock()
+        self.response.status_code = 201
+        inventory_client.requests.post.return_value = self.response
+        inventory_client.requests.get.return_value = self.response
+
+        inventory_client.Context = MagicMock()
+        context = MagicMock()
+        context.local_site.domain = 'http://localhost:8004/'
+        inventory_client.Context.objects.all.return_value = [context]
+
+    @parameterized.expand([
+        ('basic', [{
+            'callback': 'http://site.com/event'
+        }]),
+        ('initial', []),
+        ('registered', [{
+            'callback': 'http://site.com/event'
+        }, {
+            'callback': 'http://localhost:8004/charging/api/orderManagement/products'
+        }], False),
+    ])
+    def test_create_subscription(self, name, callbacks, created=True):
+
+        self.response.json.return_value = callbacks
+
+        client = inventory_client.InventoryClient()
+        client.create_inventory_subscription()
+
+        inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/hub')
+
+        if created:
+            inventory_client.requests.post.assert_called_once_with(
+                'http://localhost:8080/DSProductInventory/api/productInventory/v2/hub',
+                json={
+                    'callback': 'http://localhost:8004/charging/api/orderManagement/products'
+                }
+            )
+        else:
+            self.assertEquals(0, inventory_client.requests.post.call_count)
+
+    def test_create_subscription_error(self):
+        self.response.json.return_value = []
+        self.response.status_code = 404
+
+        error = None
+        try:
+            client = inventory_client.InventoryClient()
+            client.create_inventory_subscription()
+        except ImproperlyConfigured as e:
+            error = e
+
+        self.assertTrue(isinstance(error, ImproperlyConfigured))
+        msg = "It hasn't been possible to create inventory subscription, "
+        msg += 'please check that the inventory API is correctly configured '
+        msg += 'and that the inventory API is up and running'
+        self.assertEquals(msg, unicode(error))
+
+    def test_activate_product(self):
+        from datetime import datetime
+        now = datetime(2016, 1, 22, 4, 10, 25, 176751)
+        inventory_client.datetime = MagicMock()
+        inventory_client.datetime.now.return_value = now
+
+        client = inventory_client.InventoryClient()
+        client.activate_product('1')
+
+        inventory_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
+            'status': 'Active',
+            'startDate': '2016-01-22T04:10:25.176751'
+        })
+        inventory_client.requests.patch().raise_for_status.assert_called_once_with()
