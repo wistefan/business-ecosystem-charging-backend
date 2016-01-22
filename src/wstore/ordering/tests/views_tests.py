@@ -108,5 +108,84 @@ class OrderingCollectionTestCase(TestCase):
                 views.OrderingClient().update_state.call_args_list)
 
 
+BASIC_PRODUCT_EVENT = {
+    'eventType': 'ProductCreationNotification',
+    'event': {
+        'product': {
+            'id': 1,
+            'name': 'oid=23',
+            'productOffering': {
+                'id': 10
+            }
+        }
+    }
+}
+
 class InventoryCollectionTestCase(TestCase):
-    pass
+
+    tags = ('inventory', 'inventory-view')
+
+    def _missing_contract(self):
+        self.contract.offering.off_id = 26
+
+    def _activation_error(self):
+        views.on_product_acquired.side_effect = Exception('Error')
+
+    @parameterized.expand([
+        ('basic', BASIC_PRODUCT_EVENT, 200, {
+            'message': 'Ok',
+            'result': 'correct'
+        }),
+        ('no_creation', {
+            'eventType': 'ProductUpdateNotification'
+        }, 200, {
+            'message': 'Ok',
+            'result': 'correct'
+        }, False),
+        ('invalid_data', 'invalid', 400, {
+            'result': 'error',
+            'message': 'The provided data is not a valid JSON object'
+        }, False),
+        ('missing_contract', BASIC_PRODUCT_EVENT, 404, {
+            'result': 'error',
+            'message': 'There is not a contract for the specified product'
+        }, False, _missing_contract),
+        ('activation_failure', BASIC_PRODUCT_EVENT, 400, {
+            'result': 'error',
+            'message': 'The asset has failed to be activated'
+        }, False, _activation_error)
+    ])
+    def test_activate_product(self, name, data, exp_code, exp_response, called=True, side_effect=None):
+        views.InventoryClient = MagicMock()
+        views.on_product_acquired = MagicMock()
+
+        self.contract = MagicMock()
+        self.contract.offering.off_id = 10
+        order = MagicMock()
+        order.contracts = [MagicMock(), self.contract]
+
+        views.Order = MagicMock()
+        views.Order.objects.get.return_value = order
+
+        request = MagicMock()
+        request.META.get.return_value = 'application/json'
+
+        if isinstance(data, dict):
+            data = json.dumps(data)
+        request.body = data
+
+        if side_effect is not None:
+            side_effect(self)
+
+        collection = views.InventoryCollection(permitted_methods=('POST',))
+        response = collection.create(request)
+        body = json.loads(response.content)
+
+        self.assertEquals(exp_code, response.status_code)
+        self.assertEquals(exp_response, body)
+
+        if called:
+            views.Order.objects.get.assert_called_once_with(order_id='23')
+            views.on_product_acquired.assert_called_once_with(order, self.contract)
+            views.InventoryClient.assert_called_once_with()
+            views.InventoryClient().activate_product.assert_called_once_with(1)
