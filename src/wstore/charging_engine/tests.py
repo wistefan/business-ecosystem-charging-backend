@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 
 import json
+from wstore.ordering.errors import OrderingError
 import wstore.store_commons.utils.http
 from bson.objectid import ObjectId
 from datetime import datetime
@@ -81,7 +82,7 @@ class ChargingEngineTestCase(TestCase):
         charging_engine.CDRManager = MagicMock()
 
         # Mock datetime
-        now = datetime(2016, 1, 25, 13, 12, 39)
+        now = datetime(2016, 1, 20, 13, 12, 39)
         charging_engine.datetime = MagicMock()
         charging_engine.datetime.now.return_value = now
         charging_engine.datetime.fromtimestamp.return_value = datetime(2016, 1, 26, 13, 12, 39)
@@ -99,8 +100,8 @@ class ChargingEngineTestCase(TestCase):
             }]
         }
 
-    def _get_subscription(self):
-        return {
+    def _get_subscription(self, renovation_date=None):
+        pricing = {
             'general_currency': 'EUR',
             'subscription': [{
                 'value': '12.00',
@@ -110,20 +111,33 @@ class ChargingEngineTestCase(TestCase):
             }]
         }
 
-    def _set_initial_contracts(self):
-        contract1 = MagicMock()
-        contract1.offering.description = 'Offering 1 description'
-        contract1.offering.pk = '111111'
-        contract1.item_id = '1'
-        contract1.charges = []
-        contract1.pricing_model = self._get_single_payment()
+        if renovation_date is not None:
+            pricing['subscription'][0]['renovation_date'] = renovation_date
 
-        contract2 = MagicMock()
-        contract2.offering.description = 'Offering 2 description'
-        contract2.offering.pk = '222222'
-        contract2.item_id = '2'
-        contract2.charges = []
-        contract2.pricing_model = self._get_subscription()
+        return pricing
+
+    def _mock_contract(self, info):
+        contract = MagicMock()
+        contract.offering.description = info['description']
+        contract.offering.pk = info['offering_pk']
+        contract.item_id = info['item_id']
+        contract.charges = []
+        contract.pricing_model = info['pricing']
+        return contract
+
+    def _set_initial_contracts(self):
+        contract1 = self._mock_contract({
+            'description': 'Offering 1 description',
+            'offering_pk': '111111',
+            'item_id': '1',
+            'pricing': self._get_single_payment()
+        })
+        contract2 = self._mock_contract({
+            'description': 'Offering 2 description',
+            'offering_pk': '222222',
+            'item_id': '2',
+            'pricing': self._get_subscription()
+        })
 
         self._order.contracts = [contract1, contract2]
 
@@ -157,6 +171,56 @@ class ChargingEngineTestCase(TestCase):
             'item': '2'
         }]
 
+    def _set_renovation_contracts(self):
+        contract1 = self._mock_contract({
+            'description': 'Offering 1 description',
+            'offering_pk': '111111',
+            'item_id': '1',
+            'pricing': self._get_single_payment()
+        })
+        contract2 = self._mock_contract({
+            'description': 'Offering 2 description',
+            'offering_pk': '222222',
+            'item_id': '2',
+            'pricing': self._get_subscription(datetime(2015, 10, 01, 10, 10))
+        })
+        contract3 = self._mock_contract({
+            'description': 'Offering 3 description',
+            'offering_pk': '333333',
+            'item_id': '3',
+            'pricing': self._get_subscription(datetime.now())
+        })
+
+        self._order.contracts = [contract1, contract2, contract3]
+
+        return [{
+            'price': '12.00',
+            'duty_free': '10.00',
+            'description': 'Offering 2 description',
+            'currency': 'EUR',
+            'related_model': {
+                'subscription': [{
+                    'value': '12.00',
+                    'unit': 'monthly',
+                    'tax_rate': '20.00',
+                    'duty_free': '10.00',
+                    'renovation_date': datetime(2015, 10, 01, 10, 10)
+                }]
+            },
+            'item': '2'
+        }]
+
+    def _set_subscription_contract(self):
+        self._order.contracts =[
+            self._mock_contract({
+                'description': 'Offering 3 description',
+                'offering_pk': '333333',
+                'item_id': '3',
+                'pricing': self._get_subscription(datetime.now())
+            })
+        ]
+        return []
+
     def _set_free_contract(self):
         contract = MagicMock()
         contract.offering.description = 'Offering description'
@@ -165,13 +229,17 @@ class ChargingEngineTestCase(TestCase):
 
         self._order.contracts = [contract]
 
-    def test_initial_payment(self,):
+    @parameterized.expand([
+        ('initial', _set_initial_contracts),
+        ('renovation', _set_renovation_contracts)
+    ])
+    def test_payment(self, name, contract_gen):
 
         self._order.state = 'pending'
-        transactions = self._set_initial_contracts()
+        transactions = contract_gen(self)
 
         charging = charging_engine.ChargingEngine(self._order)
-        redirect_url = charging.resolve_charging()
+        redirect_url = charging.resolve_charging(name)
 
         self.assertEquals(self._paypal_url, redirect_url)
 
@@ -187,10 +255,25 @@ class ChargingEngineTestCase(TestCase):
         # Check payment saving
         self.assertEquals({
             'transactions': transactions,
-            'concept': 'initial'
+            'concept': name
         }, self._order.pending_payment)
         self.assertEquals('pending', self._order.state)
         self._order.save.assert_called_once_with()
+
+    def test_renovation_error(self):
+        self._order.state = 'pending'
+        self._set_subscription_contract()
+
+        charging = charging_engine.ChargingEngine(self._order)
+
+        error = None
+        try:
+            charging.resolve_charging('renovation')
+        except OrderingError as e:
+            error = e
+
+        self.assertTrue(error is not None)
+        self.assertEquals('OrderingError: There is not recurring payments to renovate', unicode(error))
 
     def test_free_charge(self):
 
@@ -247,7 +330,7 @@ class ChargingEngineTestCase(TestCase):
             call()
         ], self._order.owner_organization.save.call_args_list)
 
-        charging_engine.datetime.fromtimestamp.assert_called_once_with(1456341159.0)
+        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
 
         self.assertEquals([
             call(self._order, self._order.contracts[0]),
@@ -255,8 +338,8 @@ class ChargingEngineTestCase(TestCase):
         ], charging_engine.CDRManager.call_args_list)
 
         self.assertEquals([
-            call(transactions[0]['related_model'], '2016-01-25 13:12:39'),
-            call(transactions[1]['related_model'], '2016-01-25 13:12:39')
+            call(transactions[0]['related_model'], '2016-01-20 13:12:39'),
+            call(transactions[1]['related_model'], '2016-01-20 13:12:39')
         ], charging_engine.CDRManager().generate_cdr.call_args_list)
 
         for cnt in self._order.contracts:
@@ -268,14 +351,14 @@ class ChargingEngineTestCase(TestCase):
         ], self._order.save.call_args_list)
 
         self.assertEquals([{
-            'date': datetime(2016, 1, 25, 13, 12, 39),
+            'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
             'currency': 'EUR',
             'concept': 'initial'
         }], self._order.contracts[0].charges)
 
         self.assertEquals([{
-            'date': datetime(2016, 1, 25, 13, 12, 39),
+            'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
             'currency': 'EUR',
             'concept': 'initial'

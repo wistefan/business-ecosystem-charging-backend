@@ -33,6 +33,7 @@ from wstore.charging_engine.models import Unit
 from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
+from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
@@ -45,10 +46,12 @@ class ChargingEngine:
         self._price_resolver = PriceResolver()
         self.charging_processors = {
             'initial': self._process_initial_charge,
+            'renovation': self._process_renovation_charge,
             'use': self._process_use_charge
         }
         self.end_processors = {
             'initial': self._end_initial_charge,
+            'renovation': self._end_renovation_charge,
             'use': self._end_use_charge
         }
 
@@ -138,6 +141,19 @@ class ChargingEngine:
         self._order.owner_organization.acquired_offerings.append(contract.offering.pk)
         self._order.owner_organization.save()
 
+    def _end_renovation_charge(self, contract, related_model, accounting=None):
+        # Process contract subscriptions
+        for subs in related_model['subscription']:
+            subs['renovation_date'] = self._calculate_renovation_date(subs['unit'])
+            updated_subscriptions = related_model['subscription']
+
+            if 'unmodified' in related_model:
+                updated_subscriptions.extend(related_model['unmodified'])
+
+            # Save pricing model with new renovation dates
+            contract.pricing_model['subscription'] = updated_subscriptions
+            related_model['subscription'] = updated_subscriptions
+
     def _end_use_charge(self, contract, related_model, accounting=None):
         # Move SDR from pending to applied
         self._order.contract.applied_sdrs.extend(self._order.contract.pending_sdrs)
@@ -200,6 +216,18 @@ class ChargingEngine:
         self._order.pending_payment = pending_payment
         self._order.save()
 
+    def _append_transaction(self, transactions, contract, related_model):
+        # Call the price resolver
+        price, duty_free = self._price_resolver.resolve_price(related_model)
+        transactions.append({
+            'price': self._fix_price(price),
+            'duty_free': self._fix_price(duty_free),
+            'description': contract.offering.description,
+            'currency': contract.pricing_model['general_currency'],
+            'related_model': related_model,
+            'item': contract.item_id
+        })
+
     def _process_initial_charge(self):
         """
         Resolves initial charges, which can include single payments or the initial payment of a subscription
@@ -219,16 +247,7 @@ class ChargingEngine:
                 related_model['subscription'] = contract.pricing_model['subscription']
 
             if len(related_model):
-                # Call the price resolver
-                price, duty_free = self._price_resolver.resolve_price(related_model)
-                transactions.append({
-                    'price': self._fix_price(price),
-                    'duty_free': self._fix_price(duty_free),
-                    'description': contract.offering.description,
-                    'currency': contract.pricing_model['general_currency'],
-                    'related_model': related_model,
-                    'item': contract.item_id
-                })
+                self._append_transaction(transactions, contract, related_model)
 
         if len(transactions):
             # Make the charge
@@ -238,6 +257,52 @@ class ChargingEngine:
             # If it is not necessary to charge the customer, the state is set to paid
             self._order.state = 'paid'
             self.end_charging(transactions, self._concept)
+
+        return redirect_url
+
+    def _process_renovation_charge(self):
+        """
+        Resolves renovation charges, which includes the renovation of subscriptions and optionally usage payments
+        :return: The URL where redirecting the customer to approve the charge
+        """
+
+        now = datetime.now()
+        transactions = []
+        for contract in self._order.contracts:
+            # Check if the contract has any recurring model
+            if 'subscription' not in contract.pricing_model:
+                continue
+
+            # Determine the price parts to renovate
+            related_model = {
+                'subscription': []
+            }
+
+            unmodified = []
+            for s in contract.pricing_model['subscription']:
+                renovation_date = s['renovation_date']
+                if renovation_date < now:
+                    related_model['subscription'].append(s)
+                else:
+                    unmodified.append(s)
+
+            # Save unmodified recurring payment (not ended yed)
+            if len(unmodified):
+                related_model['unmodified'] = unmodified
+
+            # Calculate the price to ba charged if required
+            if len(related_model['subscription']):
+                self._append_transaction(transactions, contract, related_model)
+
+        if len(transactions):
+            # Make the charge
+            redirect_url = self._charge_client(transactions)
+            self._save_pending_charge(transactions)
+        else:
+            # If it is not necessary to charge the customer, the state is set to paid
+            self._order.state = 'paid'
+            self._order.save()
+            raise OrderingError('There is not recurring payments to renovate')
 
         return redirect_url
 
