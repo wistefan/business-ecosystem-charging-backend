@@ -115,12 +115,14 @@ class ChargingEngineTestCase(TestCase):
         contract1.offering.description = 'Offering 1 description'
         contract1.offering.pk = '111111'
         contract1.item_id = '1'
+        contract1.charges = []
         contract1.pricing_model = self._get_single_payment()
 
         contract2 = MagicMock()
         contract2.offering.description = 'Offering 2 description'
         contract2.offering.pk = '222222'
         contract2.item_id = '2'
+        contract2.charges = []
         contract2.pricing_model = self._get_subscription()
 
         self._order.contracts = [contract1, contract2]
@@ -264,6 +266,20 @@ class ChargingEngineTestCase(TestCase):
             call(),
             call()
         ], self._order.save.call_args_list)
+
+        self.assertEquals([{
+            'date': datetime(2016, 1, 25, 13, 12, 39),
+            'cost': '12.00',
+            'currency': 'EUR',
+            'concept': 'initial'
+        }], self._order.contracts[0].charges)
+
+        self.assertEquals([{
+            'date': datetime(2016, 1, 25, 13, 12, 39),
+            'cost': '12.00',
+            'currency': 'EUR',
+            'concept': 'initial'
+        }], self._order.contracts[1].charges)
 
     def test_invalid_concept(self):
 
