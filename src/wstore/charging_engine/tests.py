@@ -23,6 +23,7 @@ from __future__ import absolute_import
 import json
 import wstore.store_commons.utils.http
 from bson.objectid import ObjectId
+from datetime import datetime
 
 from mock import MagicMock, call
 from nose_parameterized import parameterized
@@ -56,6 +57,12 @@ class ChargingEngineTestCase(TestCase):
     def setUp(self):
         # Mock order
         self._order = MagicMock()
+        self._order.owner_organization.acquired_offerings = []
+
+        charging_engine.Unit = MagicMock()
+        unit = MagicMock()
+        unit.renovation_period = 30
+        charging_engine.Unit.objects.get.return_value = unit
 
         # Mock payment client
         mock_payment_client(self, charging_engine)
@@ -69,8 +76,16 @@ class ChargingEngineTestCase(TestCase):
 
         # Mock invoice builder
         charging_engine.InvoiceBuilder = MagicMock()
-        self._invoice_inst = MagicMock()
-        charging_engine.InvoiceBuilder.return_value = self._invoice_inst
+
+        # Mock CDR Manager
+        charging_engine.CDRManager = MagicMock()
+
+        # Mock datetime
+        now = datetime(2016, 1, 25, 13, 12, 39)
+        charging_engine.datetime = MagicMock()
+        charging_engine.datetime.now.return_value = now
+        charging_engine.datetime.fromtimestamp.return_value = datetime(2016, 1, 26, 13, 12, 39)
+
         charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
 
     def _get_single_payment(self):
@@ -187,12 +202,68 @@ class ChargingEngineTestCase(TestCase):
 
         # Check invoice generation calls
         charging_engine.InvoiceBuilder.assert_called_once_with(self._order)
-        self._invoice_inst.generate_invoice.assert_called_once_with([], 'initial')
+        charging_engine.InvoiceBuilder().generate_invoice.assert_called_once_with([], 'initial')
 
         # Check order status
         self.assertEquals('paid', self._order.state)
         self.assertEquals({}, self._order.pending_payment)
         self._order.save.assert_called_once_with()
+
+    def test_end_initial_payment(self):
+        self._order.state = 'pending'
+        transactions = self._set_initial_contracts()
+
+        # Mock get contracts
+        self._order.get_item_contract.side_effect = self._order.contracts
+
+        charging = charging_engine.ChargingEngine(self._order)
+        charging.end_charging(transactions, 'initial')
+
+        # Validate calls
+        self.assertEquals('paid', self._order.state)
+        self.assertEquals([
+            call('1'),
+            call('2')
+        ], self._order.get_item_contract.call_args_list)
+
+        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
+
+        self.assertEquals(['111111', '222222'], self._order.owner_organization.acquired_offerings)
+        self.assertEquals({
+            'general_currency': 'EUR',
+            'subscription': [{
+                'value': '12.00',
+                'unit': 'monthly',
+                'tax_rate': '20.00',
+                'duty_free': '10.00',
+                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
+            }]
+        }, self._order.contracts[1].pricing_model)
+
+        self.assertEquals([
+            call(),
+            call()
+        ], self._order.owner_organization.save.call_args_list)
+
+        charging_engine.datetime.fromtimestamp.assert_called_once_with(1456341159.0)
+
+        self.assertEquals([
+            call(self._order, self._order.contracts[0]),
+            call(self._order, self._order.contracts[1]),
+        ], charging_engine.CDRManager.call_args_list)
+
+        self.assertEquals([
+            call(transactions[0]['related_model'], '2016-01-25 13:12:39'),
+            call(transactions[1]['related_model'], '2016-01-25 13:12:39')
+        ], charging_engine.CDRManager().generate_cdr.call_args_list)
+
+        for cnt in self._order.contracts:
+            cnt.save.assert_called_once_with()
+
+        self.assertEquals([
+            call(),
+            call()
+        ], self._order.save.call_args_list)
 
     def test_invalid_concept(self):
 
