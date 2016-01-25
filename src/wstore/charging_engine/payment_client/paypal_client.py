@@ -21,11 +21,9 @@ from decimal import Decimal
 
 import paypalrestsdk
 
-from django.contrib.sites.models import Site
-
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.ordering.errors import PaymentError
-
+from wstore.models import Context
 
 # Paypal creadetials
 PAYPAL_CLIENT_ID = 'AVOLRuc4jN599UD5FMLHv07T7pnmh76zrllx60cQ-fPK39Bu4yR2iOCzNrzqou6XmAFbnuYhdMY4cExY'
@@ -49,7 +47,7 @@ class PayPalClient(PaymentClient):
 
     def start_redirection_payment(self, transactions):
         # Build URL
-        url = Site.objects.all()[0].domain
+        url = Context.objects.all()[0].site.domain
         if url[-1] != '/':
             url += '/'
 
