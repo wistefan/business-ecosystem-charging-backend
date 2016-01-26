@@ -329,9 +329,6 @@ class ChargingEngineTestCase(TestCase):
             call(self._order, self._order.contracts[1])
         ], charging_engine.NotificationsHandler().send_provider_notification.call_args_list)
 
-        for cnt in self._order.contracts:
-            cnt.save.assert_called_once_with()
-
         self.assertEquals([{
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
@@ -358,7 +355,6 @@ class ChargingEngineTestCase(TestCase):
         charging_engine.CDRManager().generate_cdr.assert_called_once_with(transactions[0]['related_model'], '2016-01-20 13:12:39')
 
         self.assertEquals(0, self._order.contracts[0].call_count)
-        self._order.contracts[1].save.assert_called_once_with()
         self.assertEquals(0, self._order.contracts[2].call_count)
 
         self.assertEquals([], self._order.contracts[0].charges)

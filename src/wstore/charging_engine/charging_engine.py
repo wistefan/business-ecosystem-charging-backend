@@ -197,7 +197,6 @@ class ChargingEngine:
             # If the customer has been charged create the CDR
             cdr_manager = CDRManager(self._order, contract)
             cdr_manager.generate_cdr(transaction['related_model'], unicode(time_stamp))
-            contract.save()
 
         self._order.save()
 

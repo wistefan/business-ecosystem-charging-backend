@@ -126,7 +126,7 @@ class InventoryCollection(Resource):
 
         # Save contract id
         contract.product_id = product['id']
-        contract.save()
+        order.save()
 
         # Activate asset
         try:

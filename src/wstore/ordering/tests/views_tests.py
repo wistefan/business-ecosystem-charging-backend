@@ -209,4 +209,3 @@ class InventoryCollectionTestCase(TestCase):
             views.InventoryClient.assert_called_once_with()
             views.InventoryClient().activate_product.assert_called_once_with(1)
             self.assertEquals(1, self.contract.product_id)
-            self.contract.save.assert_called_once_with()
