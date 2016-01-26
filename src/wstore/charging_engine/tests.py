@@ -140,6 +140,8 @@ class ChargingEngineTestCase(TestCase):
         })
 
         self._order.contracts = [contract1, contract2]
+        # Mock get contracts
+        self._order.get_item_contract.side_effect = self._order.contracts
 
         return [{
             'price': '12.00',
@@ -192,6 +194,8 @@ class ChargingEngineTestCase(TestCase):
         })
 
         self._order.contracts = [contract1, contract2, contract3]
+        # Mock get contracts
+        self._order.get_item_contract.side_effect = [contract2]
 
         return [{
             'price': '12.00',
@@ -294,43 +298,17 @@ class ChargingEngineTestCase(TestCase):
         self.assertEquals({}, self._order.pending_payment)
         self._order.save.assert_called_once_with()
 
-    def test_end_initial_payment(self):
-        self._order.state = 'pending'
-        transactions = self._set_initial_contracts()
-
-        # Mock get contracts
-        self._order.get_item_contract.side_effect = self._order.contracts
-
-        charging = charging_engine.ChargingEngine(self._order)
-        charging.end_charging(transactions, 'initial')
-
-        # Validate calls
-        self.assertEquals('paid', self._order.state)
+    def _validate_end_initial_payment(self, transactions):
         self.assertEquals([
             call('1'),
             call('2')
         ], self._order.get_item_contract.call_args_list)
 
-        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
-
         self.assertEquals(['111111', '222222'], self._order.owner_organization.acquired_offerings)
-        self.assertEquals({
-            'general_currency': 'EUR',
-            'subscription': [{
-                'value': '12.00',
-                'unit': 'monthly',
-                'tax_rate': '20.00',
-                'duty_free': '10.00',
-                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
-            }]
-        }, self._order.contracts[1].pricing_model)
-
         self.assertEquals([
             call(),
             call()
         ], self._order.owner_organization.save.call_args_list)
-
-        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
 
         self.assertEquals([
             call(self._order, self._order.contracts[0]),
@@ -345,11 +323,6 @@ class ChargingEngineTestCase(TestCase):
         for cnt in self._order.contracts:
             cnt.save.assert_called_once_with()
 
-        self.assertEquals([
-            call(),
-            call()
-        ], self._order.save.call_args_list)
-
         self.assertEquals([{
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
@@ -363,6 +336,68 @@ class ChargingEngineTestCase(TestCase):
             'currency': 'EUR',
             'concept': 'initial'
         }], self._order.contracts[1].charges)
+
+    def _validate_end_renovation_payment(self, transactions):
+        self.assertEquals([
+            call('2')
+        ], self._order.get_item_contract.call_args_list)
+
+        charging_engine.CDRManager.assert_called_once_with(self._order, self._order.contracts[1])
+
+        # No new offering has been included
+        self.assertEquals([], self._order.owner_organization.acquired_offerings)
+        charging_engine.CDRManager().generate_cdr.assert_called_once_with(transactions[0]['related_model'], '2016-01-20 13:12:39')
+
+        self.assertEquals(0, self._order.contracts[0].call_count)
+        self._order.contracts[1].save.assert_called_once_with()
+        self.assertEquals(0, self._order.contracts[2].call_count)
+
+        self.assertEquals([], self._order.contracts[0].charges)
+
+        self.assertEquals([{
+            'date': datetime(2016, 1, 20, 13, 12, 39),
+            'cost': '12.00',
+            'currency': 'EUR',
+            'concept': 'renovation'
+        }], self._order.contracts[1].charges)
+
+        self.assertEquals([], self._order.contracts[2].charges)
+
+    @parameterized.expand([
+        ('initial', _set_initial_contracts, _validate_end_initial_payment),
+        ('renovation', _set_renovation_contracts, _validate_end_renovation_payment)
+    ])
+    def test_end_payment(self, name, contract_gen, validator):
+        self._order.state = 'pending'
+        transactions = contract_gen(self)
+
+        charging = charging_engine.ChargingEngine(self._order)
+        charging.end_charging(transactions, name)
+
+        validator(self, transactions)
+
+        # Validate calls
+        self.assertEquals('paid', self._order.state)
+
+        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
+
+        self.assertEquals({
+            'general_currency': 'EUR',
+            'subscription': [{
+                'value': '12.00',
+                'unit': 'monthly',
+                'tax_rate': '20.00',
+                'duty_free': '10.00',
+                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
+            }]
+        }, self._order.contracts[1].pricing_model)
+
+        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
+
+        self.assertEquals([
+            call(),
+            call()
+        ], self._order.save.call_args_list)
 
     def test_invalid_concept(self):
 

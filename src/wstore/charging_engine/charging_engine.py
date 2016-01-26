@@ -142,6 +142,7 @@ class ChargingEngine:
         self._order.owner_organization.save()
 
     def _end_renovation_charge(self, contract, related_model, accounting=None):
+
         # Process contract subscriptions
         for subs in related_model['subscription']:
             subs['renovation_date'] = self._calculate_renovation_date(subs['unit'])
