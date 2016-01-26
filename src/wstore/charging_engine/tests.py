@@ -87,6 +87,7 @@ class ChargingEngineTestCase(TestCase):
         charging_engine.datetime.now.return_value = now
         charging_engine.datetime.fromtimestamp.return_value = datetime(2016, 1, 26, 13, 12, 39)
 
+        charging_engine.NotificationsHandler = MagicMock()
         charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
 
     def _get_single_payment(self):
@@ -215,7 +216,7 @@ class ChargingEngineTestCase(TestCase):
         }]
 
     def _set_subscription_contract(self):
-        self._order.contracts =[
+        self._order.contracts = [
             self._mock_contract({
                 'description': 'Offering 3 description',
                 'offering_pk': '333333',
@@ -319,6 +320,14 @@ class ChargingEngineTestCase(TestCase):
             call(transactions[0]['related_model'], '2016-01-20 13:12:39'),
             call(transactions[1]['related_model'], '2016-01-20 13:12:39')
         ], charging_engine.CDRManager().generate_cdr.call_args_list)
+
+        charging_engine.NotificationsHandler.assert_called_once_with()
+        charging_engine.NotificationsHandler().send_acquired_notification.assert_called_once_with(self._order)
+
+        self.assertEquals([
+            call(self._order, self._order.contracts[0]),
+            call(self._order, self._order.contracts[1])
+        ], charging_engine.NotificationsHandler().send_provider_notification.call_args_list)
 
         for cnt in self._order.contracts:
             cnt.save.assert_called_once_with()

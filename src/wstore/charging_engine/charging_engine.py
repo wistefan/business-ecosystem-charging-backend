@@ -37,6 +37,7 @@ from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
+from wstore.admin.users.notification_handler import NotificationsHandler
 
 
 class ChargingEngine:
@@ -203,6 +204,17 @@ class ChargingEngine:
         # Generate the invoice
         invoice_builder = InvoiceBuilder(self._order)
         invoice_builder.generate_invoice(transactions, concept)
+
+        # Send notifications if required
+        if concept == 'initial':
+            # Send customer and provider notifications
+            try:
+                handler = NotificationsHandler()
+                handler.send_acquired_notification(self._order)
+                for cont in self._order.contracts:
+                    handler.send_provider_notification(self._order, cont)
+            except:
+                pass
 
     def _save_pending_charge(self, transactions, applied_accounting=None):
         pending_payment = {
