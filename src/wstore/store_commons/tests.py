@@ -76,6 +76,9 @@ class AuthenticationMiddlewareTestCase(TestCase):
     def _invalid_token(self):
         self.request.META['HTTP_AUTHORIZATION'] = '1234567890abcdf'
 
+    def _missing_email(self):
+        del self.request.META['HTTP_X_EMAIL']
+
     @parameterized.expand([
         ('basic', 'provider,seller,', True, ['provider']),
         ('customer', 'customer', False, ['customer']),
@@ -83,12 +86,14 @@ class AuthenticationMiddlewareTestCase(TestCase):
         ('empty', '', False, []),
         ('missing_header', '', False, [], _missing_header, False, True),
         ('missing_token', '', False, [], _missing_token, False, True),
+        ('missing_email', '', False, [], _missing_email, False, True),
         ('invalid_token', '', False, [], _invalid_token, False, True)
     ])
     def test_get_api_user(self, name, roles, staff, expected_roles, side_effect=None, created=False, anonymous=False):
 
         self.request.META['HTTP_X_ROLES'] = roles
         self.request.META['HTTP_AUTHORIZATION'] = 'Bearer 1234567890abcdf'
+        self.request.META['HTTP_X_EMAIL'] = 'user@email.com'
 
         if side_effect is not None:
             side_effect(self)
@@ -109,6 +114,7 @@ class AuthenticationMiddlewareTestCase(TestCase):
             self._org_model.objects.get.assert_called_once_with(name='test-user')
             self.assertEquals([{'organization': 'org', 'roles': expected_roles}], self._user_inst.userprofile.organizations)
 
+            self.assertEquals('user@email.com', self._user_inst.email)
             self.assertEquals('1234567890abcdf', self._user_inst.userprofile.access_token)
             self.assertEquals('Test user', self._user_inst.userprofile.complete_name)
             self.assertEquals('test-user', self._user_inst.userprofile.actor_id)

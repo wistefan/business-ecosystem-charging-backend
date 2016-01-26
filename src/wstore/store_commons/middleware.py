@@ -136,6 +136,7 @@ def get_api_user(request):
         token_info = request.META['HTTP_AUTHORIZATION'].split(' ')
         nick_name = request.META['HTTP_X_NICK_NAME']
         display_name = request.META['HTTP_X_DISPLAY_NAME']
+        email = request.META['HTTP_X_EMAIL']
         roles = request.META['HTTP_X_ROLES'].split(',')
     except:
         return AnonymousUser()
@@ -150,6 +151,7 @@ def get_api_user(request):
         user = User.objects.create(username=nick_name)
 
     # Update user info
+    user.email = email
     user.userprofile.access_token = token_info[1]
     user.userprofile.complete_name = display_name
     user.userprofile.actor_id = nick_name
