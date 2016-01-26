@@ -168,6 +168,9 @@ class OrderingManager:
         price = None
         for off_price in offering_info['productOfferingPrice']:
 
+            # Change the price to string in order to avoid problems with floats
+            product_price['price']['amount'] = unicode(product_price['price']['amount'])
+
             # Validate that all pricing fields matches
             if off_price['priceType'] == product_price['priceType'] and \
                 (('unitOfMeasure' not in off_price and 'unitOfMeasure' not in product_price) or
