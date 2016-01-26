@@ -612,3 +612,12 @@ class InventoryClientTestCase(TestCase):
             'startDate': '2016-01-22T04:10:25.176751'
         })
         inventory_client.requests.patch().raise_for_status.assert_called_once_with()
+
+    def test_suspend_product(self):
+        client = inventory_client.InventoryClient()
+        client.suspend_product('1')
+
+        inventory_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
+            'status': 'Suspended'
+        })
+        inventory_client.requests.patch().raise_for_status.assert_called_once_with()
