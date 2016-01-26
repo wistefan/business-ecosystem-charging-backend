@@ -54,6 +54,14 @@ class NotificationsHandler:
 
         server.sendmail(self._fromaddr, recipient, msg.as_string())
 
+    def _send_text_email(self, text, recipients, subject):
+        msg = MIMEText(text)
+        msg['Subject'] = subject
+        msg['From'] = self._fromaddr
+        msg['To'] = ','.join(recipients)
+
+        self._send_email(recipients, msg)
+
     def send_acquired_notification(self, order):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
@@ -62,7 +70,7 @@ class NotificationsHandler:
         order_url = urljoin(domain, '/#/inventory/order')
         product_url = urljoin(domain, '/#/inventory/product')
 
-        text = 'We have received the payment of your order with id ' + order.order_id + '\n'
+        text = 'We have received the payment of your order with reference ' + order.pk + '\n'
         text += 'containing the following product offerings: \n\n'
         for cont in order.contracts:
             text += cont.offering.name + ' with id ' + cont.offering.off_id + '\n\n'
@@ -104,12 +112,33 @@ class NotificationsHandler:
         text += 'has been acquired by the user ' + order.owner_organization.name + '\n'
         text += 'Please review you pending orders at: \n\n' + url
 
-        msg = MIMEText(text)
-        msg['Subject'] = 'Product offering acquired'
-        msg['From'] = self._fromaddr
-        msg['To'] = ','.join(recipients)
+        self._send_text_email(text, recipients, 'Product offering acquired')
 
-        self._send_email(recipients, msg)
+    def send_payment_required_notification(self, order, contract):
+        org = order.owner_organization
+        recipients = [User.objects.get(pk=pk).email for pk in org.managers]
 
-    def send_payment_required_notification(self):
-        pass
+        domain = Context.objects.all()[0].site.domain
+        url = urljoin(domain, '/#/inventory/order/' + order.order_id)
+
+        text = 'Your subscription belonging to the product offering ' + contract.offering.name + ' has expired.\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference ' + order.pk + '\n'
+        text += 'in the web portal or accessing the following link: \n\n'
+        text += url
+
+        self._send_text_email(text, recipients, contract.offering.name + ' subscription expired')
+
+    def send_near_expiration_notification(self, order, contract, days):
+        org = order.owner_organization
+        recipients = [User.objects.get(pk=pk).email for pk in org.managers]
+
+        domain = Context.objects.all()[0].site.domain
+        url = urljoin(domain, '/#/inventory/order/' + order.order_id)
+
+        text = 'Your subscription belonging to the product offering ' + contract.offering.name + '\n'
+        text += 'is going to expire in ' + unicode(days) + ' days. \n\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference ' + order.pk + '\n'
+        text += 'in the web portal or accessing the following link: \n\n'
+        text += url
+
+        self._send_text_email(text, recipients, contract.offering.name + ' subscription is about to expire')
