@@ -124,6 +124,10 @@ class InventoryCollection(Resource):
         if contract is None:
             return build_response(request, 404, 'There is not a contract for the specified product')
 
+        # Save contract id
+        contract.product_id = product['id']
+        contract.save()
+
         # Activate asset
         try:
             on_product_acquired(order, contract)

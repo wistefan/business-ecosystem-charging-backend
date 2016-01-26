@@ -39,6 +39,7 @@ class Offering(models.Model):
 
 class Contract(models.Model):
     item_id = models.CharField(max_length=50)
+    product_id = models.CharField(max_length=50, blank=True, null=True)
     offering = models.ForeignKey(Offering)
 
     # Parsed version of the pricing model used to calculate charges
