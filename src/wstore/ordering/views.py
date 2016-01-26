@@ -29,7 +29,7 @@ from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
-from wstore.ordering.models import Order
+from wstore.ordering.models import Order, Contract
 from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 
 
@@ -77,6 +77,18 @@ class OrderingCollection(Resource):
             }), status=200, mimetype='application/json; charset=utf-8')
 
         else:
+            # All the order items are free so digital assets can be set as Completed
+            client = OrderingClient()
+            client.update_state(order, 'InProgress')
+
+            digital_items = []
+            for item in order['orderItem']:
+                contract = Contract.objects.get(item_id=item['id'])
+                if contract.offering.is_digital:
+                    digital_items.append(item)
+
+            client.update_state(order, 'Completed', digital_items)
+
             response = build_response(request, 200, 'OK')
 
         return response

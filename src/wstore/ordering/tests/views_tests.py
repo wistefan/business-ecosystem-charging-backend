@@ -45,7 +45,12 @@ class OrderingCollectionTestCase(TestCase):
 
     @parameterized.expand([
         ('basic', {
-            'id': 1
+            'id': 1,
+            'orderItem': [{
+                'id': '2'
+            }, {
+                'id': '3'
+            }]
         }, None, 200, {
             'result': 'correct',
             'message': 'OK'
@@ -78,6 +83,12 @@ class OrderingCollectionTestCase(TestCase):
         views.OrderingManager().process_order.return_value = redirect_url
 
         views.OrderingClient = MagicMock()
+        views.Contract = MagicMock()
+
+        c1 = MagicMock()
+        c2 = MagicMock()
+        c2.offering.is_digital = False
+        views.Contract.objects.get.side_effect = [c1, c2]
 
         self.request = MagicMock()
         self.request.META.get.return_value = 'application/json'
@@ -101,6 +112,14 @@ class OrderingCollectionTestCase(TestCase):
 
         if called:
             views.OrderingManager().process_order.assert_called_once_with(self.request.user, json.loads(data))
+
+            if redirect_url is None and not failed:
+                self.assertEquals([
+                    call(json.loads(data), 'InProgress'),
+                    call(json.loads(data), 'Completed', [{
+                        'id': '2'}]
+                    )
+                ], views.OrderingClient().update_state.call_args_list)
 
         if failed:
             self.assertEquals(
