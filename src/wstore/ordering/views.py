@@ -22,8 +22,9 @@ from __future__ import unicode_literals
 
 import json
 from django.http import HttpResponse
-from wstore.ordering.errors import OrderingError
 
+from wstore.charging_engine.charging_engine import ChargingEngine
+from wstore.ordering.errors import OrderingError
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.inventory_client import InventoryClient
@@ -139,3 +140,57 @@ class InventoryCollection(Resource):
         inventory_client.activate_product(product['id'])
 
         return build_response(request, 200, 'Ok')
+
+
+class RenovationCollection(Resource):
+
+    @authentication_required
+    @supported_request_mime_types(('application/json'))
+    def create(self, request):
+
+        try:
+            task = json.loads(request.body)
+        except:
+            return build_response(request, 400, 'The provided data is not a valid JSON object')
+
+        # Check the products to be renovated
+        if 'name' not in task or 'id' not in task or 'priceType' not in task:
+            return build_response(request, 400, 'Missing required field, must contain name and id fields')
+
+        # Parse oid from product name
+        parsed_name = task['name'].split('=')
+
+        try:
+            order = Order.objects.get(order_id=parsed_name[1])
+        except:
+            return build_response(request, 404, 'The oid specified in the product name is not valid')
+
+        # Get contract to renovate
+        try:
+            contract = order.get_product_contract(task['id'])
+        except:
+            return build_response(request, 404, 'The specified product id is not valid')
+
+        # Build charging engine
+        charging_engine = ChargingEngine(order)
+        concepts = {
+            'recurring': 'renovation',
+            'usage': 'use'
+        }
+
+        try:
+            redirect_url = charging_engine.resolve_charging(type_=concepts[task['priceType']], related_contracts=[contract])
+        except ValueError as e:
+            return build_response(request, 400, unicode(e))
+        except OrderingError as e:
+            return build_response(request, 400, unicode(e))
+        except:
+            return build_response(request, 500, 'An unexpected event prevented your payment to be created')
+
+        response = build_response(request, 200, 'OK')
+
+        # Include redirection header if needed
+        if redirect_url is not None:
+            response['X-Redirect-URL'] = redirect_url
+
+        return response
