@@ -196,6 +196,7 @@ class InvoiceBuilder(object):
 
             # Load pricing info into the context
             context = {
+                'basedir': settings.BASEDIR,
                 'offering_name': offering.name,
                 'off_organization': offering.owner_organization.name,
                 'off_version': offering.version,
