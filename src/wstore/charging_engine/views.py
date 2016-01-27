@@ -25,8 +25,9 @@ from datetime import datetime
 
 from django.conf import settings
 from django.http import HttpResponse
-from wstore.ordering.ordering_client import OrderingClient
 
+from wstore.ordering.inventory_client import InventoryClient
+from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
 from wstore.ordering.models import Order
@@ -138,6 +139,27 @@ class ServiceRecordCollection(Resource):
 
 class PayPalConfirmation(Resource):
 
+    def _set_initial_states(self, transactions, raw_order, order):
+        # Set all order items as in progress
+        self.ordering_client.update_state(raw_order, 'InProgress')
+
+        # Set order items of digital products as completed
+        involved_items = [t['item'] for t in transactions]
+
+        digital_items = []
+        for item in raw_order['orderItem']:
+            if item['id'] in involved_items and order.get_item_contract(item['id']).offering.is_digital:
+                digital_items.append(item)
+
+        self.ordering_client.update_state(raw_order, 'Completed', digital_items)
+
+    def _set_renovation_states(self, transactions, raw_order, order):
+        inventory_client = InventoryClient()
+
+        for transaction in transactions:
+            contract = order.get_item_contract(transaction['item'])
+            inventory_client.activate_product(contract.product_id)
+
     # This method is used to receive the PayPal confirmation
     # when the customer is paying using his PayPal account
     @supported_request_mime_types(('application/json',))
@@ -145,7 +167,8 @@ class PayPalConfirmation(Resource):
     def create(self, request):
 
         order = None
-        ordering_client = OrderingClient()
+        concept = None
+        self.ordering_client = OrderingClient()
         try:
             # Extract payment information
             data = json.loads(request.body)
@@ -176,7 +199,9 @@ class PayPalConfirmation(Resource):
                 raise PaymentError('The timeout set to process the payment has finished')
 
             order = Order.objects.get(pk=reference)
-            raw_order = ordering_client.get_order(order.order_id)
+            raw_order = self.ordering_client.get_order(order.order_id)
+            pending_info = order.pending_payment
+            concept = pending_info['concept']
 
             # Check that the request user is authorized to end the payment
             if request.user.userprofile.current_organization != order.owner_organization:
@@ -192,7 +217,7 @@ class PayPalConfirmation(Resource):
                 )
                 raise PaymentError('The timeout set to process the payment has finished')
 
-            pending_info = order.pending_payment
+            transactions = pending_info['transactions']
 
             # Get the payment client
             # Load payment client
@@ -210,14 +235,14 @@ class PayPalConfirmation(Resource):
             if 'accounting' in pending_info:
                 accounting = pending_info['accounting']
 
-            charging_engine.end_charging(pending_info['transactions'], pending_info['concept'], accounting)
+            charging_engine.end_charging(transactions, concept, accounting)
         except Exception as e:
 
             # Rollback the purchase if existing
-            if order is not None and raw_order is not None:  # TODO: Take into account pay-per-use case
+            if order is not None and raw_order is not None and concept == 'initial':
                 # Set the order to failed in the ordering API
-                ordering_client.update_state(raw_order, 'InProgress')
-                ordering_client.update_state(raw_order, 'Failed')
+                self.ordering_client.update_state(raw_order, 'InProgress')
+                self.ordering_client.update_state(raw_order, 'Failed')
                 order.delete()
 
             expl = ' due to an unexpected error'
@@ -229,16 +254,14 @@ class PayPalConfirmation(Resource):
             msg = 'The payment has been canceled' + expl
             return build_response(request, err_code, msg)
 
-        # Set all order items as in progress
-        ordering_client.update_state(raw_order, 'InProgress')
+        # Change states of TMForum resources (orderItems, products, etc)
+        # depending on the concept of the payment
 
-        # Set order items of digital products as completed
-        digital_items = []
-        for item in raw_order['orderItem']:
-            if order.get_item_contract(item['id']).offering.is_digital:
-                digital_items.append(item)
-
-        ordering_client.update_state(raw_order, 'Completed', digital_items)
+        states_processors = {
+            'initial': self._set_initial_states,
+            'renovation': self._set_renovation_states
+        }
+        states_processors[concept](transactions, raw_order, order)
 
         # _lock is set to false
         db.wstore_order.find_one_and_update(

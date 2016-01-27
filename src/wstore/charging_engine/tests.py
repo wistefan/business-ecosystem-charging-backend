@@ -497,7 +497,11 @@ class PayPalConfirmationTestCase(TestCase):
         self._order_inst.owner_organization = org
         self._order_inst.state = 'pending'
         self._order_inst.pending_payment = {
-            'transactions': [],
+            'transactions': [{
+                'item': '1'
+            }, {
+                'item': '2'
+            }],
             'concept': 'initial'
         }
         views.Order.objects.filter.return_value = [self._order_inst]
@@ -519,7 +523,11 @@ class PayPalConfirmationTestCase(TestCase):
 
     def _accounting_included(self):
         self._order_inst.pending_payment = {
-            'transactions': [],
+            'transactions': [{
+                'item': '1'
+            }, {
+                'item': '2'
+            }],
             'concept': 'initial',
             'accounting': []
         }
@@ -618,7 +626,7 @@ class PayPalConfirmationTestCase(TestCase):
             self._payment_inst.end_redirection_payment.assert_called_once_with('payment', 'payer')
 
             views.ChargingEngine.assert_called_once_with(self._order_inst)
-            self._charging_inst.end_charging.assert_called_once_with([], 'initial', acc)
+            self._charging_inst.end_charging.assert_called_once_with([{'item': '1'}, {'item': '2'}], 'initial', acc)
 
             self._ordering_inst.get_order.assert_called_once_with('1')
 

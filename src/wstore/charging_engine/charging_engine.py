@@ -200,20 +200,21 @@ class ChargingEngine:
 
         self._order.save()
 
-        # Generate the invoice
-        invoice_builder = InvoiceBuilder(self._order)
-        invoice_builder.generate_invoice(transactions, concept)
+        # TODO: Improve the rollback in case of unexpected exception
+        try:
+            # Generate the invoice
+            invoice_builder = InvoiceBuilder(self._order)
+            invoice_builder.generate_invoice(transactions, concept)
 
-        # Send notifications if required
-        if concept == 'initial':
-            # Send customer and provider notifications
-            try:
+            # Send notifications if required
+            if concept == 'initial':
+                # Send customer and provider notifications
                 handler = NotificationsHandler()
                 handler.send_acquired_notification(self._order)
                 for cont in self._order.contracts:
                     handler.send_provider_notification(self._order, cont)
-            except:
-                pass
+        except:
+            pass
 
     def _save_pending_charge(self, transactions, applied_accounting=None):
         pending_payment = {
