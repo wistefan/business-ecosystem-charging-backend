@@ -29,7 +29,7 @@ from wstore.admin.users.notification_handler import NotificationsHandler
 from wstore.ordering.inventory_client import InventoryClient
 
 
-class PendingChargesCommand(BaseCommand):
+class Command(BaseCommand):
 
     def _process_subscription_item(self, order, contract, item):
         try:
