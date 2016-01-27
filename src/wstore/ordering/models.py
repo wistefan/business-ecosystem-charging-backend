@@ -83,5 +83,16 @@ class Order(models.Model):
 
         return contract
 
+    def get_product_contract(self, product_id):
+        # Search related contract
+        for c in self.contracts:
+            if c.product_id == product_id:
+                contract = c
+                break
+        else:
+            raise OrderingError('Invalid product id')
+
+        return contract
+
     class Meta:
         app_label = 'wstore'
