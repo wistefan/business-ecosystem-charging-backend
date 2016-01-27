@@ -282,6 +282,8 @@ class ChargingEngine:
         :return: The URL where redirecting the customer to approve the charge
         """
 
+        self._order.state = 'pending'
+
         now = datetime.now()
         transactions = []
         for contract in contracts:
