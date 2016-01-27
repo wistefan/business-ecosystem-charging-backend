@@ -207,12 +207,15 @@ class ChargingEngine:
             invoice_builder.generate_invoice(transactions, concept)
 
             # Send notifications if required
+            handler = NotificationsHandler()
             if concept == 'initial':
                 # Send customer and provider notifications
-                handler = NotificationsHandler()
                 handler.send_acquired_notification(self._order)
                 for cont in self._order.contracts:
                     handler.send_provider_notification(self._order, cont)
+
+            elif concept == 'renovation':
+                handler.send_renovation_notification(self._order, transactions)
         except:
             pass
 

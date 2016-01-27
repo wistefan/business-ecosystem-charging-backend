@@ -321,7 +321,6 @@ class ChargingEngineTestCase(TestCase):
             call(transactions[1]['related_model'], '2016-01-20 13:12:39')
         ], charging_engine.CDRManager().generate_cdr.call_args_list)
 
-        charging_engine.NotificationsHandler.assert_called_once_with()
         charging_engine.NotificationsHandler().send_acquired_notification.assert_called_once_with(self._order)
 
         self.assertEquals([
@@ -359,6 +358,8 @@ class ChargingEngineTestCase(TestCase):
 
         self.assertEquals([], self._order.contracts[0].charges)
 
+        charging_engine.NotificationsHandler().send_renovation_notification.assert_called_once_with(self._order, transactions)
+
         self.assertEquals([{
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
@@ -379,6 +380,7 @@ class ChargingEngineTestCase(TestCase):
         charging = charging_engine.ChargingEngine(self._order)
         charging.end_charging(transactions, name)
 
+        charging_engine.NotificationsHandler.assert_called_once_with()
         validator(self, transactions)
 
         # Validate calls

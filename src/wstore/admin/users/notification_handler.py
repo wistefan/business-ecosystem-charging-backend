@@ -62,6 +62,29 @@ class NotificationsHandler:
 
         self._send_email(recipients, msg)
 
+    def _send_multipart_email(self, text, recipients, subject, bills):
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['From'] = self._fromaddr
+        msg['To'] = ','.join(recipients)
+
+        message = MIMEText(text)
+        msg.attach(message)
+
+        for bill in bills:
+            path = os.path.join(settings.BASEDIR, bill[1:])
+            fp = open(path, 'rb')
+
+            b_msg = MIMEBase('application', 'pdf')
+            b_msg.set_payload(fp.read())
+            fp.close()
+            # Encode the payload using Base64
+            encoders.encode_base64(b_msg)
+            b_msg.add_header('Content-Disposition', 'attachment', filename=bill.split('/')[-1])
+            msg.attach(b_msg)
+
+        self._send_email(recipients, msg)
+
     def send_acquired_notification(self, order):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
@@ -78,27 +101,8 @@ class NotificationsHandler:
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
 
-        msg = MIMEMultipart()
-        msg['Subject'] = 'Product order accepted'
-        msg['From'] = self._fromaddr
-        msg['To'] = ','.join(recipients)
+        self._send_multipart_email(text, recipients, 'Product order accepted', order.bills)
 
-        message = MIMEText(text)
-        msg.attach(message)
-
-        for bill in order.bills:
-            path = os.path.join(settings.BASEDIR, bill[1:])
-            fp = open(path, 'rb')
-
-            b_msg = MIMEBase('application', 'pdf')
-            b_msg.set_payload(fp.read())
-            fp.close()
-            # Encode the payload using Base64
-            encoders.encode_base64(b_msg)
-            b_msg.add_header('Content-Disposition', 'attachment', filename=bill.split('/')[-1])
-            msg.attach(b_msg)
-
-        self._send_email(recipients, msg)
 
     def send_provider_notification(self, order, contract):
         # Get destination email
@@ -142,3 +146,24 @@ class NotificationsHandler:
         text += url
 
         self._send_text_email(text, recipients, contract.offering.name + ' subscription is about to expire')
+
+    def send_renovation_notification(self, order, transactions):
+        org = order.owner_organization
+        recipients = [User.objects.get(pk=pk).email for pk in org.managers]
+        domain = Context.objects.all()[0].site.domain
+
+        order_url = urljoin(domain, '/#/inventory/order')
+        product_url = urljoin(domain, '/#/inventory/product')
+
+        text = 'We have received your recurring payment for renovating products offerings\n'
+        text += 'acquired in the order with reference ' + order.pk + '\n'
+
+        text += 'The following product offerings have been renovated: \n\n'
+        for t in transactions:
+            cont = order.get_item_contract(t['item'])
+            text += cont.offering.name + ' with id ' + cont.offering.off_id + '\n\n'
+
+        text += 'You can review your orders at: \n' + order_url + '\n'
+        text += 'and your acquired products at: \n' + product_url + '\n'
+
+        self._send_multipart_email(text, recipients, 'Product order accepted', order.bills[-len(transactions):])
