@@ -240,7 +240,7 @@ class ChargingEngine:
             'item': contract.item_id
         })
 
-    def _process_initial_charge(self):
+    def _process_initial_charge(self, contracts):
         """
         Resolves initial charges, which can include single payments or the initial payment of a subscription
         :return: The URL where redirecting the customer to approve the charge
@@ -249,7 +249,7 @@ class ChargingEngine:
         transactions = []
         redirect_url = None
 
-        for contract in self._order.contracts:
+        for contract in contracts:
             related_model = {}
             # Check if there are price parts different from pay per use
             if 'single_payment' in contract.pricing_model:
@@ -272,7 +272,7 @@ class ChargingEngine:
 
         return redirect_url
 
-    def _process_renovation_charge(self):
+    def _process_renovation_charge(self, contracts):
         """
         Resolves renovation charges, which includes the renovation of subscriptions and optionally usage payments
         :return: The URL where redirecting the customer to approve the charge
@@ -280,7 +280,7 @@ class ChargingEngine:
 
         now = datetime.now()
         transactions = []
-        for contract in self._order.contracts:
+        for contract in contracts:
             # Check if the contract has any recurring model
             if 'subscription' not in contract.pricing_model:
                 continue
@@ -374,10 +374,12 @@ class ChargingEngine:
 
         return redirect_url
 
-    def resolve_charging(self, type_='initial'):
+    def resolve_charging(self, type_='initial', related_contracts=None):
         """
         Calculates the charge of a customer depending on the pricing model and the type of charge.
         :param type_: Type of charge, it defines if it is an initial charge, a renovation or a usage based charge
+        :param related_contracts: optional field that can be used to specify a set of contracts to be processed.
+        If None all the contracts in the order are processed
         :return: The URL where redirecting the user to be charged (PayPal)
         """
 
@@ -386,4 +388,7 @@ class ChargingEngine:
         if type_ not in self.charging_processors:
             raise ValueError('Invalid charge type, must be initial, renovation, or use')
 
-        return self.charging_processors[type_]()
+        if related_contracts is None:
+            related_contracts = self._order.contracts
+
+        return self.charging_processors[type_](related_contracts)
