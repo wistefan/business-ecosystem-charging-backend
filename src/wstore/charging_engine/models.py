@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -19,7 +19,6 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from django.db import models
-from djangotoolbox.fields import ListField, DictField
 
 
 # This model is used as a unit dictionary in order to determine
@@ -31,3 +30,6 @@ class Unit(models.Model):
     defined_model = models.CharField(max_length=50)
     # Period of time defined by the unit for subscription models
     renovation_period = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        app_label = 'wstore'

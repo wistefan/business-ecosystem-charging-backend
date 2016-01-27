@@ -27,6 +27,7 @@ from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField
 
 from wstore.admin.rss.models import *
+from wstore.charging_engine.models import *
 
 
 class Context(models.Model):

@@ -1,0 +1,45 @@
+[
+    {
+        "pk": "51004aba8e08ac2111111111",
+        "model": "wstore.Unit",
+        "fields": {
+            "name": "call",
+            "defined_model": "usage"
+        }
+    },
+    {
+        "pk": "51004aba8e08ac2122222222",
+        "model": "wstore.Unit",
+        "fields": {
+            "name": "megabyte",
+            "defined_model": "usage"
+        }
+    },
+    {
+        "pk": "51004aca8e08dc2114444444",
+        "model": "wstore.Unit",
+        "fields": {
+            "name": "monthly",
+            "defined_model": "recurring",
+            "renovation_period": 30
+        }
+    },
+    {
+        "pk": "510045ba8e04ac2115555555",
+        "model": "wstore.Unit",
+        "fields": {
+            "name": "quarterly",
+            "defined_model": "recurring",
+            "renovation_period": 90
+        }
+    },
+    {
+        "pk": "510045ba8e04ac2116666666",
+        "model": "wstore.Unit",
+        "fields": {
+            "name": "yearly",
+            "defined_model": "recurring",
+            "renovation_period": 365
+        }
+    }
+]
