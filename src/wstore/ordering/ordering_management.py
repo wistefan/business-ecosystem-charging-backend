@@ -23,8 +23,10 @@ from __future__ import unicode_literals
 import re
 import requests
 from decimal import Decimal
+from datetime import datetime
 
 from wstore.models import Organization, Resource
+from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.rollback import rollback
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
@@ -278,13 +280,61 @@ class OrderingManager:
         return charging_engine.resolve_charging()
 
     def _process_modify_items(self, items):
-        pass
+        if len(items) > 1:
+            raise OrderingError('Only a modify item is supported per order item')
+
+        item = items[0]
+        if 'product' not in item:
+            raise OrderingError('It is required to specify product information in modify order items')
+
+        product = item['product']
+
+        if 'id' not in product:
+            raise OrderingError('It is required to provide product id in modify order items')
+
+        # Get product info
+        client = InventoryClient()
+        raw_product = client.get_product(product['id'])
+
+        # Get related order
+        order = Order.objects.get(order_id=raw_product['name'].split('=')[1])
+
+        # Get the existing contract
+        contract = order.get_product_contract(product['id'])
+
+        # TODO: Process pay per use case
+        if 'subscription' in contract.pricing_model:
+            # Check if there are a pending subscription
+            now = datetime.now()
+
+            for subs in contract.pricing_model['subscription']:
+                timedelta = subs['renovation_date'] - now
+                if timedelta.days > 0:
+                    raise OrderingError('You cannot modify a product with a recurring payment until the subscription expires')
+
+        # Build the new contract
+        new_contract = self._build_contract(item)
+        if new_contract.pricing_model != {}:
+            contract.pricing_model = new_contract.pricing_model
+            contract.revenue_class = new_contract.revenue_class
+
+        order.save()
+
+        # The modified item is treated as an initial payment
+        charging_engine = ChargingEngine(order)
+        return charging_engine.resolve_charging(type_='initial', related_contracts=[contract])
 
     def _process_delete_items(self, items):
         pass
 
     @rollback()
     def process_order(self, customer, order):
+        """
+        Process the different order items included in a given ordering depending on its action field
+        :param customer:
+        :param order:
+        :return:
+        """
 
         self._customer = customer
 
@@ -302,15 +352,18 @@ class OrderingManager:
         for item in order['orderItem']:
             items[item['action'].lower()].append(item)
 
-        # Process order items separately depending on its action. no_change items are not processed
-        if len(items['modify']):
-            self._process_modify_items(items['modify'])
+        if len(items['add']) and len(items['modify']):
+            raise OrderingError('It is not possible to process add and modify items in the same order')
 
+        # Process order items separately depending on its action. no_change items are not processed
         if len(items['delete']):
             self._process_delete_items(items['delete'])
 
-        # The processing of add items can generate a redirection URL
         redirection_url = None
+        if len(items['modify']):
+            redirection_url = self._process_modify_items(items['modify'])
+
+        # Process add items
         if len(items['add']):
 
             description = ''

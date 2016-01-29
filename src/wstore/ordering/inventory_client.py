@@ -67,6 +67,14 @@ class InventoryClient:
                 msg += 'and that the inventory API is up and running'
                 raise ImproperlyConfigured(msg)
 
+    def get_product(self, product_id):
+        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
+
+        r = requests.get(url)
+        r.raise_for_status()
+
+        return r.json()
+
     def activate_product(self, product_id):
         """
         Activates a given product by changing its state to Active and providing a startDate
