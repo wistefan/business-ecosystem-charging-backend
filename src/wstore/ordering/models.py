@@ -55,6 +55,8 @@ class Contract(models.Model):
     # Revenue sharing product class
     revenue_class = models.CharField(max_length=15, blank=True, null=True)
 
+    terminated = models.BooleanField(default=False)
+
 
 class Order(models.Model):
     description = models.CharField(max_length=1500)

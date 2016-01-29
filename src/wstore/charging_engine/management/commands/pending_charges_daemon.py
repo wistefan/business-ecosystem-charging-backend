@@ -64,10 +64,10 @@ class Command(BaseCommand):
         # Check contracts
         for order in Order.objects.all():
             for contract in order.contracts:
-                if 'pay_per_use' in contract.pricing_model:
+                if 'pay_per_use' in contract.pricing_model and not contract.terminated:
                     pass
 
-                if 'subscription' in contract.pricing_model:
+                if 'subscription' in contract.pricing_model and not contract.terminated:
                     # Validate renovation date
                     for item in contract.pricing_model['subscription']:
                         self._process_subscription_item(order, contract, item)

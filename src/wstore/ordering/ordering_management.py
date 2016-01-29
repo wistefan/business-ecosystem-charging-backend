@@ -279,6 +279,28 @@ class OrderingManager:
         charging_engine = ChargingEngine(order)
         return charging_engine.resolve_charging()
 
+    def _get_existing_contract(self, inv_client, product_id):
+        # Get product info
+        raw_product = inv_client.get_product(product_id)
+
+        # Get related order
+        order = Order.objects.get(order_id=raw_product['name'].split('=')[1])
+
+        # Get the existing contract
+        contract = order.get_product_contract(product_id)
+
+        # TODO: Process pay per use case
+        if 'subscription' in contract.pricing_model:
+            # Check if there are a pending subscription
+            now = datetime.now()
+
+            for subs in contract.pricing_model['subscription']:
+                timedelta = subs['renovation_date'] - now
+                if timedelta.days > 0:
+                    raise OrderingError('You cannot modify a product with a recurring payment until the subscription expires')
+
+        return order, contract
+
     def _process_modify_items(self, items):
         if len(items) > 1:
             raise OrderingError('Only a modify item is supported per order item')
@@ -292,25 +314,8 @@ class OrderingManager:
         if 'id' not in product:
             raise OrderingError('It is required to provide product id in modify order items')
 
-        # Get product info
         client = InventoryClient()
-        raw_product = client.get_product(product['id'])
-
-        # Get related order
-        order = Order.objects.get(order_id=raw_product['name'].split('=')[1])
-
-        # Get the existing contract
-        contract = order.get_product_contract(product['id'])
-
-        # TODO: Process pay per use case
-        if 'subscription' in contract.pricing_model:
-            # Check if there are a pending subscription
-            now = datetime.now()
-
-            for subs in contract.pricing_model['subscription']:
-                timedelta = subs['renovation_date'] - now
-                if timedelta.days > 0:
-                    raise OrderingError('You cannot modify a product with a recurring payment until the subscription expires')
+        order, contract = self._get_existing_contract(client, product['id'])
 
         # Build the new contract
         new_contract = self._build_contract(item)
@@ -325,7 +330,25 @@ class OrderingManager:
         return charging_engine.resolve_charging(type_='initial', related_contracts=[contract])
 
     def _process_delete_items(self, items):
-        pass
+        for item in items:
+            if 'product' not in item:
+                raise OrderingError('It is required to specify product information in delete order items')
+
+            product = item['product']
+
+            if 'id' not in product:
+                raise OrderingError('It is required to provide product id in delete order items')
+
+            # Set the contract as terminated
+            client = InventoryClient()
+            order, contract = self._get_existing_contract(client, product['id'])
+            contract.terminated = True
+
+            order.save()
+
+            # Terminate product in the inventory
+            client.terminate_product(product['id'])
+
 
     @rollback()
     def process_order(self, customer, order):
