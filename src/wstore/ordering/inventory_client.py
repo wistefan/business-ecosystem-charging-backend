@@ -67,6 +67,14 @@ class InventoryClient:
                 msg += 'and that the inventory API is up and running'
                 raise ImproperlyConfigured(msg)
 
+    def get_product(self, product_id):
+        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
+
+        r = requests.get(url)
+        r.raise_for_status()
+
+        return r.json()
+
     def activate_product(self, product_id):
         """
         Activates a given product by changing its state to Active and providing a startDate
@@ -91,6 +99,28 @@ class InventoryClient:
         url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Suspended'
+        }
+
+        r = requests.patch(url, json=patch_body)
+        r.raise_for_status()
+
+    def terminate_product(self, product_id):
+        """
+        terminates a given product by changing its state to Terminated
+        :param product_id: Id of the product to be terminated
+        """
+
+        # Activate the product since it must be in active state to be terminated
+        try:
+            self.activate_product(product_id)
+        except:
+            pass
+
+        # Build product url
+        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
+        patch_body = {
+            'status': 'Terminated',
+            'terminationDate': unicode(datetime.now()).replace(' ', 'T')
         }
 
         r = requests.patch(url, json=patch_body)

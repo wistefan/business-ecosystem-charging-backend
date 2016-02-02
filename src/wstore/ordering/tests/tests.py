@@ -21,13 +21,14 @@
 from __future__ import unicode_literals
 
 from copy import deepcopy
-from django.contrib.auth.models import User
-from django.core.exceptions import ImproperlyConfigured
-
 from nose_parameterized import parameterized
 from mock import MagicMock, call
+from datetime import datetime
 
+from django.contrib.auth.models import User
+from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
+
 from wstore.models import Organization
 from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order, Offering, Contract
@@ -47,6 +48,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Order = MagicMock()
         self._order_inst = MagicMock()
         ordering_management.Order.objects.create.return_value = self._order_inst
+        ordering_management.Order.objects.get.return_value = self._order_inst
 
         # Mock Offering model
         ordering_management.Offering = MagicMock()
@@ -366,6 +368,112 @@ class OrderingManagementTestCase(TestCase):
         else:
             self.assertEquals(err_msg, unicode(error))
 
+    BASIC_MODIFY = {
+        'state': 'Acknowledged',
+        'orderItem': [{
+            'id': '1',
+            'action': 'modify',
+            'product': {
+                'id': '89'
+            }
+        }]
+    }
+
+
+    @parameterized.expand([
+        ('basic_modify', BASIC_MODIFY, {
+            'subscription': [{
+                'renovation_date': datetime(2016, 1, 1)
+            }]
+        }, 'new_pricing'),
+        ('empty_pricing', BASIC_MODIFY, {}, {}),
+        ('mix_error', {
+            'state': 'Acknowledged',
+            'orderItem': [{
+                'action': 'modify'
+            }, {
+                'action': 'add'
+            }]
+        }, {}, {}, 'OrderingError: It is not possible to process add and modify items in the same order'),
+        ('multiple_mod', {
+            'state': 'Acknowledged',
+            'orderItem': [{
+                'action': 'modify'
+            }, {
+                'action': 'modify'
+            }]
+        }, {}, {}, 'OrderingError: Only a modify item is supported per order item'),
+        ('missing_product', {
+            'state': 'Acknowledged',
+            'orderItem': [{
+                'action': 'modify'
+            }]
+        }, {}, {}, 'OrderingError: It is required to specify product information in modify order items'),
+        ('missing_product_id', {
+            'state': 'Acknowledged',
+            'orderItem': [{
+                'action': 'modify',
+                'product': {
+                }
+            }]
+        }, {}, {}, 'OrderingError: It is required to provide product id in modify order items'),
+        ('product_not_exp', BASIC_MODIFY, {
+            'subscription': [{
+                'renovation_date': datetime(2050, 1, 1)
+            }]
+        }, {}, 'OrderingError: You cannot modify a product with a recurring payment until the subscription expires')
+    ])
+    def test_modify_order(self, name, order, pricing, new_pricing, err_msg=None):
+        # Mock order method
+        mock_contract = MagicMock()
+        mock_contract.pricing_model = pricing
+        mock_contract.revenue_class = 'old_revenue'
+        self._order_inst.get_product_contract.return_value = mock_contract
+
+        ordering_management.InventoryClient = MagicMock()
+        ordering_management.InventoryClient().get_product.return_value = {'id': '1', 'name': 'oid=35'}
+
+        ordering = ordering_management.OrderingManager()
+        ordering._build_contract = MagicMock()
+        new_contract = MagicMock()
+        new_contract.pricing_model = new_pricing
+        new_contract.revenue_class = 'new_revenue'
+        ordering._build_contract.return_value = new_contract
+
+        error = None
+        try:
+            ordering.process_order(self._customer, order)
+        except OrderingError as e:
+            error = e
+
+        if err_msg is None:
+            self.assertTrue(error is None)
+
+            ordering_management.InventoryClient().get_product.assert_called_once_with('89')
+            ordering_management.Order.objects.get.assert_called_once_with(order_id='35')
+
+            self._order_inst.get_product_contract.assert_called_once_with('89')
+
+            ordering._build_contract.assert_called_once_with({
+                'id': '1',
+                'action': 'modify',
+                'product': {
+                    'id': '89'
+                }
+            })
+            ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
+            self._charging_inst.resolve_charging.assert_called_once_with(type_='initial', related_contracts=[mock_contract])
+
+            if new_pricing != {}:
+                self.assertEquals(new_pricing, mock_contract.pricing_model)
+                self.assertEquals('new_revenue', mock_contract.revenue_class)
+            else:
+                self.assertEquals(pricing, mock_contract.pricing_model)
+                self.assertEquals('old_revenue', mock_contract.revenue_class)
+        else:
+            self.assertEquals(err_msg, unicode(error))
+
+
 
 class OrderingClientTestCase(TestCase):
 
@@ -472,7 +580,6 @@ class OrderingClientTestCase(TestCase):
         self._response.raise_for_status.assert_called_once_with()
 
 
-
 class OrderTestCase(TestCase):
 
     tags = ('ordering', )
@@ -502,11 +609,13 @@ class OrderTestCase(TestCase):
 
         self._contract1 = Contract(
             item_id='1',
+            product_id='3',
             offering=offering1,
         )
 
         self._contract2 = Contract(
             item_id='2',
+            product_id='4',
             offering=offering2,
         )
 
@@ -532,6 +641,20 @@ class OrderTestCase(TestCase):
 
         self.assertFalse(error is None)
         self.assertEquals('OrderingError: Invalid item id', unicode(e))
+
+    def test_get_product(self):
+        contract = self._order.get_product_contract('4')
+        self.assertEquals(self._contract2, contract)
+
+    def test_get_product_invalid(self):
+        error = None
+        try:
+            self._order.get_product_contract('1')
+        except OrderingError as e:
+            error = e
+
+        self.assertFalse(error is None)
+        self.assertEquals('OrderingError: Invalid product id', unicode(e))
 
 
 class InventoryClientTestCase(TestCase):
@@ -621,3 +744,10 @@ class InventoryClientTestCase(TestCase):
             'status': 'Suspended'
         })
         inventory_client.requests.patch().raise_for_status.assert_called_once_with()
+
+    def test_get_product(self):
+        client = inventory_client.InventoryClient()
+        client.get_product('1')
+
+        inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1')
+        inventory_client.requests.get().raise_for_status.assert_called_once_with()

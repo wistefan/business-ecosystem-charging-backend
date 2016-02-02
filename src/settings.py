@@ -71,6 +71,7 @@ INSTALLED_APPS = (
     'djangotoolbox',
     'wstore',
     'wstore.store_commons',
+    'wstore.charging_engine',
     'django_crontab',
     'django_nose'
 )
