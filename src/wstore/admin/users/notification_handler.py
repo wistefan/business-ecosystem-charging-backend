@@ -39,12 +39,12 @@ class NotificationsHandler:
 
     def __init__(self):
         # Read email configuration
-        self._mailuser = settings.WSTOREMAIL
+        self._mailuser = settings.WSTOREMAILUSER
         self._password = settings.WSTOREMAILPASS
-        self._fromaddr = settings.WSTOREMAILUSER
+        self._fromaddr = settings.WSTOREMAIL
         self._server = settings.SMTPSERVER
 
-        if not len(self._mailuser) or not len(self._password) or not len(self._fromaddr):
+        if not len(self._mailuser) or not len(self._password) or not len(self._fromaddr) or not len(self._server):
             raise ImproperlyConfigured('Missing email configuration')
 
     def _send_email(self, recipient, msg):
@@ -102,7 +102,6 @@ class NotificationsHandler:
         text += 'and your acquired products at: \n' + product_url + '\n'
 
         self._send_multipart_email(text, recipients, 'Product order accepted', order.bills)
-
 
     def send_provider_notification(self, order, contract):
         # Get destination email
