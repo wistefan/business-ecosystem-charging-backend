@@ -42,6 +42,7 @@ class InventoryClient:
 
     def get_hubs(self):
         r = requests.get(self._inventory_api + '/api/productInventory/v2/hub')
+        r.raise_for_status()
         return r.json()
 
     def create_inventory_subscription(self):
