@@ -474,7 +474,6 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals(err_msg, unicode(error))
 
 
-
 class OrderingClientTestCase(TestCase):
 
     tags = ('ordering', 'ordering-client')
@@ -674,6 +673,11 @@ class InventoryClientTestCase(TestCase):
         context.local_site.domain = 'http://localhost:8004/'
         inventory_client.Context.objects.all.return_value = [context]
 
+        from datetime import datetime
+        now = datetime(2016, 1, 22, 4, 10, 25, 176751)
+        inventory_client.datetime = MagicMock()
+        inventory_client.datetime.now.return_value = now
+
     @parameterized.expand([
         ('basic', [{
             'callback': 'http://site.com/event'
@@ -722,11 +726,6 @@ class InventoryClientTestCase(TestCase):
         self.assertEquals(msg, unicode(error))
 
     def test_activate_product(self):
-        from datetime import datetime
-        now = datetime(2016, 1, 22, 4, 10, 25, 176751)
-        inventory_client.datetime = MagicMock()
-        inventory_client.datetime.now.return_value = now
-
         client = inventory_client.InventoryClient()
         client.activate_product('1')
 
@@ -744,6 +743,23 @@ class InventoryClientTestCase(TestCase):
             'status': 'Suspended'
         })
         inventory_client.requests.patch().raise_for_status.assert_called_once_with()
+
+    def test_terminate_product(self):
+        client = inventory_client.InventoryClient()
+        client.terminate_product('1')
+
+        self.assertEquals([
+            call('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
+                'status': 'Active',
+                'startDate': '2016-01-22T04:10:25.176751'
+            }),
+            call('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
+                'status': 'Terminated',
+                'terminationDate': '2016-01-22T04:10:25.176751'
+            })
+        ], inventory_client.requests.patch.call_args_list)
+
+        self.assertEquals([call(), call()], inventory_client.requests.patch().raise_for_status.call_args_list)
 
     def test_get_product(self):
         client = inventory_client.InventoryClient()

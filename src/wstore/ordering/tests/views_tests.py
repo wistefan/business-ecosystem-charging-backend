@@ -140,6 +140,7 @@ BASIC_PRODUCT_EVENT = {
     }
 }
 
+
 class InventoryCollectionTestCase(TestCase):
 
     tags = ('inventory', 'inventory-view')
