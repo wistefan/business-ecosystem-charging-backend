@@ -87,9 +87,9 @@ class PayPalClient(PaymentClient):
                     # Only if all the transactions have the same currency they can be aggregated
                     if t['currency'] != current_curr:
                         break
-
+                    
                     total += Decimal(t['price'])
-                    items += t['item_id'] + ':' + t['price'] + '<' + t['description'] + '>'
+                    items += t['item'] + ':' + t['price'] + '<' + t['description'] + '>'
                 else:
                     msg = 'All your order items have been aggregated, since PayPal is not able '
                     msg += 'to process multiple transactions in this moment.                   '
