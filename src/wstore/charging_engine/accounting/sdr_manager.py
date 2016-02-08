@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -29,58 +29,54 @@ from wstore.models import Organization, User
 
 class SDRManager(object):
 
-    def __init__(self, purchase):
-        self._purchase = purchase
-        self._price_model = purchase.contract.pricing_model
+    def __init__(self, user, order, contract):
+        self._user = user
+        self._order = order
+        self._contract = contract
+        self._price_model = contract.pricing_model
 
     def include_sdr(self, sdr):
-        # Check the offering and customer
-        off_data = sdr['offering']
-        org = Organization.objects.get(name=off_data['organization'])
-        offering = Offering.objects.get(name=off_data['name'], owner_organization=org, version=off_data['version'])
+        # Check that the value field is a valid number
+        try:
+            float(sdr['value'])
+        except:
+            raise ValueError('The provided value is not a valid number')
 
-        if offering != self._purchase.offering:
-            raise PermissionDenied('The offering specified in the SDR is not the acquired offering')
+        # Check that the customer exist
+        customer = Organization.objects.filter(name=sdr['customer'])
 
-        customer = User.objects.get(username=sdr['customer'])
+        if not len(customer):
+            raise ValueError('The specified customer ' + sdr['customer'] + ' does not exist')
 
-        if self._purchase.organization_owned:
-            # Check if the user belongs to the organization
-            profile = customer.userprofile
-            belongs = False
+        # Check if the user making the request belongs to the customer organization
+        belongs = False
+        for org in self._user.userprofile.organizations:
+            if org['organization'] == self._order.owner_organization.pk:
+                belongs = True
+                break
 
-            for org in profile.organizations:
-                if org['organization'] == self._purchase.owner_organization.pk:
-                    belongs = True
-                    break
-
-            if not belongs:
-                raise PermissionDenied('The user does not belong to the owner organization')
-        else:
-            # Check if the user has purchased the offering
-            if customer != self._purchase.customer:
-                raise PermissionDenied('The user has not acquired the offering')
+        if not belongs:
+            raise PermissionDenied("You don't belong to the customer organization")
 
         if 'pay_per_use' not in self._price_model:
             raise ValueError('The pricing model of the offering does not define pay-per-use components')
 
         # Check the correlation number and timestamp
-        applied_sdrs = self._purchase.contract.applied_sdrs
-        pending_sdrs = self._purchase.contract.pending_sdrs
-        last_corr = 0
+        applied_sdrs = self._contract.applied_sdrs
+        pending_sdrs = self._contract.pending_sdrs
 
+        last_corr = 0
         last_time = None
 
         if len(pending_sdrs) > 0:
-            last_corr = int(pending_sdrs[-1]['correlation_number'])
-            last_time = pending_sdrs[-1]['time_stamp']
-        else:
-            if len(applied_sdrs) > 0:
-                last_corr = int(applied_sdrs[-1]['correlation_number'])
-                last_time = applied_sdrs[-1]['time_stamp']
+            last_corr = int(pending_sdrs[-1]['correlationNumber'])
+            last_time = pending_sdrs[-1]['timestamp']
+        elif len(applied_sdrs) > 0:
+            last_corr = int(applied_sdrs[-1]['correlationNumber'])
+            last_time = applied_sdrs[-1]['timestamp']
 
         # Truncate ms to 3 decimals (database supported)
-        sp_time = sdr['time_stamp'].split('.')
+        sp_time = sdr['timestamp'].split('.')
         milis = sp_time[1]
 
         if len(milis) > 3:
@@ -93,45 +89,23 @@ class SDRManager(object):
         except:
             time_stamp = datetime.strptime(sdr_time, '%Y-%m-%d %H:%M:%S.%f')
 
-        if int(sdr['correlation_number']) != last_corr + 1:
+        if int(sdr['correlationNumber']) != last_corr + 1:
             raise ValueError('Invalid correlation number, expected: ' + str(last_corr + 1))
 
         if last_time is not None and last_time > time_stamp:
             raise ValueError('The provided timestamp specifies a lower timing than the last SDR received')
 
-        # Check unit or component_label depending if the model defines components or
-        # price functions
+        # Check that the pricing model contains the specified unit
         found_model = False
         for comp in self._price_model['pay_per_use']:
-            if 'price_function' not in comp:
-                if sdr['unit'] == comp['unit']:
-                    found_model = True
-                    break
-            else:
-                for k, var in comp['price_function']['variables'].iteritems():
-                    if var['type'] == 'usage' and var['label'] == sdr['component_label']:
-                        found_model = True
-                        break
+            if sdr['unit'] == comp['unit']:
+                found_model = True
+                break
 
-        # Check if any deduction depends on the sdr variable
-        found_deduction = False
-        if 'deductions' in self._price_model:
-            for comp in self._price_model['deductions']:
-                if 'price_function' not in comp:
-                    if sdr['unit'] == comp['unit']:
-                        found_deduction = True
-                        break
-                else:
-                    for k, var in comp['price_function']['variables'].iteritems():
-                        if var['type'] == 'usage' and var['label'] == sdr['component_label']:
-                            found_deduction = True
-                            break
+        if not found_model:
+            raise ValueError('The specified unit is not included in the pricing model')
 
-        if found_model or found_deduction:
-            # Store the SDR
-            sdr['time_stamp'] = time_stamp
-            self._purchase.contract.pending_sdrs.append(sdr)
-        else:
-            raise ValueError('The specified unit or component label is not included in the pricing model')
-
-        self._purchase.contract.save()
+        # Store the SDR
+        sdr['timestamp'] = time_stamp
+        self._contract.pending_sdrs.append(sdr)
+        self._order.save()

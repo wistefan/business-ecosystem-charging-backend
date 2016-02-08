@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -22,27 +22,22 @@ from __future__ import unicode_literals
 
 from copy import deepcopy
 from datetime import datetime
+from mock import MagicMock
 from nose_parameterized import parameterized
 
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied
 
-from wstore.models import User, Organization
 from wstore.charging_engine.accounting import sdr_manager
 
-__test__ = False
 
 BASIC_SDR = {
-    'offering': {
-        'name': 'test_offering',
-        'organization': 'test_organization',
-        'version': '1.0'
-    },
-    'component_label': 'invocations',
+    'orderId': '1',
+    'productId': '2',
     'customer': 'test_user',
-    'correlation_number': '1',
-    'time_stamp': '2015-10-20 17:31:57.838',
-    'record_type': 'event',
+    'correlationNumber': '1',
+    'timestamp': '2015-10-20 17:31:57.838',
+    'recordType': 'event',
     'value': '10',
     'unit': 'invocation'
 }
@@ -51,93 +46,88 @@ BASIC_SDR = {
 class SDRManagerTestCase(TestCase):
 
     tags = ('sdr',)
-    fixtures = ('payperuse.json', )
+
+    def setUp(self):
+        sdr_manager.Organization = MagicMock()
+        org = MagicMock()
+        org.pk = '1111'
+        sdr_manager.Organization.objects.filter.return_value = [org]
+
+        # Create Order mock
+        self._order = MagicMock()
+        self._order.owner_organization = org
+
+        self._contract = MagicMock()
+        self._contract.pricing_model = {
+            'pay_per_use': [{
+                'unit': 'invocation'
+            }]
+        }
+        self._contract.pending_sdrs = []
+        self._contract.applied_sdrs = []
+
+        self._user = MagicMock()
+        self._user.userprofile.organizations = [{
+            'organization': '1111'
+        }]
 
     def _side_create_applied(self):
-        purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
         sdr = deepcopy(BASIC_SDR)
-        sdr['time_stamp'] = datetime.strptime(sdr['time_stamp'], '%Y-%m-%d %H:%M:%S.%f')
-        purchase.contract.applied_sdrs = [sdr]
-        purchase.contract.save()
+        sdr['timestamp'] = datetime.strptime(sdr['timestamp'], '%Y-%m-%d %H:%M:%S.%f')
+        self._contract.applied_sdrs = [sdr]
 
     def _side_create_pending(self):
-        purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
         sdr = deepcopy(BASIC_SDR)
-        sdr['time_stamp'] = datetime.strptime(sdr['time_stamp'], '%Y-%m-%d %H:%M:%S.%f')
-        purchase.contract.pending_sdrs = [sdr]
-        purchase.contract.save()
+        sdr['timestamp'] = datetime.strptime(sdr['timestamp'], '%Y-%m-%d %H:%M:%S.%f')
+        self._contract.pending_sdrs = [sdr]
 
-    def _side_purch_org(self):
-        org = Organization.objects.get(name='test_organization1')
-        purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
-        purchase.organization_owned = True
-        purchase.owner_organization = org
-        purchase.save()
+    def _side_cust_not_exists(self):
+        sdr_manager.Organization.objects.filter.return_value = []
 
-    def _side_org_owned(self):
-        user = User.objects.get(username='test_user2')
-        org = Organization.objects.get(name='test_organization1')
-        user.userprofile.current_organization = org
-        user.userprofile.organizations = [{
-            'organization': org.pk,
-            'roles': ['customer', 'provider']
+    def _side_user_not_auth(self):
+        self._user.userprofile.organizations = [{
+            'organization': '2222'
         }]
-        user.userprofile.save()
-        self._side_purch_org()
-
-    def _modify_pricing(self, pricing):
-        purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
-        purchase.contract.pricing_model = pricing
-        purchase.contract.save()
 
     def _side_inv_purchase(self):
-        self._modify_pricing({
+        self._contract.pricing_model = {
             'global_currency': 'EUR',
             'single_payment': [{
                 'value': 10
             }]
-        })
+        }
 
     def _side_inv_label(self):
-        self._modify_pricing({
+        self._contract.pricing_model = {
             'global_currency': 'EUR',
             'pay_per_use': [{
-                'label': 'a label',
                 'value': 10,
                 'unit': 'call'
             }]
-        })
+        }
 
     def _mod_inc_corr(self, sdr):
-        sdr['correlation_number'] = 2
-        sdr['time_stamp'] = '2015-10-20T17:31:57.838123'
-
-    def _mod_set_org(self, sdr):
-        sdr['customer'] = 'test_user2'
+        sdr['correlationNumber'] = 2
+        sdr['timestamp'] = '2015-10-20T17:31:57.838123'
 
     def _mod_inv_time(self, sdr):
         self._mod_inc_corr(sdr)
-        sdr['time_stamp'] = '1980-05-01 11:10:01.234'
+        sdr['timestamp'] = '1980-05-01 11:10:01.234'
 
-    def _mod_inv_off(self, sdr):
-        sdr['offering'] = {
-            'name': 'test_offering2',
-            'organization': 'test_organization',
-            'version': '1.0'
-        }
+    def _mod_inv_value(self, sdr):
+        sdr['value'] = 'a'
 
     @parameterized.expand([
         ('basic', ),
         ('applied',  0, 1, _mod_inc_corr, _side_create_applied),
         ('pending',  1, 2, _mod_inc_corr, _side_create_pending),
-        ('org_owned', 0, 1, _mod_set_org, _side_org_owned),
-        ('user_not_auth', 0, 1, _mod_set_org, None, PermissionDenied, 'The user has not acquired the offering'),
-        ('user_org_not_auth', 0, 1, _mod_set_org, _side_purch_org, PermissionDenied, 'The user does not belong to the owner organization'),
+        ('inv_value', 0, 1, _mod_inv_value, None, ValueError, 'The provided value is not a valid number'),
+        ('customer_not_existing', 0, 1, None, _side_cust_not_exists, ValueError, 'The specified customer test_user does not exist'),
+        ('user_not_auth', 0, 1, None, _side_user_not_auth, PermissionDenied, "You don't belong to the customer organization"),
         ('inv_corr', 0, 1, _mod_inc_corr, None, ValueError, 'Invalid correlation number, expected: 1'),
         ('inv_time', 0, 1, _mod_inv_time, _side_create_applied, ValueError, 'The provided timestamp specifies a lower timing than the last SDR received'),
-        ('inv_offering', 0, 1, _mod_inv_off, None, PermissionDenied, 'The offering specified in the SDR is not the acquired offering'),
         ('inv_purch', 0, 1, None, _side_inv_purchase, ValueError, 'The pricing model of the offering does not define pay-per-use components'),
-        ('inv_label', 0, 1, None, _side_inv_label, ValueError, 'The specified unit or component label is not included in the pricing model')
+        ('inv_label', 0, 1, None, _side_inv_label, ValueError, 'The specified unit is not included in the pricing model')
     ])
     def test_sdr_feeding(self, name, pos=0, pending=1, mod=None, side_effect=None, err_type=None, err_msg=None):
 
@@ -149,8 +139,7 @@ class SDRManagerTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
-        sdr_mng = sdr_manager.SDRManager(purchase)
+        sdr_mng = sdr_manager.SDRManager(self._user, self._order, self._contract)
 
         error = None
         try:
@@ -158,25 +147,16 @@ class SDRManagerTestCase(TestCase):
         except Exception as e:
             error = e
 
-        # Refresh the purchase
         if err_type is None:
             self.assertTrue(error is None)
+            sdr_manager.Organization.objects.filter.assert_called_once_with(name='test_user')
 
-            purchase = Purchase.objects.get(pk='61004aba5e05acc115f022f0')
-            contract = purchase.contract
+            self.assertEqual(len(self._contract.pending_sdrs), pending)
 
-            self.assertEqual(len(contract.pending_sdrs), pending)
+            loaded_sdr = self._contract.pending_sdrs[pos]
+            self.assertEquals(loaded_sdr, sdr)
 
-            loaded_sdr = contract.pending_sdrs[pos]
-
-            self.assertEquals(loaded_sdr['offering']['organization'], sdr['offering']['organization'])
-            self.assertEquals(loaded_sdr['component_label'], sdr['component_label'])
-            self.assertEquals(loaded_sdr['customer'], sdr['customer'])
-            self.assertEquals(loaded_sdr['correlation_number'], sdr['correlation_number'])
-            self.assertEquals(loaded_sdr['time_stamp'], sdr['time_stamp'])
-            self.assertEquals(loaded_sdr['record_type'], sdr['record_type'])
-            self.assertEquals(loaded_sdr['value'], sdr['value'])
-            self.assertEquals(loaded_sdr['unit'], sdr['unit'])
+            self._order.save.assert_called_once_with()
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
