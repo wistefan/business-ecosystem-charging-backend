@@ -106,7 +106,7 @@ class InventoryCollection(Resource):
             return build_response(request, 400, 'The provided data is not a valid JSON object')
 
         if event['eventType'] != 'ProductCreationNotification':
-            return build_response(request, 200, 'Ok')
+            return build_response(request, 200, 'OK')
 
         product = event['event']['product']
 
@@ -139,13 +139,13 @@ class InventoryCollection(Resource):
         inventory_client = InventoryClient()
         inventory_client.activate_product(product['id'])
 
-        return build_response(request, 200, 'Ok')
+        return build_response(request, 200, 'OK')
 
 
 class RenovationCollection(Resource):
 
     @authentication_required
-    @supported_request_mime_types(('application/json'))
+    @supported_request_mime_types(('application/json',))
     def create(self, request):
 
         try:
@@ -155,7 +155,7 @@ class RenovationCollection(Resource):
 
         # Check the products to be renovated
         if 'name' not in task or 'id' not in task or 'priceType' not in task:
-            return build_response(request, 400, 'Missing required field, must contain name and id fields')
+            return build_response(request, 400, 'Missing required field, must contain name, id  and priceType fields')
 
         # Parse oid from product name
         parsed_name = task['name'].split('=')
@@ -178,8 +178,11 @@ class RenovationCollection(Resource):
             'usage': 'use'
         }
 
+        if task['priceType'].lower() not in concepts:
+            return build_response(request, 400, 'Invalid priceType only recurring and usage types can be renovated')
+
         try:
-            redirect_url = charging_engine.resolve_charging(type_=concepts[task['priceType']], related_contracts=[contract])
+            redirect_url = charging_engine.resolve_charging(type_=concepts[task['priceType']].lower(), related_contracts=[contract])
         except ValueError as e:
             return build_response(request, 400, unicode(e))
         except OrderingError as e:
