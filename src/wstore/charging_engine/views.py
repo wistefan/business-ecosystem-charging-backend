@@ -40,19 +40,28 @@ from wstore.store_commons.database import get_database_connection
 
 class ServiceRecordCollection(Resource):
 
-    def _get_datetime(self, time):
-        try:
-            time_stamp = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%f')
-        except:
-            time_stamp = datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+    def _get_order_contract(self, order_id, product_id):
+        # Get the order
+        order = None
+        contract = None
 
-        return time_stamp
+        try:
+            order = Order.objects.get(order_id=order_id)
+        except:
+            pass
+
+        try:
+            contract = order.get_product_contract(product_id)
+        except:
+            pass
+
+        return order, contract
 
     # This method is used to load SDR documents and
     # start the charging process
     @supported_request_mime_types(('application/json',))
     @authentication_required
-    def create(self, request):
+    def create(self, request, order_id, product_id):
         try:
             # Extract SDR document from the HTTP request
             data = json.loads(request.body)
@@ -60,22 +69,19 @@ class ServiceRecordCollection(Resource):
             return build_response(request, 400, 'The request does not contain a valid JSON object')
 
         # Validate SDR structure
-        if 'orderId' not in data or 'productId' not in data or 'customer' not in data or 'correlationNumber' not in data\
+        if 'customer' not in data or 'correlationNumber' not in data\
                 or 'recordType' not in data or 'unit' not in data or 'value' not in data or 'timestamp' not in data:
 
             msg = 'Missing required field, it must contain: orderId, productId, customer, '
             msg += 'correlationNumber, timestamp, recordType, unit, and value'
             return build_response(request, 400, msg)
 
-        # Get the order
-        try:
-            order = Order.objects.get(order_id=data['orderId'])
-        except:
+        order, contract = self._get_order_contract(order_id, product_id)
+
+        if order is None:
             return build_response(request, 404, 'Invalid orderId, the order does not exists')
 
-        try:
-            contract = order.get_product_contract(data['productId'])
-        except:
+        if contract is None:
             return build_response(request, 404, 'Invalid productId, the contract does not exist')
 
         # Include the new SDR
@@ -92,65 +98,30 @@ class ServiceRecordCollection(Resource):
         return build_response(request, 200, 'OK')
 
     @authentication_required
-    def read(self, request, reference):
-        # Check reference
-        try:
-            purchase = Order.objects.get(ref=reference)
-        except:
-            return build_response(request, 404, 'There is not any purchase with reference ' + reference)
+    def read(self, request, order_id, product_id):
 
-        # Check permissions
-        user = request.user
+        order, contract = self._get_order_contract(order_id, product_id)
 
-        if not request.user.is_staff and \
-                user.userprofile.current_organization != purchase.owner_organization:
-            return build_response(request, 403, 'You are not authorized to read accounting info of the given purchase')
-
-        # Check if a contract has been created for the given purchase
-        try:
-            contract = purchase.contract
-        except:
-            return HttpResponse(json.dumps([]), status=200, mimetype="application/json")
+        if order is None:
+            return build_response(request, 404, 'Invalid orderId, the order does not exists')
 
         if contract is None:
-            return HttpResponse(json.dumps([]), status=200, mimetype="application/json")
+            return build_response(request, 404, 'Invalid productId, the contract does not exist')
 
         # Get parameters
         from_ = request.GET.get('from', None)
         to = request.GET.get('to', None)
-        label = request.GET.get('label', None)
+        unit = request.GET.get('unit', None)
 
-        # Check from and to formats
-        if from_ is not None:
-            try:
-                from_ = self._get_datetime(from_)
-            except:
-                return build_response(request, 400, 'Invalid "from" parameter, must be a datetime')
-
-        if to is not None:
-            try:
-                to = self._get_datetime(to)
-            except:
-                return build_response(request, 400, 'Invalid "to" parameter, must be a datetime')
-
-        # Build response
-        response = []
-        sdrs = []
-        sdrs.extend(contract.applied_sdrs)
-        sdrs.extend(contract.pending_sdrs)
-
-        for sdr in sdrs:
-            if from_ is not None and from_ > sdr['time_stamp']:
-                continue
-
-            if to is not None and to < sdr['time_stamp']:
-                break
-
-            if label is not None and sdr['component_label'].lower() != label.lower():
-                continue
-
-            sdr['time_stamp'] = unicode(sdr['time_stamp'])
-            response.append(sdr)
+        try:
+            sdr_manager = SDRManager(request.user, order, contract)
+            response = sdr_manager.get_sdrs(from_, to, unit)
+        except PermissionDenied as e:
+            return build_response(request, 403, unicode(e))
+        except ValueError as e:
+            return build_response(request, 400, unicode(e))
+        except:
+            return build_response(request, 500, 'The SDRs could not be retrieved due to an unexpected error')
 
         return HttpResponse(json.dumps(response), status=200, mimetype="application/json")
 

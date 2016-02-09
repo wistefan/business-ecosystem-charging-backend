@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -43,5 +43,5 @@ urlpatterns = patterns('',
     url(r'^charging/api/orderManagement/products/renovateJob?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/accounting/(?P<reference>[\w]+)/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST', 'GET')))
+    url(r'^charging/api/orderManagement/accounting/(?P<order_id>[\w]+)/(?P<product_id>[\w]+)/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST', 'GET')))
 )
