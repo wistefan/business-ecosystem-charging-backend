@@ -17,6 +17,7 @@
 # You should have received a copy of the European Union Public Licence
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from django.core.exceptions import PermissionDenied
 
 import json
 import importlib
@@ -51,26 +52,43 @@ class ServiceRecordCollection(Resource):
     # start the charging process
     @supported_request_mime_types(('application/json',))
     @authentication_required
-    def create(self, request, reference):
+    def create(self, request):
         try:
             # Extract SDR document from the HTTP request
             data = json.loads(request.body)
+        except:
+            return build_response(request, 400, 'The request does not contain a valid JSON object')
 
-            # Validate SDR structure
-            if 'offering' not in data or 'customer' not in data or 'time_stamp' not in data \
-                    or 'correlation_number' not in data or 'record_type' not in data or'unit' not in data \
-                    or 'value' not in data or 'component_label' not in data:
-                raise Exception('Invalid JSON content')
+        # Validate SDR structure
+        if 'orderId' not in data or 'productId' not in data or 'customer' not in data or 'correlationNumber' not in data\
+                or 'recordType' not in data or 'unit' not in data or 'value' not in data or 'timestamp' not in data:
 
-            # Get the purchase
-            purchase = Order.objects.get(ref=reference)
-            # Call the charging engine core with the SDR
-            sdr_manager = SDRManager(purchase)
+            msg = 'Missing required field, it must contain: orderId, productId, customer, '
+            msg += 'correlationNumber, timestamp, recordType, unit, and value'
+            return build_response(request, 400, msg)
+
+        # Get the order
+        try:
+            order = Order.objects.get(order_id=data['orderId'])
+        except:
+            return build_response(request, 404, 'Invalid orderId, the order does not exists')
+
+        try:
+            contract = order.get_product_contract(data['productId'])
+        except:
+            return build_response(request, 404, 'Invalid productId, the contract does not exist')
+
+        # Include the new SDR
+        try:
+            sdr_manager = SDRManager(request.user, order, contract)
             sdr_manager.include_sdr(data)
-        except Exception, e:
+        except PermissionDenied as e:
+            return build_response(request, 403, unicode(e))
+        except ValueError as e:
             return build_response(request, 400, unicode(e))
+        except:
+            return build_response(request, 500, 'The SDR document could not be processed due to an unexpected error')
 
-        # Return response
         return build_response(request, 200, 'OK')
 
     @authentication_required

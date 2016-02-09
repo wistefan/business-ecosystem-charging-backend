@@ -19,6 +19,7 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from __future__ import absolute_import
+from django.core.exceptions import PermissionDenied
 
 import json
 from wstore.ordering.errors import OrderingError
@@ -644,3 +645,179 @@ class PayPalConfirmationTestCase(TestCase):
                 call(self._raw_order, 'Failed')
             ], self._ordering_inst.update_state.call_args_list)
             self._order_inst.delete.assert_called_once_with()
+
+
+MISSING_FIELD_RESP = {
+    'result': 'error',
+    'message': 'Missing required field, it must contain: orderId, productId, customer, correlationNumber, timestamp, recordType, unit, and value'
+}
+
+BASIC_SDR = {
+    'orderId': '1',
+    'productId': '2',
+    'customer': 'test_user',
+    'correlationNumber': '56',
+    'recordType': 'event',
+    'unit': 'call',
+    'value': '50',
+    'timestamp': '2016-02-09T11:33:07.8'
+}
+
+
+class SDRCollectionTestCase(TestCase):
+
+    tags = ('sdr',)
+
+    def _inv_order(self):
+        views.Order.objects.get.side_effect = Exception('Not found')
+
+    def _inv_product(self):
+        views.Order.objects.get().get_product_contract.side_effect = Exception('Not found')
+
+    def _permission_denied(self):
+        views.SDRManager().include_sdr.side_effect = PermissionDenied('Permission denied')
+
+    def _value_error(self):
+        views.SDRManager().include_sdr.side_effect = ValueError('Value error')
+
+    def _exception(self):
+        views.SDRManager().include_sdr.side_effect = Exception('error')
+
+    @parameterized.expand([
+        ('correct', BASIC_SDR, 200, {
+            'result': 'correct',
+            'message': 'OK'
+        }),
+        ('invalid_json', 'invalid', 400, {
+            'result': 'error',
+            'message': 'The request does not contain a valid JSON object'
+        }),
+        ('missing_order_id', {
+            'productId': '2',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'unit': 'call',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_product_id', {
+            'orderId': '1',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'unit': 'call',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('mising_customer', {
+            'orderId': '1',
+            'productId': '2',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'unit': 'call',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_number', {
+            'orderId': '1',
+            'productId': '2',
+            'customer': 'test_user',
+            'recordType': 'event',
+            'unit': 'call',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_record_type', {
+            'orderId': '1',
+            'productId': '2',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'unit': 'call',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_unit', {
+            'orderId': '1',
+            'productId': '2',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'value': '50',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_value', {
+            'orderId': '1',
+            'productId': '2',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'unit': 'call',
+            'timestamp': '2016-02-09T11:33:07.8'
+        }, 400, MISSING_FIELD_RESP),
+        ('missing_timestamp', {
+            'orderId': '1',
+            'productId': '2',
+            'customer': 'test_user',
+            'correlationNumber': '56',
+            'recordType': 'event',
+            'unit': 'call',
+            'value': '50'
+        }, 400, MISSING_FIELD_RESP),
+        ('inv_order_id', BASIC_SDR, 404, {
+            'result': 'error',
+            'message': 'Invalid orderId, the order does not exists'
+        }, _inv_order),
+        ('inv_product_id', BASIC_SDR, 404, {
+            'result': 'error',
+            'message': 'Invalid productId, the contract does not exist'
+        }, _inv_product),
+        ('manager_permission_denied', BASIC_SDR, 403, {
+            'result': 'error',
+            'message': 'Permission denied'
+        }, _permission_denied),
+        ('manager_value_error', BASIC_SDR, 400, {
+            'result': 'error',
+            'message': 'Value error'
+        }, _value_error),
+        ('manager_exception', BASIC_SDR, 500, {
+            'result': 'error',
+            'message': 'The SDR document could not be processed due to an unexpected error'
+        }, _exception)
+    ])
+    def test_feed_sdr(self, name, data, exp_code, exp_response, side_effect=None):
+        views.Order = MagicMock()
+        views.SDRManager = MagicMock()
+
+        request = MagicMock()
+        request.user.is_anonymous.return_value = False
+        request.META.get.return_value = 'application/json'
+
+        if isinstance(data, dict):
+            data = json.dumps(data)
+
+        request.body = data
+
+        if side_effect is not None:
+            side_effect(self)
+
+        collection = views.ServiceRecordCollection(permitted_methods=('POST', 'GET'))
+        response = collection.create(request)
+
+        # Validate response
+        self.assertEquals(exp_code, response.status_code)
+        body = json.loads(response.content)
+
+        self.assertEquals(exp_response, body)
+
+        # Validate calls if needed
+        if exp_code == 200:
+            views.Order.objects.get.assert_called_once_with(order_id='1')
+            views.Order.objects.get().get_product_contract.assert_called_once_with('2')
+
+            views.SDRManager.assert_called_once_with(
+                request.user,
+                views.Order.objects.get(),
+                views.Order.objects.get().get_product_contract()
+            )
+            views.SDRManager().include_sdr(json.loads(data))
