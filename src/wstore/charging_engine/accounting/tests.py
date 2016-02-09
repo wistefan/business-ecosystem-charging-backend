@@ -36,7 +36,40 @@ BASIC_SDR = {
     'productId': '2',
     'customer': 'test_user',
     'correlationNumber': '1',
-    'timestamp': '2015-10-20 17:31:57.838',
+    'timestamp': '2015-10-20 17:31:57.100000',
+    'recordType': 'event',
+    'value': '10',
+    'unit': 'invocation'
+}
+
+SDR2 = {
+    'orderId': '1',
+    'productId': '2',
+    'customer': 'test_user',
+    'correlationNumber': '2',
+    'timestamp': '2015-10-22 17:31:57.100000',
+    'recordType': 'event',
+    'value': '5',
+    'unit': 'call'
+}
+
+SDR3 = {
+    'orderId': '1',
+    'productId': '2',
+    'customer': 'test_user',
+    'correlationNumber': '3',
+    'timestamp': '2015-10-23 17:31:57.100000',
+    'recordType': 'event',
+    'value': '15',
+    'unit': 'invocation'
+}
+
+SDR4 = {
+    'orderId': '1',
+    'productId': '2',
+    'customer': 'test_user',
+    'correlationNumber': '4',
+    'timestamp': '2015-10-24 17:31:57.100000',
     'recordType': 'event',
     'value': '10',
     'unit': 'invocation'
@@ -67,6 +100,7 @@ class SDRManagerTestCase(TestCase):
         self._contract.applied_sdrs = []
 
         self._user = MagicMock()
+        self._user.is_staff = True
         self._user.userprofile.organizations = [{
             'organization': '1111'
         }]
@@ -160,3 +194,51 @@ class SDRManagerTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
+
+    def _include_datetimes(self, sdrs):
+        stored_sdrs = []
+        for sdr in sdrs:
+            pattern = '%Y-%m-%dT%H:%M:%S.%f' if 'T' in sdr['timestamp'] else '%Y-%m-%d %H:%M:%S.%f'
+            new_sdr = deepcopy(sdr)
+            new_sdr['timestamp'] = datetime.strptime(sdr['timestamp'], pattern)
+            stored_sdrs.append(new_sdr)
+        return stored_sdrs
+
+    def _add_pending(self):
+        self._contract.pending_sdrs = self._include_datetimes([BASIC_SDR, SDR2, SDR3, SDR4])
+        self._contract.applied_sdrs = []
+
+    def _add_applied(self):
+        self._contract.pending_sdrs = []
+        self._contract.applied_sdrs = self._include_datetimes([BASIC_SDR, SDR2, SDR3, SDR4])
+
+    def _not_auth(self):
+        self._user.is_staff = False
+
+    @parameterized.expand([
+        ('basic', [BASIC_SDR, SDR2, SDR3, SDR4], None, None, None, _add_pending),
+        ('from_to', [SDR2, SDR3], '2015-10-21 17:31:57.0', '2015-10-24T00:00:00.0', None, _add_applied),
+        ('unit', [SDR2], None, None, 'call', _add_pending),
+        ('not_auth', [], None, None, None, _not_auth, PermissionDenied, 'You are not authorized to read accounting info of the given order'),
+        ('invalid_from', [], 'inv', None, None, None, ValueError, 'Invalid "from" parameter, must be a datetime'),
+        ('invalid_to', [], None, 'inv', None, None, ValueError, 'Invalid "to" parameter, must be a datetime')
+    ])
+    def test_sdr_retrieving(self, name, exp_response, from_, to, unit, side_effect=None, err_type=None, err_msg=None):
+
+        if side_effect is not None:
+            side_effect(self)
+
+        sdr_mng = sdr_manager.SDRManager(self._user, self._order, self._contract)
+
+        error = None
+        try:
+            response = sdr_mng.get_sdrs(from_, to, unit)
+        except Exception as e:
+            error = e
+
+        if err_type is None:
+            self.assertTrue(error is None)
+            self.assertEquals(exp_response, response)
+        else:
+            self.assertTrue(isinstance(error, err_type))
+            self.assertEquals(unicode(error), err_msg)

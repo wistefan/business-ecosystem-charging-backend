@@ -109,3 +109,51 @@ class SDRManager(object):
         sdr['timestamp'] = time_stamp
         self._contract.pending_sdrs.append(sdr)
         self._order.save()
+
+    def _get_datetime(self, time):
+        try:
+            time_stamp = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%f')
+        except:
+            time_stamp = datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+
+        return time_stamp
+
+    def get_sdrs(self, from_, to, unit):
+
+        if not self._user.is_staff and \
+                self._user.userprofile.current_organization != self._order.owner_organization:
+            raise PermissionDenied('You are not authorized to read accounting info of the given order')
+
+        # Check from and to formats
+        if from_ is not None:
+            try:
+                from_ = self._get_datetime(from_)
+            except:
+                raise ValueError('Invalid "from" parameter, must be a datetime')
+
+        if to is not None:
+            try:
+                to = self._get_datetime(to)
+            except:
+                raise ValueError('Invalid "to" parameter, must be a datetime')
+
+        # Build response
+        response = []
+        sdrs = []
+        sdrs.extend(self._contract.applied_sdrs)
+        sdrs.extend(self._contract.pending_sdrs)
+
+        for sdr in sdrs:
+            if from_ is not None and from_ > sdr['timestamp']:
+                continue
+
+            if to is not None and to < sdr['timestamp']:
+                break
+
+            if unit is not None and sdr['unit'].lower() != unit.lower():
+                continue
+
+            sdr['timestamp'] = unicode(sdr['timestamp'])
+            response.append(sdr)
+
+        return response
