@@ -263,7 +263,9 @@ class ChargingEngineTestCase(TestCase):
             'unit': 'call',
             'value': '10'
         }]
+        contract.applied_sdrs = []
         self._order.contracts = [contract]
+        self._order.get_item_contract.side_effect = [contract]
 
         return [{
             'price': '200.00',
@@ -364,6 +366,22 @@ class ChargingEngineTestCase(TestCase):
         self.assertEquals({}, self._order.pending_payment)
         self._order.save.assert_called_once_with()
 
+    def _validate_subscription_calls(self):
+        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
+
+        self.assertEquals({
+            'general_currency': 'EUR',
+            'subscription': [{
+                'value': '12.00',
+                'unit': 'monthly',
+                'tax_rate': '20.00',
+                'duty_free': '10.00',
+                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
+            }]
+        }, self._order.contracts[1].pricing_model)
+
+        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
+
     def _validate_end_initial_payment(self, transactions):
         self.assertEquals([
             call('1'),
@@ -407,6 +425,8 @@ class ChargingEngineTestCase(TestCase):
             'concept': 'initial'
         }], self._order.contracts[1].charges)
 
+        self._validate_subscription_calls()
+
     def _validate_end_renovation_payment(self, transactions):
         self.assertEquals([
             call('2')
@@ -433,10 +453,28 @@ class ChargingEngineTestCase(TestCase):
         }], self._order.contracts[1].charges)
 
         self.assertEquals([], self._order.contracts[2].charges)
+        self._validate_subscription_calls()
+
+    def _validate_end_usage_payment(self, transactions):
+        self.assertEquals([{
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }], self._order.contracts[0].applied_sdrs)
+
+        self.assertEquals([], self._order.contracts[0].pending_sdrs)
+
+
 
     @parameterized.expand([
         ('initial', _set_initial_contracts, _validate_end_initial_payment),
-        ('renovation', _set_renovation_contracts, _validate_end_renovation_payment)
+        ('renovation', _set_renovation_contracts, _validate_end_renovation_payment),
+        ('use', _set_usage_contracts, _validate_end_usage_payment)
     ])
     def test_end_payment(self, name, contract_gen, validator):
         self._order.state = 'pending'
@@ -450,21 +488,6 @@ class ChargingEngineTestCase(TestCase):
 
         # Validate calls
         self.assertEquals('paid', self._order.state)
-
-        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
-
-        self.assertEquals({
-            'general_currency': 'EUR',
-            'subscription': [{
-                'value': '12.00',
-                'unit': 'monthly',
-                'tax_rate': '20.00',
-                'duty_free': '10.00',
-                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
-            }]
-        }, self._order.contracts[1].pricing_model)
-
-        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
 
         self.assertEquals([
             call(),
