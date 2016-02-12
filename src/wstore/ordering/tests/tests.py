@@ -94,6 +94,10 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Resource = MagicMock()
         ordering_management.Resource.objects.get.return_value = self._asset_instance
 
+        ordering_management.datetime = MagicMock()
+        self._now = datetime(2016, 12, 03)
+        ordering_management.datetime.now.return_value = self._now
+
     def _check_offering_call(self, asset, description="Example offering description", is_digital=True):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
         ordering_management.Offering.objects.create.assert_called_once_with(
@@ -355,6 +359,7 @@ class OrderingManagementTestCase(TestCase):
                 order_id="12",
                 customer=self._customer,
                 owner_organization=self._org_inst,
+                date=self._now,
                 state='pending',
                 tax_address={
                     'street': 'fake street'
@@ -622,6 +627,7 @@ class OrderTestCase(TestCase):
         self._order = Order.objects.create(
             description='',
             order_id='1',
+            date=datetime.now(),
             customer=customer,
             state='pending',
             contracts=[self._contract1, self._contract2]

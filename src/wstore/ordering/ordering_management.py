@@ -268,6 +268,7 @@ class OrderingManager:
             order_id=order_id,
             customer=self._customer,
             owner_organization=current_org,
+            date=datetime.now(),
             state='pending',
             tax_address=current_org.tax_address,
             contracts=new_contracts,
