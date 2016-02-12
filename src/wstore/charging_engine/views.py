@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -17,15 +17,17 @@
 # You should have received a copy of the European Union Public Licence
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
-from django.core.exceptions import PermissionDenied
+
+
+from __future__ import unicode_literals
 
 import json
 import importlib
 from bson import ObjectId
-from datetime import datetime
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.core.exceptions import PermissionDenied
 
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.ordering_client import OrderingClient
@@ -220,11 +222,8 @@ class PayPalConfirmation(Resource):
             client.end_redirection_payment(token, payer_id)
 
             charging_engine = ChargingEngine(order)
-            accounting = None
-            if 'accounting' in pending_info:
-                accounting = pending_info['accounting']
+            charging_engine.end_charging(transactions, concept)
 
-            charging_engine.end_charging(transactions, concept, accounting)
         except Exception as e:
 
             # Rollback the purchase if existing
@@ -248,7 +247,8 @@ class PayPalConfirmation(Resource):
 
         states_processors = {
             'initial': self._set_initial_states,
-            'renovation': self._set_renovation_states
+            'renovation': self._set_renovation_states,
+            'use': self._set_renovation_states
         }
         states_processors[concept](transactions, raw_order, order)
 

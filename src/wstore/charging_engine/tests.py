@@ -566,29 +566,25 @@ class PayPalConfirmationTestCase(TestCase):
             'result': 'correct',
             'message': 'Ok'
         }, [], _non_digital_assets),
-        ('accounting', BASIC_PAYPAL, {
-            'result': 'correct',
-            'message': 'Ok'
-        }, [{'id': '1'}, {'id': '2'}], _accounting_included, []),
-        ('missing_ref', MISSING_REF, MISSING_RESP, None, None, None, True),
-        ('missing_payerid', MISSING_PAYER, MISSING_RESP, None, None, None, True),
-        ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, None, True),
+        ('missing_ref', MISSING_REF, MISSING_RESP, None, None, True),
+        ('missing_payerid', MISSING_PAYER, MISSING_RESP, None, None, True),
+        ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, True),
         ('invalid_ref', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled: The provided reference does not identify a valid order'
-        }, None, _invalid_ref, None, True),
-        ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _lock_closed, None, True),
-        ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, None, True, True),
+        }, None, _invalid_ref, True),
+        ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _lock_closed, True),
+        ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, True, True),
         ('unauthorized', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled: You are not authorized to execute the payment'
-        }, None, _unauthorized, None, True, True),
+        }, None, _unauthorized, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',
             'message': 'The payment has been canceled due to an unexpected error'
-        }, None, _exception, None, True, True)
+        }, None, _exception, True, True)
     ])
-    def test_paypal_confirmation(self, name, data, expected_resp, completed=None, side_effect=None, acc=None, error=False, to_del=False):
+    def test_paypal_confirmation(self, name, data, expected_resp, completed=None, side_effect=None, error=False, to_del=False):
 
         if side_effect is not None:
             side_effect(self)
@@ -629,7 +625,7 @@ class PayPalConfirmationTestCase(TestCase):
             self._payment_inst.end_redirection_payment.assert_called_once_with('payment', 'payer')
 
             views.ChargingEngine.assert_called_once_with(self._order_inst)
-            self._charging_inst.end_charging.assert_called_once_with([{'item': '1'}, {'item': '2'}], 'initial', acc)
+            self._charging_inst.end_charging.assert_called_once_with([{'item': '1'}, {'item': '2'}], 'initial')
 
             self._ordering_inst.get_order.assert_called_once_with('1')
 

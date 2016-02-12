@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -88,9 +88,6 @@ class ChargingEngine:
                     {'$set': {'_lock': False}}
                 )
 
-    def _fix_price(self, price):
-        return '{0:.2f}'.format(price)
-
     def _charge_client(self, transactions):
 
         # Load payment client
@@ -124,8 +121,9 @@ class ChargingEngine:
         renovation_date = datetime.fromtimestamp(renovation_date)
         return renovation_date
 
-    def _end_initial_charge(self, contract, related_model, accounting=None):
+    def _end_initial_charge(self, contract, transaction):
         # If a subscription part has been charged update renovation date
+        related_model = transaction['related_model']
         if 'subscription' in related_model:
             updated_subscriptions = []
 
@@ -142,8 +140,9 @@ class ChargingEngine:
         self._order.owner_organization.acquired_offerings.append(contract.offering.pk)
         self._order.owner_organization.save()
 
-    def _end_renovation_charge(self, contract, related_model, accounting=None):
+    def _end_renovation_charge(self, contract, transaction):
 
+        related_model = transaction['related_model']
         # Process contract subscriptions
         for subs in related_model['subscription']:
             subs['renovation_date'] = self._calculate_renovation_date(subs['unit'])
@@ -156,19 +155,18 @@ class ChargingEngine:
             contract.pricing_model['subscription'] = updated_subscriptions
             related_model['subscription'] = updated_subscriptions
 
-    def _end_use_charge(self, contract, related_model, accounting=None):
+    def _end_use_charge(self, contract, transaction):
         # Move SDR from pending to applied
-        self._order.contract.applied_sdrs.extend(self._order.contract.pending_sdrs)
-        self._order.contract.pending_sdrs = []
-        related_model['charges'] = accounting['charges']
-        related_model['deductions'] = accounting['deductions']
+        contract.applied_sdrs.extend(contract.pending_sdrs)
+        contract.pending_sdrs = []
 
-    def end_charging(self, transactions, concept, accounting=None):
+        transaction['related_model']['accounting'] = transaction['applied_accounting']
+
+    def end_charging(self, transactions, concept):
         """
         Process the second step of a payment once the customer has approved the charge
         :param transactions: List of transactions applied including the total price and the related model
         :param concept: Concept of the charge, it can be initial, renovation, or use
-        :param accounting: Accounting information used to compute the charged for pay-per-use models
         """
 
         # Update purchase state
@@ -192,7 +190,7 @@ class ChargingEngine:
 
             contract.last_charge = time_stamp
 
-            self.end_processors[concept](contract, transaction['related_model'], accounting)
+            self.end_processors[concept](contract, transaction)
 
             # If the customer has been charged create the CDR
             cdr_manager = CDRManager(self._order, contract)
@@ -214,35 +212,38 @@ class ChargingEngine:
                 for cont in self._order.contracts:
                     handler.send_provider_notification(self._order, cont)
 
-            elif concept == 'renovation':
+            elif concept == 'renovation' or concept == 'use':
                 handler.send_renovation_notification(self._order, transactions)
         except:
             pass
 
-    def _save_pending_charge(self, transactions, applied_accounting=None):
+    def _save_pending_charge(self, transactions):
         pending_payment = {
             'transactions': transactions,
             'concept': self._concept
         }
 
-        # If some accounting has been used include it to be saved
-        if applied_accounting:
-            pending_payment['accounting'] = applied_accounting
-
         self._order.pending_payment = pending_payment
         self._order.save()
 
-    def _append_transaction(self, transactions, contract, related_model):
+    def _append_transaction(self, transactions, contract, related_model, accounting=None):
         # Call the price resolver
-        price, duty_free = self._price_resolver.resolve_price(related_model)
-        transactions.append({
-            'price': self._fix_price(price),
-            'duty_free': self._fix_price(duty_free),
+        price, duty_free = self._price_resolver.resolve_price(related_model, accounting)
+
+        transaction = {
+            'price': price,
+            'duty_free': duty_free,
             'description': contract.offering.description,
             'currency': contract.pricing_model['general_currency'],
             'related_model': related_model,
             'item': contract.item_id
-        })
+        }
+
+        # Get the applied accounting info is needed
+        if accounting is not None:
+            transaction['applied_accounting'] = self._price_resolver.get_applied_sdr()
+
+        transactions.append(transaction)
 
     def _process_initial_charge(self, contracts):
         """
@@ -308,7 +309,7 @@ class ChargingEngine:
             if len(unmodified):
                 related_model['unmodified'] = unmodified
 
-            # Calculate the price to ba charged if required
+            # Calculate the price to be charged if required
             if len(related_model['subscription']):
                 self._append_transaction(transactions, contract, related_model)
 
@@ -324,47 +325,7 @@ class ChargingEngine:
 
         return redirect_url
 
-    def _process_usage(self, related_model, unmodified=None):
-
-        redirect_url = None
-        accounting_info = None
-
-        # If pending SDR documents resolve the use charging
-        if len(self._order.contract.pending_sdrs) > 0:
-            related_model['pay_per_use'] = self._price_model['pay_per_use']
-            accounting_info = []
-            accounting_info.extend(self._order.contract.pending_sdrs)
-
-        # If deductions have been included resolve the discount
-        if 'deductions' in self._price_model and len(self._price_model['deductions']) > 0:
-            related_model['deductions'] = self._price_model['deductions']
-
-        price = self._price_resolver.resolve_price(related_model, accounting_info)
-
-        # Check if applied accounting info is needed to finish the purchase
-        applied_accounting = None
-        if accounting_info is not None:
-            applied_accounting = self._price_resolver.get_applied_sdr()
-
-        # Deductions can make the price 0
-        if price > 0:
-            # If not use made, check expenditure limits and accumulated balance
-            if applied_accounting is None:
-                self._balance_manager.check_expenditure_limits(price)
-
-            redirect_url = self._charge_client(price)
-
-        if unmodified is not None and len(unmodified) > 0:
-            related_model['unmodified'] = unmodified
-
-        if self._order.state == 'paid':
-            self.end_charging(price, self._concept, related_model, applied_accounting)
-        else:
-            self._save_pending_charge(price, related_model, applied_accounting=applied_accounting)
-
-        return price, applied_accounting, redirect_url
-
-    def _process_use_charge(self):
+    def _process_use_charge(self, contracts):
         """
         Resolves usage charges, which includes pay-per-use payments
         :return: The URL where redirecting the customer to approve the charge
@@ -372,11 +333,27 @@ class ChargingEngine:
         self._order.state = 'pending'
         self._order.save()
 
-        if not len(self._order.contract.pending_sdrs):
-            raise ValueError('There is not pending SDRs to process')
+        transactions = []
+        for contract in contracts:
+            if 'pay_per_use' not in contract.pricing_model or not len(contract.pending_sdrs):
+                continue
 
-        related_model = {}
-        price, applied_accounting, redirect_url = self._process_usage(related_model)
+            self._append_transaction(
+                transactions,
+                contract,
+                contract.pricing_model['pay_per_use'],
+                accounting=contract.pending_sdrs
+            )
+
+        if len(transactions):
+            # Make the charge
+            redirect_url = self._charge_client(transactions)
+            self._save_pending_charge(transactions)
+        else:
+            # If it is not necessary to charge the customer, the state is set to paid
+            self._order.state = 'paid'
+            self._order.save()
+            raise OrderingError('There is not usage payments to renovate')
 
         return redirect_url
 

@@ -20,7 +20,7 @@
 
 from __future__ import unicode_literals
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand
 
@@ -31,26 +31,46 @@ from wstore.ordering.inventory_client import InventoryClient
 
 class Command(BaseCommand):
 
+    def _check_renovation_date(self, renovation_date, order, contract):
+        now = datetime.now()
+
+        timed = renovation_date - now
+
+        if timed.days < 7:
+            handler = NotificationsHandler()
+
+            if timed.days < 0:
+                # Notify that the subscription has finished
+                handler.send_payment_required_notification(order, contract)
+
+                # Set the product as suspended
+                client = InventoryClient()
+                client.suspend_product(contract.product_id)
+            else:
+                # There is less than a week remaining
+                handler.send_near_expiration_notification(order, contract, timed.days)
+
     def _process_subscription_item(self, order, contract, item):
         try:
-            renovation_date = item['renovation_date']
-            now = datetime.now()
+            self._check_renovation_date(item['renovation_date'], order, contract)
+        except:
+            pass
 
-            timedelta = renovation_date - now
+    def _process_usage_item(self, order, contract):
+        try:
+            # Search last usage charge
+            last_charge = None
+            for charge in reversed(contract.charges):
+                if charge['concept'] == 'use':
+                    last_charge = charge['date']
+                    break
 
-            if timedelta.days < 7:
-                handler = NotificationsHandler()
+            # No use charge has been applied yet
+            if last_charge is None:
+                last_charge = order.date
 
-                if timedelta.days < 0:
-                    # Notify that the subscription has finished
-                    handler.send_payment_required_notification(order, contract)
-
-                    # Set the product as suspended
-                    client = InventoryClient()
-                    client.suspend_product(contract.product_id)
-                else:
-                    # There is less than a week remaining
-                    handler.send_near_expiration_notification(order, contract, timedelta.days)
+            # Usage payments are renovated every 30 days
+            self._check_renovation_date(last_charge + timedelta(days=30), order, contract)
         except:
             pass
 
@@ -65,7 +85,7 @@ class Command(BaseCommand):
         for order in Order.objects.all():
             for contract in order.contracts:
                 if 'pay_per_use' in contract.pricing_model and not contract.terminated:
-                    pass
+                        self._process_usage_item(order, contract)
 
                 if 'subscription' in contract.pricing_model and not contract.terminated:
                     # Validate renovation date
