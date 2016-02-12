@@ -118,6 +118,17 @@ class ChargingEngineTestCase(TestCase):
 
         return pricing
 
+    def _get_pay_use(self):
+        return {
+            'general_currency': 'EUR',
+            'pay_per_use': [{
+                'value': '10.00',
+                'unit': 'call',
+                'tax_rate': '20.00',
+                'duty_free': '8.33'
+            }]
+        }
+
     def _mock_contract(self, info):
         contract = MagicMock()
         contract.offering.description = info['description']
@@ -235,9 +246,62 @@ class ChargingEngineTestCase(TestCase):
 
         self._order.contracts = [contract]
 
+    def _set_usage_contracts(self):
+        contract = self._mock_contract({
+            'description': 'Offering description',
+            'offering_pk': '11111',
+            'item_id': '1',
+            'pricing': self._get_pay_use()
+        })
+        contract.pending_sdrs = [{
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }]
+        self._order.contracts = [contract]
+
+        return [{
+            'price': '200.00',
+            'duty_free': '166.60',
+            'description': 'Offering description',
+            'currency': 'EUR',
+            'related_model': {
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }]
+            },
+            'item': '1',
+            'applied_accounting': [{
+                'model': {
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'unit': 'call',
+                    'value': '10'
+                }, {
+                    'unit': 'call',
+                    'value': '10'
+                }],
+                'price': '200.00',
+                'duty_free': '166.60'
+            }]
+        }]
+
     @parameterized.expand([
         ('initial', _set_initial_contracts),
-        ('renovation', _set_renovation_contracts)
+        ('renovation', _set_renovation_contracts),
+        ('use', _set_usage_contracts)
     ])
     def test_payment(self, name, contract_gen):
 

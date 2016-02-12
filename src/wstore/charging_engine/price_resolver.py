@@ -48,6 +48,7 @@ class PriceResolver:
 
             for sdr in accounting_info:
                 if sdr['unit'].lower() == component['unit'].lower():
+                    related_accounting.append(sdr)
                     partial_price += (Decimal(sdr['value']) * Decimal(component['value']))
                     partial_duty_free += (Decimal(sdr['value']) * Decimal(component['duty_free']))
 
