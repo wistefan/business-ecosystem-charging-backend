@@ -277,6 +277,19 @@ class ChargingEngine:
 
         return redirect_url
 
+    def _execute_renovation_transactions(self, transactions, err_msg):
+        if len(transactions):
+            # Make the charge
+            redirect_url = self._charge_client(transactions)
+            self._save_pending_charge(transactions)
+        else:
+            # If it is not necessary to charge the customer, the state is set to paid
+            self._order.state = 'paid'
+            self._order.save()
+            raise OrderingError(err_msg)
+
+        return redirect_url
+
     def _process_renovation_charge(self, contracts):
         """
         Resolves renovation charges, which includes the renovation of subscriptions and optionally usage payments
@@ -313,17 +326,7 @@ class ChargingEngine:
             if len(related_model['subscription']):
                 self._append_transaction(transactions, contract, related_model)
 
-        if len(transactions):
-            # Make the charge
-            redirect_url = self._charge_client(transactions)
-            self._save_pending_charge(transactions)
-        else:
-            # If it is not necessary to charge the customer, the state is set to paid
-            self._order.state = 'paid'
-            self._order.save()
-            raise OrderingError('There is not recurring payments to renovate')
-
-        return redirect_url
+        return self._execute_renovation_transactions(transactions, 'There is not recurring payments to renovate')
 
     def _process_use_charge(self, contracts):
         """
@@ -331,31 +334,24 @@ class ChargingEngine:
         :return: The URL where redirecting the customer to approve the charge
         """
         self._order.state = 'pending'
-        self._order.save()
 
         transactions = []
         for contract in contracts:
             if 'pay_per_use' not in contract.pricing_model or not len(contract.pending_sdrs):
                 continue
 
+            related_model = {
+                'pay_per_use': contract.pricing_model['pay_per_use']
+            }
+
             self._append_transaction(
                 transactions,
                 contract,
-                contract.pricing_model['pay_per_use'],
+                related_model,
                 accounting=contract.pending_sdrs
             )
 
-        if len(transactions):
-            # Make the charge
-            redirect_url = self._charge_client(transactions)
-            self._save_pending_charge(transactions)
-        else:
-            # If it is not necessary to charge the customer, the state is set to paid
-            self._order.state = 'paid'
-            self._order.save()
-            raise OrderingError('There is not usage payments to renovate')
-
-        return redirect_url
+        return self._execute_renovation_transactions(transactions, 'There is not usage payments to renovate')
 
     def resolve_charging(self, type_='initial', related_contracts=None):
         """
