@@ -33,18 +33,7 @@ class ChargesDaemonTestCase(TestCase):
 
     tags = ('charges-daemon', )
 
-    def _build_contract(self, date, id_):
-        contract = MagicMock()
-        contract.terminated = False
-        contract.pricing_model = {
-            'subscription': [{
-                'renovation_date': date
-            }]
-        }
-        contract.product_id = id_
-        return contract
-
-    def test_subscription_renovation(self):
+    def setUp(self):
         # Mock datetime
         pending_charges_daemon.datetime = MagicMock()
         pending_charges_daemon.datetime.now.return_value = datetime(2016, 02, 8)
@@ -58,23 +47,44 @@ class ChargesDaemonTestCase(TestCase):
         # Mock orders
         pending_charges_daemon.Order = MagicMock()
 
+    def _build_contract(self, pricing, id_):
+        contract = MagicMock()
+        contract.terminated = False
+        contract.pricing_model = pricing
+        contract.product_id = id_
+        return contract
+
+    def _build_subscription_contract(self, date, id_):
+        return self._build_contract({
+            'subscription': [{
+                'renovation_date': date
+            }]
+        }, id_)
+
+    def _build_usage_contract(self, date, id_):
+        contract = self._build_contract({
+            'pay_per_use': []
+        }, id_)
+
+        contract.charges = [{
+            'concept': 'one time'
+        }, {
+            'concept': 'use',
+            'date': date
+        }, {
+            'concept': 'one time'
+        }]
+        return contract
+
+    def _test_charging_daemon(self, contracts):
         # Not subscription
         contract1 = MagicMock()
         contract1.pricing_model = {
             'single_payment': []
         }
 
-        # Not expired
-        contract2 = self._build_contract(datetime(2016, 03, 01), '1')
-
-        # About to expire
-        contract3 = self._build_contract(datetime(2016, 02, 10), '2')
-
-        # Expired
-        contract4 = self._build_contract(datetime(2016, 01, 31), '3')
-
         order = MagicMock()
-        order.contracts = [contract1, contract2, contract3, contract4]
+        order.contracts = [contract1] + contracts
         pending_charges_daemon.Order.objects.all.return_value = [order]
 
         # Execute commands
@@ -84,8 +94,36 @@ class ChargesDaemonTestCase(TestCase):
         # Validate calls
         self.assertEquals([call(), call()], pending_charges_daemon.NotificationsHandler.call_args_list)
 
-        pending_charges_daemon.NotificationsHandler().send_payment_required_notification.assert_called_once_with(order, contract4)
+        pending_charges_daemon.NotificationsHandler().send_payment_required_notification.assert_called_once_with(order, contracts[2])
         pending_charges_daemon.InventoryClient.assert_called_once_with()
         pending_charges_daemon.InventoryClient().suspend_product.assert_called_once_with('3')
 
-        pending_charges_daemon.NotificationsHandler().send_near_expiration_notification.assert_called_once_with(order, contract3, 2)
+        pending_charges_daemon.NotificationsHandler().send_near_expiration_notification.assert_called_once_with(order, contracts[1], 2)
+
+    def test_subscription_renovation(self):
+
+        # Not expired
+        contract1 = self._build_subscription_contract(datetime(2016, 03, 01), '1')
+
+        # About to expire
+        contract2 = self._build_subscription_contract(datetime(2016, 02, 10), '2')
+
+        # Expired
+        contract3 = self._build_subscription_contract(datetime(2016, 01, 31), '3')
+
+        self._test_charging_daemon([contract1, contract2, contract3])
+
+    def test_usage_renovation(self):
+        #import ipdb; ipdb.set_trace()
+
+        # Not expired
+        contract1 = self._build_usage_contract(datetime(2016, 03, 01), '1')
+
+        # About to expire
+        contract2 = self._build_usage_contract(datetime(2016, 01, 11), '2')
+
+        # Expired
+        contract3 = self._build_usage_contract(datetime(2015, 12, 31), '3')
+
+        self._test_charging_daemon([contract1, contract2, contract3])
+
