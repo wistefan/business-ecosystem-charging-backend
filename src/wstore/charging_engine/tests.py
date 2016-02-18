@@ -32,7 +32,6 @@ from nose_parameterized import parameterized
 
 from django.test import TestCase
 from django.test.client import RequestFactory
-from django.test.utils import override_settings
 
 from wstore.charging_engine import charging_engine
 from wstore.charging_engine import views
@@ -61,11 +60,6 @@ class ChargingEngineTestCase(TestCase):
         self._order = MagicMock()
         self._order.owner_organization.acquired_offerings = []
 
-        charging_engine.Unit = MagicMock()
-        unit = MagicMock()
-        unit.renovation_period = 30
-        charging_engine.Unit.objects.get.return_value = unit
-
         # Mock payment client
         mock_payment_client(self, charging_engine)
         self._payment_inst.get_checkout_url.return_value = self._paypal_url
@@ -86,7 +80,6 @@ class ChargingEngineTestCase(TestCase):
         now = datetime(2016, 1, 20, 13, 12, 39)
         charging_engine.datetime = MagicMock()
         charging_engine.datetime.now.return_value = now
-        charging_engine.datetime.fromtimestamp.return_value = datetime(2016, 1, 26, 13, 12, 39)
 
         charging_engine.NotificationsHandler = MagicMock()
         charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
@@ -367,7 +360,6 @@ class ChargingEngineTestCase(TestCase):
         self._order.save.assert_called_once_with()
 
     def _validate_subscription_calls(self):
-        charging_engine.Unit.objects.get.assert_called_once_with(name='monthly')
 
         self.assertEquals({
             'general_currency': 'EUR',
@@ -376,11 +368,9 @@ class ChargingEngineTestCase(TestCase):
                 'unit': 'monthly',
                 'tax_rate': '20.00',
                 'duty_free': '10.00',
-                'renovation_date': datetime(2016, 1, 26, 13, 12, 39)
+                'renovation_date': datetime(2016, 2, 19, 13, 12, 39)
             }]
         }, self._order.contracts[1].pricing_model)
-
-        charging_engine.datetime.fromtimestamp.assert_called_once_with(1455909159.0)
 
     def _validate_end_initial_payment(self, transactions):
         self.assertEquals([

@@ -25,11 +25,10 @@ import time
 import threading
 import importlib
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from wstore.charging_engine.models import Unit
 from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
@@ -38,6 +37,7 @@ from wstore.ordering.models import Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 from wstore.admin.users.notification_handler import NotificationsHandler
+from wstore.store_commons.utils.units import recurring_periods
 
 
 class ChargingEngine:
@@ -109,17 +109,7 @@ class ChargingEngine:
         return checkout_url
 
     def _calculate_renovation_date(self, unit):
-
-        unit_model = Unit.objects.get(name=unit.lower())
-
-        now = datetime.now()
-        # Transform now date into seconds
-        now = time.mktime(now.timetuple())
-
-        renovation_date = now + (unit_model.renovation_period * 86400)  # Seconds in a day
-
-        renovation_date = datetime.fromtimestamp(renovation_date)
-        return renovation_date
+        return datetime.now() + timedelta(days=recurring_periods[unit.lower()])
 
     def _end_initial_charge(self, contract, transaction):
         # If a subscription part has been charged update renovation date

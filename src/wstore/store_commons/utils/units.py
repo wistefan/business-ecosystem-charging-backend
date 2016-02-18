@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -17,3 +17,14 @@
 # You should have received a copy of the European Union Public Licence
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+
+from __future__ import unicode_literals
+
+recurring_periods = {
+    'daily': 1,  # One day
+    'weekly': 7,  # One week
+    'monthly': 30,  # One month
+    'quarterly': 90,  # Three months
+    'yearly': 365,  # One year
+    'quinquennial': 1825  # Five years
+}

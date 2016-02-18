@@ -24,7 +24,7 @@ from datetime import datetime
 
 from django.core.exceptions import PermissionDenied
 
-from wstore.models import Organization, User
+from wstore.models import Organization
 
 
 class SDRManager(object):
