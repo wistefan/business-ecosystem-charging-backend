@@ -36,7 +36,7 @@ class ResourceVersion(models.Model):
 
 
 class Resource(models.Model):
-    product_ref = models.URLField()
+    product_id = models.CharField(max_length=100, blank=True, null=True)
     version = models.CharField(max_length=20)  # This field maps the Product Spec version
     provider = models.ForeignKey(Organization)
     content_type = models.CharField(max_length=50)

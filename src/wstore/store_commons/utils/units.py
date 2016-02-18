@@ -28,3 +28,11 @@ recurring_periods = {
     'yearly': 365,  # One year
     'quinquennial': 1825  # Five years
 }
+
+supported_currencies = (
+    'AUD', 'BRL', 'CAD', 'CZK', 'DKK',
+    'EUR', 'HKD', 'HUF', 'ILS', 'JPY',
+    'MYR', 'MXN', 'TWD', 'NZD', 'NOK',
+    'PHP', 'PLN', 'GBP', 'RUB', 'SGD',
+    'SEK', 'CHF', 'THB', 'TRY', 'USD'
+)

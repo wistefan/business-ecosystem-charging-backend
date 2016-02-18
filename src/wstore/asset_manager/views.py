@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -30,6 +30,7 @@ from wstore.store_commons.utils.http import build_response, get_content_type, su
     authentication_required
 from wstore.asset_manager.asset_manager import AssetManager
 from wstore.asset_manager.product_validator import ProductValidator
+from wstore.asset_manager.offering_validator import OfferingValidator
 from wstore.store_commons.errors import ConflictError
 from wstore.asset_manager.errors import ProductError
 
@@ -135,6 +136,38 @@ class UploadCollection(Resource):
         return response
 
 
+def _validate_catalog_element(request, element, validator):
+    # Validate user permissions
+    user = request.user
+    if 'provider' not in user.userprofile.get_current_roles() and not user.is_staff:
+        return build_response(request, 403, "You don't have the seller role")
+
+    # Parse content
+    try:
+        data = json.loads(request.body)
+    except:
+        return build_response(request, 400, 'The content is not a valid JSON document')
+
+    if 'action' not in data:
+        return build_response(request, 400, 'Missing required field: action')
+
+    if element not in data:
+        return build_response(request, 400, 'Missing required field: product')
+
+    try:
+        validator.validate(data['action'], user.userprofile.current_organization, data[element])
+    except ValueError as e:
+        return build_response(request, 400, unicode(e))
+    except ProductError as e:
+        return build_response(request, 400, unicode(e))
+    except PermissionDenied as e:
+        return build_response(request, 403, unicode(e))
+    except:
+        return build_response(request, 500, 'An unexpected error has occurred')
+
+    return build_response(request, 200, 'OK')
+
+
 class ValidateCollection(Resource):
 
     @supported_request_mime_types(('application/json',))
@@ -145,35 +178,19 @@ class ValidateCollection(Resource):
         :param request:
         :return:
         """
-
-        # Validate user permissions
-        user = request.user
-        if 'provider' not in user.userprofile.get_current_roles() and not user.is_staff:
-            return build_response(request, 403, "You don't have the seller role")
-
         product_validator = ProductValidator()
+        return _validate_catalog_element(request, 'product', product_validator)
 
-        # Parse content
-        try:
-            data = json.loads(request.body)
-        except:
-            return build_response(request, 400, 'The content is not a valid JSON document')
 
-        if 'action' not in data:
-            return build_response(request, 400, 'Missing required field: action')
+class ValidateOfferingCollection(Resource):
 
-        if 'product' not in data:
-            return build_response(request, 400, 'Missing required field: product')
-
-        try:
-            product_validator.validate(data['action'], user.userprofile.current_organization, data['product'])
-        except ValueError as e:
-            return build_response(request, 400, unicode(e))
-        except ProductError as e:
-            return build_response(request, 400, unicode(e))
-        except PermissionDenied as e:
-            return build_response(request, 403, unicode(e))
-        except Exception:
-            return build_response(request, 400, 'Invalid product specification content')
-
-        return build_response(request, 200, 'OK')
+    @supported_request_mime_types(('application/json',))
+    @authentication_required
+    def create(self, request):
+        """
+        Validates the TMForum product offering selling a product specification
+        :param request:
+        :return:
+        """
+        offering_validator = OfferingValidator()
+        return _validate_catalog_element(request, 'offering', offering_validator)

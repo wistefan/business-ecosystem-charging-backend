@@ -197,7 +197,7 @@ class AssetCollectionTestCase(TestCase):
     def _existing(self):
         self.am_instance.upload_asset.side_effect = ConflictError('Resource exists')
 
-    def _test_post_api(self, collection, content, content_type, side_effect=None, error=False, code=201, msg='Created', validator=None):
+    def _test_post_api(self, collection, content, content_type, side_effect=None, code=201, validator=None):
 
         resource_collection = collection(permitted_methods=('POST', ))
 
@@ -269,7 +269,7 @@ class AssetCollectionTestCase(TestCase):
                     'result': 'error'
                 })
 
-        self._test_post_api(views.UploadCollection, content, content_type, side_effect, error, code, msg, validator)
+        self._test_post_api(views.UploadCollection, content, content_type, side_effect, code, validator)
 
     def _prod_val_value_error(self):
         self.validator_instance.validate.side_effect = ValueError('Invalid value in product')
@@ -292,7 +292,7 @@ class AssetCollectionTestCase(TestCase):
         ('value_error', BASIC_PRODUCT, _prod_val_value_error, True, 400, 'Invalid value in product'),
         ('product_error', BASIC_PRODUCT, _prod_val_product_error, True, 400, 'ProductError: Missing product information'),
         ('permission_denied', BASIC_PRODUCT, _prod_val_permission_denied, True, 403, 'Permission denied'),
-        ('exception', BASIC_PRODUCT, _prod_val_exception, True, 400, 'Invalid product specification content')
+        ('exception', BASIC_PRODUCT, _prod_val_exception, True, 500, 'An unexpected error has occurred')
     ])
     def test_validate_resource(self, name, data, side_effect=None, error=False, code=200, msg='OK'):
         views.ProductValidator = MagicMock()
@@ -314,4 +314,25 @@ class AssetCollectionTestCase(TestCase):
             else:
                 self.assertEqual(body_response['result'], 'error')
 
-        self._test_post_api(views.ValidateCollection, content, 'application/json', side_effect, error, code, msg, validator)
+        self._test_post_api(views.ValidateCollection, content, 'application/json', side_effect, code, validator)
+
+    def test_validate_offering(self):
+        # Only the basic call is tested since the aux method used for processing the request has been already tested
+        views.OfferingValidator = MagicMock()
+        off_validator = MagicMock()
+        views.OfferingValidator.return_value = off_validator
+
+        data = json.dumps({
+            'action': 'create',
+            'offering': {}
+        })
+
+        def validator(request, body_response):
+            views.OfferingValidator.assert_called_once_with()
+            self.assertEquals(body_response, {
+                'result': 'correct',
+                'message': 'OK'
+            })
+            off_validator.validate.assert_called_once_with('create', self.user.userprofile.current_organization, {})
+
+        self._test_post_api(views.ValidateOfferingCollection, data, 'application/json', None, 200, validator)

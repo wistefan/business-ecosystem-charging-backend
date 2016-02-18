@@ -29,53 +29,10 @@ from wstore.asset_manager.errors import ProductError
 from wstore.models import Context
 
 from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment
+from wstore.asset_manager.catalog_validator import CatalogValidator
 
 
-class ProductValidator:
-
-    def __init__(self):
-        pass
-
-    def _get_characteristic_value(self, characteristic):
-        if len(characteristic['productSpecCharacteristicValue']) > 1:
-            raise ProductError('The characteristic ' + characteristic['name'] + ' must not contain multiple values')
-
-        return characteristic['productSpecCharacteristicValue'][0]['value']
-
-    def parse_characteristics(self, product_spec):
-        expected_chars = {
-            'asset type': [],
-            'media type': [],
-            'location': []
-        }
-        asset_type = None
-        media_type = None
-        location = None
-
-        if 'productSpecCharacteristic' in product_spec:
-
-            # Extract the needed characteristics for processing digital assets
-            is_digital = False
-            for char in product_spec['productSpecCharacteristic']:
-                if char['name'].lower() in expected_chars:
-                    is_digital = True
-                    expected_chars[char['name'].lower()].append(self._get_characteristic_value(char))
-
-            for char_name in expected_chars:
-                # Validate the existance of the characteristic
-                if not len(expected_chars[char_name]) and is_digital:
-                    raise ProductError('Digital product specifications must contain a ' + char_name + ' characteristic')
-
-                # Validate that only a value has been provided
-                if len(expected_chars[char_name]) > 1:
-                    raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
-
-            if is_digital:
-                asset_type = expected_chars['asset type'][0]
-                media_type = expected_chars['media type'][0]
-                location = expected_chars['location'][0]
-
-        return asset_type, media_type, location
+class ProductValidator(CatalogValidator):
 
     @on_product_spec_validation
     def _validate_product(self, provider, asset_t, media_type, url):
@@ -144,27 +101,3 @@ class ProductValidator:
         if asset_t is not None and media_type is not None and url is not None:
             asset = self._validate_product(provider, asset_t, media_type, url)
             self._attach_product_info(asset, asset_t, product_spec)
-
-    def validate_update(self, provider, product_spec):
-        pass
-
-    def validate_upgrade(self, provider, product_spec):
-        pass
-
-    def validate_deletion(self, provider, product_spec):
-        pass
-
-    def validate(self, action, provider, product_spec):
-        validators = {
-            'create': self.validate_creation,
-            'update': self.validate_update,
-            'upgrade': self.validate_upgrade,
-            'delete': self.validate_deletion
-        }
-
-        if action not in validators:
-            msg = 'The provided action (' + action
-            msg += ') is not valid. Allowed values are create, update, upgrade, and delete'
-            raise ValueError(msg)
-
-        validators[action](provider, product_spec)

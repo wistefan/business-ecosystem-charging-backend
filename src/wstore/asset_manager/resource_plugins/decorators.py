@@ -21,18 +21,11 @@
 
 from __future__ import unicode_literals
 
-from wstore.models import ResourcePlugin
-from wstore.asset_manager.errors import ProductError
 from functools import wraps
 
-
-def load_plugin_module(module):
-    module_class_name = module.split('.')[-1]
-    module_package = module.partition('.' + module_class_name)[0]
-
-    module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
-
-    return module_class()
+from wstore.models import ResourcePlugin
+from wstore.asset_manager.models import Resource
+from wstore.asset_manager.errors import ProductError
 
 
 def _get_plugin_model(name):
@@ -45,13 +38,22 @@ def _get_plugin_model(name):
     return plugin_model
 
 
+def load_plugin_module(asset_t):
+    module = _get_plugin_model(asset_t).module
+    module_class_name = module.split('.')[-1]
+    module_package = module.partition('.' + module_class_name)[0]
+
+    module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
+
+    return module_class()
+
+
 def on_product_spec_validation(func):
 
     @wraps(func)
     def wrapper(self, provider, asset_t, media_type, url):
 
-        plugin_model = _get_plugin_model(asset_t)
-        plugin_module = load_plugin_module(plugin_model.module)
+        plugin_module = load_plugin_module(asset_t)
 
         # On pre validation
         plugin_module.on_pre_product_spec_validation(provider, asset_t, media_type, url)
@@ -73,8 +75,7 @@ def on_product_spec_attachment(func):
     def wrapper(self, asset, asset_t, product_spec):
 
         # Load plugin module
-        plugin_model = _get_plugin_model(asset_t)
-        plugin_module = load_plugin_module(plugin_model.module)
+        plugin_module = load_plugin_module(asset_t)
 
         # Call on pre create event handler
         plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
@@ -88,14 +89,34 @@ def on_product_spec_attachment(func):
     return wrapper
 
 
+def on_product_offering_validation(func):
+
+    @wraps(func)
+    def wrapper(self, provider, product_offering):
+
+        # Get the related asset (the existence of the product has been already validated)
+        assets = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+
+        if len(assets):
+            plugin_module = load_plugin_module(assets[0].resource_type)
+
+            plugin_module.on_pre_product_offering_validation(assets[0], product_offering)
+
+        func(self, provider, product_offering)
+
+        if len(assets):
+            plugin_module.on_post_product_offering_validation(assets[0], product_offering)
+
+    return wrapper
+
+
 def on_product_acquired(order, contract):
     # Get digital asset from the contract
     if contract.offering.is_digital:
         asset = contract.offering.asset
 
         # Load plugin module
-        plugin_model = _get_plugin_model(asset.resource_type)
-        plugin_module = load_plugin_module(plugin_model.module)
+        plugin_module = load_plugin_module(asset.resource_type)
 
         # Execute event
         plugin_module.on_product_acquisition(asset, contract, order)
