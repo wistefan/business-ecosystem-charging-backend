@@ -59,12 +59,7 @@ class OfferingValidator(CatalogValidator):
                     raise ValueError('Missing required field recurringChargePeriod for recurring priceType')
 
                 if price_model['priceType'] == 'recurring' and price_model['recurringChargePeriod'].lower() not in recurring_periods:
-                    msg = 'Unrecognized recurringChargePeriod supported periods are: '
-
-                    for period in recurring_periods:
-                        msg += period + ', '
-
-                    raise ValueError(msg[:-2])
+                    raise ValueError('Unrecognized recurringChargePeriod: ' + price_model['recurringChargePeriod'])
 
                 # Validate currency
                 if 'price' not in price_model:
@@ -74,7 +69,7 @@ class OfferingValidator(CatalogValidator):
                     raise ValueError('Missing required field currencyCode in price')
 
                 if price_model['price']['currencyCode'] not in supported_currencies:
-                    raise ValueError('Unrecognized currency ' + price_model['price']['currencyCode'])
+                    raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
 
     def validate_creation(self, provider, product_offering):
         self._update_product_id(product_offering['productSpecification']['href'])

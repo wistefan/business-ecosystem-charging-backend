@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -19,40 +19,41 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from __future__ import unicode_literals
-from django.core.exceptions import PermissionDenied
+from copy import deepcopy
 
 from mock import MagicMock
 from nose_parameterized import parameterized
 
+from django.core.exceptions import PermissionDenied
 from django.test.testcases import TestCase
 
-from wstore.asset_manager import product_validator
+from wstore.asset_manager import product_validator, offering_validator
 from wstore.asset_manager.errors import ProductError
 from wstore.asset_manager.test.product_validator_test_data import *
 
 
-class ProductValidatorTestCase(TestCase):
+class ValidatorTestCase(TestCase):
 
     tags = ('product-validator', )
 
-    def _mock_product_validator_imports(self):
-        reload(product_validator)
+    def _mock_validator_imports(self, module):
+        reload(module)
 
-        product_validator.ResourcePlugin = MagicMock()
-        product_validator.ResourcePlugin.objects.get.return_value = self._plugin_instance
+        module.ResourcePlugin = MagicMock()
+        module.ResourcePlugin.objects.get.return_value = self._plugin_instance
 
-        product_validator.Resource = MagicMock()
+        module.Resource = MagicMock()
         self._asset_instance = MagicMock()
         self._asset_instance.content_type = 'application/x-widget'
         self._asset_instance.provider = self._provider
-        product_validator.Resource.objects.get.return_value = self._asset_instance
-        product_validator.Resource.objects.create.return_value = self._asset_instance
+        module.Resource.objects.get.return_value = self._asset_instance
+        module.Resource.objects.create.return_value = self._asset_instance
 
         # Mock Site
-        product_validator.Context = MagicMock()
+        module.Context = MagicMock()
         self._context_inst = MagicMock()
         self._context_inst.site.domain = "http://testlocation.org/"
-        product_validator.Context.objects.all.return_value = [self._context_inst]
+        module.Context.objects.all.return_value = [self._context_inst]
 
     def setUp(self):
         self._provider = MagicMock()
@@ -65,7 +66,6 @@ class ProductValidatorTestCase(TestCase):
         import wstore.asset_manager.resource_plugins.decorators
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin = MagicMock()
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.return_value = self._plugin_instance
-        self._mock_product_validator_imports()
 
     def _support_url(self):
         self._plugin_instance.formats = ["FILE", "URL"]
@@ -80,7 +80,7 @@ class ProductValidatorTestCase(TestCase):
     def _not_supported(self):
         import wstore.asset_manager.resource_plugins.decorators
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.side_effect = Exception('Not found')
-        self._mock_product_validator_imports()
+        self._mock_validator_imports(product_validator)
 
     def _inv_media(self):
         self._plugin_instance.media_types = ['text/plain']
@@ -118,6 +118,8 @@ class ProductValidatorTestCase(TestCase):
         ('existing_asset', BASIC_PRODUCT, False, _existing_asset, ProductError, 'ProductError: There is already an existing product specification defined for the given digital asset')
     ])
     def test_validate_creation(self, name, data, is_file, side_effect=None, err_type=None, err_msg=None):
+
+        self._mock_validator_imports(product_validator)
 
         if side_effect is not None:
             side_effect(self)
@@ -164,3 +166,45 @@ class ProductValidatorTestCase(TestCase):
         self.assertEquals(0, product_validator.ResourcePlugin.objects.get.call_count)
         self.assertEquals(0, product_validator.Resource.objects.get.call_count)
         self.assertEquals(0, product_validator.Resource.objects.create.call_count)
+
+
+    @parameterized.expand([
+        ('valid_pricing', BASIC_OFFERING),
+        ('free_offering', FREE_OFFERING),
+        ('missing_type', MISSING_PRICETYPE, 'Missing required field priceType in productOfferingPrice'),
+        ('invalid_type', INVALID_PRICETYPE, 'Invalid priceType, it must be one time, recurring, or usage'),
+        ('missing_charge_period', MISSING_PERIOD, 'Missing required field recurringChargePeriod for recurring priceType'),
+        ('invalid_period', INVALID_PERIOD, 'Unrecognized recurringChargePeriod: invalid'),
+        ('missing_price', MISSING_PRICE, 'Missing required field price in productOfferingPrice'),
+        ('missing_currency', MISSING_CURRENCY, 'Missing required field currencyCode in price'),
+        ('invalid_currency', INVALID_CURRENCY, 'Unrecognized currency: invalid')
+    ])
+    def test_create_validation(self, name, offering, msg=None):
+        self._mock_validator_imports(offering_validator)
+
+        offering_validator.requests = MagicMock()
+        product = deepcopy(BASIC_PRODUCT['product'])
+        product['id'] = '20'
+        resp = MagicMock()
+        offering_validator.requests.get.return_value = resp
+        resp.json.return_value = product
+
+        error = None
+        try:
+            validator = offering_validator.OfferingValidator()
+            validator.validate('create', self._provider, offering)
+        except Exception as e:
+            error = e
+
+        # Validate calls
+        offering_validator.requests.get.assert_called_once_with('http://catalog.com/products/20')
+        offering_validator.requests.get().json.assert_called_once_with()
+
+        offering_validator.Resource.objects.get.assert_called_once_with(download_link='http://testlocation.org/media/resources/test_user/widget.wgt')
+
+        self.assertEquals('20', self._asset_instance.product_id)
+        self._asset_instance.save.assert_called_once_with()
+
+        if msg is not None:
+            self.assertTrue(isinstance(error, ValueError))
+            self.assertEquals(msg, unicode(error))

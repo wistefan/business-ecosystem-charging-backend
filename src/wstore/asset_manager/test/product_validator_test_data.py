@@ -705,3 +705,113 @@ EMPTY_CHARS_PRODUCT = {
         }
     ]
 }
+
+BASIC_OFFERING = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "one time",
+        "price": {
+            "currencyCode": "EUR"
+        }
+    }]
+}
+
+FREE_OFFERING = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+}
+
+MISSING_PRICETYPE = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "price": {
+            "currencyCode": "EUR"
+        }
+    }]
+}
+
+INVALID_PRICETYPE = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "invalid",
+        "price": {
+            "currencyCode": "EUR"
+        }
+    }]
+}
+
+MISSING_PERIOD = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "price": {
+            "currencyCode": "EUR"
+        }
+    }]
+}
+
+INVALID_PERIOD = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "recurringChargePeriod": "invalid",
+        "price": {
+            "currencyCode": "EUR"
+        }
+    }]
+}
+
+MISSING_PRICE = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "recurringChargePeriod": "monthly"
+    }]
+}
+
+MISSING_CURRENCY = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "recurringChargePeriod": "monthly",
+        "price": {
+        }
+    }]
+}
+
+INVALID_CURRENCY = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "recurringChargePeriod": "monthly",
+        "price": {
+            "currencyCode": "invalid"
+        }
+    }]
+}
