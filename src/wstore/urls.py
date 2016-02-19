@@ -30,7 +30,6 @@ from wstore.charging_engine import views as charging_views
 urlpatterns = patterns('',
     # API
     url(r'^charging/api/userManagement/users/(?P<username>[\w -]+)/?$', user_views.UserProfileEntry(permitted_methods=('GET', 'PATCH'))),
-    url(r'^charging/api/unitManagement/units/?$', admin_views.UnitCollection(permitted_methods=('GET', 'POST'))),
     url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
     url(r'^charging/api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),
     url(r'^charging/api/assetManagement/assets/offeringJob/?$', offering_views.ValidateOfferingCollection(permitted_methods=('POST',))),
