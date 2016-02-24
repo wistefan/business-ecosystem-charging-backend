@@ -64,6 +64,7 @@ class Order(models.Model):
     customer = models.ForeignKey(User)
     owner_organization = models.ForeignKey(Organization, null=True, blank=True)
     date = models.DateTimeField()
+    sales_ids = ListField()
 
     state = models.CharField(max_length=50)
     bills = ListField()

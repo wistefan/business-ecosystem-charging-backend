@@ -46,6 +46,7 @@ class PayPalClient(PaymentClient):
         })
 
     def start_redirection_payment(self, transactions):
+
         # Build URL
         url = Context.objects.all()[0].site.domain
         if url[-1] != '/':
@@ -87,7 +88,7 @@ class PayPalClient(PaymentClient):
                     # Only if all the transactions have the same currency they can be aggregated
                     if t['currency'] != current_curr:
                         break
-                    
+
                     total += Decimal(t['price'])
                     items += t['item'] + ':' + t['price'] + '<' + t['description'] + '>'
                 else:
@@ -119,6 +120,18 @@ class PayPalClient(PaymentClient):
 
         if not payment.execute({"payer_id": payer_id}):
             raise PaymentError("The payment cannot be executed: " + payment.error)
+
+        sales_ids = []
+        response = payment.to_dict()
+        for t in response['transactions']:
+            for r in t['related_resources']:
+                sales_ids.append(r['sale']['id'])
+
+        return sales_ids
+
+    def refund(self, sale_id):
+        sale = paypalrestsdk.Sale.find(sale_id)
+        sale.refund({})
 
     def get_checkout_url(self):
         return self._checkout_url
