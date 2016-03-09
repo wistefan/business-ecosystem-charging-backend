@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -19,7 +19,6 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from django.db import models
-from djangotoolbox.fields import ListField, DictField, EmbeddedModelField
 
 
 class RevenueModel(models.Model):
@@ -32,33 +31,3 @@ class RevenueModel(models.Model):
 
     def __unicode__(self):
         return self.revenue_class + ' ' + unicode(self.percentage)
-
-
-class RSS(models.Model):
-    """
-    This model is used to store the needed information to interact
-     with Revenue Sharing and Settlement system instances
-    """
-    name = models.CharField(max_length=50)
-    host = models.CharField(max_length=500)
-    api_version = models.IntegerField(default=2)
-    expenditure_limits = DictField()
-    revenue_models = ListField(EmbeddedModelField(RevenueModel))
-    correlation_number = models.IntegerField(default=0)
-    pending_cdrs = ListField()
-    in_use = models.BooleanField(default=False)
-    # Not all users of the store are authorized to access the RSS
-    # so a valid access access token and refresh token are stored
-    # when the RSS info is created
-    aggregator_id = models.CharField(max_length=300)
-    access_token = models.CharField(max_length=150, null=True, blank=True)
-    refresh_token = models.CharField(max_length=150, null=True, blank=True)
-
-    class Meta:
-        app_label = 'wstore'
-
-    def _refresh_token(self):
-        """
-        Refresh the access token used for accessing the RSS
-        """
-        pass
