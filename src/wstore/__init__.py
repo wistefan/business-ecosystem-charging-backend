@@ -22,11 +22,43 @@ from __future__ import unicode_literals
 
 import sys
 
+from django.conf import settings
+from urllib2 import HTTPError
+
 from wstore.ordering.inventory_client import InventoryClient
+from wstore.rss_adaptor.rss_manager import ProviderManager
 
 
 testing = sys.argv[1:2] == ['test']
 
 if not testing:
+    # Create inventory subscription
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
+
+    # Create RSS default aggregator and provider
+    credentials = {
+        'user': settings.STORE_NAME,
+        'roles': ['provider'],
+        'email': settings.WSTOREMAIL
+    }
+    prov_manager = ProviderManager(credentials)
+
+    try:
+        prov_manager.register_aggregator({
+            'aggregatorId': settings.WSTOREMAIL,
+            'aggregatorName': settings.STORE_NAME
+        })
+    except HTTPError as e:  # If the error is a conflict means that the aggregator is already registered
+        if e.code != 409:
+            raise e
+
+    try:
+        prov_manager.register_provider({
+            'aggregatorId': settings.WSTOREMAIL,
+            'providerId': settings.STORE_NAME.lower() + '-provider',
+            'providerName': settings.STORE_NAME + '-Provider'
+        })
+    except HTTPError as e:  # If the error is a conflict means that the default provider is already registered
+        if e.code != 409:
+            raise e

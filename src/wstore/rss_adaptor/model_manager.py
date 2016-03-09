@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -19,9 +19,6 @@
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
 from __future__ import unicode_literals
-
-from urlparse import urljoin
-from urllib import quote
 
 from django.conf import settings
 
@@ -43,86 +40,6 @@ class ModelManager(RSSManager):
         Settlement system
         """
         self._manage_rs_model(provider, model_info, 'PUT')
-
-
-class ModelManagerV1(ModelManager):
-
-    def __init__(self, rss, user):
-        RSSManager.__init__(self, rss, user)
-
-    def _manage_rs_model(self, provider, model_info, method):
-        """
-        Private method that performs revenue sharing model actions involving
-        sending the rs model to the Revenue Sharing and Settlement system
-        """
-        # If the provider is not specified use default provider
-        if not provider:
-            provider = settings.STORE_NAME.lower() + '-provider'
-
-        # Validate the model_info
-        if not isinstance(model_info, dict):
-            raise TypeError('Invalid type for model info')
-
-        if 'class' not in model_info or 'percentage' not in model_info:
-            raise ValueError('Missing a required field in model info')
-
-        if not isinstance(model_info['class'], unicode) and not isinstance(model_info['class'], str):
-            raise TypeError('Invalid type for class field')
-
-        if not isinstance(model_info['percentage'], float):
-            raise TypeError('Invalid type for percentage field')
-
-        if model_info['percentage'] < 0 or model_info['percentage'] > 100:
-            raise ValueError('The percentage must be a number between 0 and 100')
-
-        # Build revenue sharing model
-        rs_model = {
-            'appProviderId': provider,
-            'productClass': model_info['class'],
-            'percRevenueShare': model_info['percentage']
-        }
-
-        # Build the url
-        endpoint = urljoin(self._rss.host, '/fiware-rss/rss/rsModelsMgmt')
-
-        # Make the request
-        self._make_request(method, endpoint, rs_model)
-        self._refresh_rss()
-
-    def delete_provider_models(self, provider=None):
-        if not provider:
-            provider = settings.STORE_NAME.lower() + '-provider'
-
-        # Build the url
-        endpoint = urljoin(self._rss.host, '/fiware-rss/rss/rsModelsMgmt?appProviderId=' + quote(provider))
-
-        # Make the request
-        self._make_request('DELETE', endpoint)
-        self._refresh_rss()
-
-    def get_revenue_models(self, provider=None):
-
-        # Get provider
-        if not provider:
-            provider = settings.STORE_NAME.lower() + '-provider'
-
-        # Build URL
-        endpoint = urljoin(self._rss.host, '/fiware-rss/rss/rsModelsMgmt?appProviderId=' + quote(provider))
-
-        # Get provider models from the RSS
-        models = self._make_request('GET', endpoint)
-        self._refresh_rss()
-
-        return models
-
-
-class ModelManagerV2(ModelManager):
-
-    def _get_auth_header(self):
-        return 'Authorization'
-
-    def _get_token_type(self):
-        return "Bearer "
 
     def _check_model_value(self, field, model_info):
         if field not in model_info:
@@ -150,7 +67,7 @@ class ModelManagerV2(ModelManager):
             raise TypeError('Invalid type for productClass field')
 
         # Validate RS model
-        model_info['aggregatorId'] = self._rss.aggregator_id
+        model_info['aggregatorId'] = settings.WSTOREMAIL
         model_info['aggregatorValue'] = unicode(model_info['aggregatorValue'])
         model_info['ownerProviderId'] = provider
         model_info['ownerValue'] = unicode(model_info['ownerValue'])
@@ -159,7 +76,6 @@ class ModelManagerV2(ModelManager):
         if 'stakeholders' not in model_info:
             model_info['stakeholders'] = []
 
-        endpoint = urljoin(self._rss.host, '/fiware-rss/rss/models')
+        endpoint = settings.RSS + 'rss/models'
 
         self._make_request('POST', endpoint, model_info)
-        self._refresh_rss()

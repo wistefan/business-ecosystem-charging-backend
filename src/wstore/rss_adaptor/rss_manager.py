@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -20,13 +20,9 @@
 
 from __future__ import unicode_literals
 
-import json
-import urllib2
-from urllib2 import HTTPError
-from urlparse import urljoin
+import requests
 
-from wstore.store_commons.utils.method_request import MethodRequest
-from wstore.models import RSS
+from django.conf import settings
 
 
 class RSSManager(object):
@@ -34,41 +30,35 @@ class RSSManager(object):
     _rss = None
     _credentials = None
 
-    def __init__(self, rss, credentials):
-        self._rss = rss
+    def __init__(self, credentials):
         self._credentials = credentials
-
-    def _get_auth_header(self):
-        return 'X-Auth-Token'
-
-    def _get_token_type(self):
-        return ""
 
     def _make_request(self, method, url, data={}):
         """
            Makes requests to the RSS
         """
-        opener = urllib2.build_opener()
 
-        auth_header = self._get_auth_header()
+        roles = ''
+
+        for role in self._credentials['roles']:
+            roles += role + ','
 
         headers = {
-            'content-type': 'application/json'
+            'content-type': 'application/json',
+            'X-Actor-ID': self._credentials['user'],
+            'X-Roles': roles[:-1],
+            'X-Email': self._credentials['email']
         }
 
-        headers[auth_header] = self._get_token_type() + self._credentials
+        methods = {
+            'POST': requests.post,
+            'PUT': requests.put
+        }
 
-        request = MethodRequest(method, url, json.dumps(data), headers)
-
-        response = opener.open(request)
-
-        if not (response.code > 199 and response.code < 300):
-            raise HTTPError(response.url, response.code, response.msg, None, None)
+        response = methods[method](url, json=data, headers=headers)
+        response.raise_for_status()
 
         return response
-
-    def _refresh_rss(self):
-        self._rss = RSS.objects.get(name=self._rss.name)
 
     def set_credentials(self, credentials):
         self._credentials = credentials
@@ -76,21 +66,17 @@ class RSSManager(object):
 
 class ProviderManager(RSSManager):
 
-    def _get_auth_header(self):
-        return 'Authorization'
-
-    def _get_token_type(self):
-        return "Bearer "
+    def register_aggregator(self, aggregator_info):
+        """
+        register a new aggregator in the RSS
+        """
+        endpoint = settings.RSS + '/rss/aggregators'
+        self._make_request('POST', endpoint, aggregator_info)
 
     def register_provider(self, provider_info):
         """
         Register a new provider in the RSS v2
         """
-        data = {
-            'aggregatorId': self._rss.aggregator_id,
-            'providerId': provider_info['provider_id'],
-            'providerName': provider_info['provider_name']
-        }
 
-        endpoint = urljoin(self._rss.host, 'fiware-rss/rss/providers')
-        self._make_request('POST', endpoint, data)
+        endpoint = settings.RSS + '/rss/providers'
+        self._make_request('POST', endpoint, provider_info)
