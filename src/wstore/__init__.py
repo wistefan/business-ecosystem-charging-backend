@@ -52,13 +52,3 @@ if not testing:
     except HTTPError as e:  # If the error is a conflict means that the aggregator is already registered
         if e.code != 409:
             raise e
-
-    try:
-        prov_manager.register_provider({
-            'aggregatorId': settings.WSTOREMAIL,
-            'providerId': settings.STORE_NAME.lower() + '-provider',
-            'providerName': settings.STORE_NAME + '-Provider'
-        })
-    except HTTPError as e:  # If the error is a conflict means that the default provider is already registered
-        if e.code != 409:
-            raise e
