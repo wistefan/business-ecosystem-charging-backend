@@ -50,7 +50,7 @@ class ModelManager(RSSManager):
         except:
             raise TypeError('Invalid type for ' + field + ' field')
 
-        if model_info['ownerValue'] < 0 or model_info['ownerValue'] > 100:
+        if model_info[field] < 0 or model_info[field] > 100:
             raise ValueError(field + ' must be a number between 0 and 100')
 
     def _check_string_value(self, field, model_info):

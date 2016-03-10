@@ -132,6 +132,13 @@ MISSING_AGG_VAL = {
     'productClass': 'class'
 }
 
+INV_PERCENTAGE = {
+    'ownerProviderId': 'provider',
+    'ownerValue': 70,
+    'aggregatorValue': 120,
+    'productClass': 'class'
+}
+
 MISSING_PROV = {
     'ownerValue': 70,
     'aggregatorValue': 30,
@@ -194,6 +201,7 @@ class ModelManagerTestCase(TestCase):
         ('missing_owner_value', MISSING_OWNER_VAL, None, ValueError, 'Missing a required field in model info: ownerValue'),
         ('invalid_owner_value', INV_OWNER_VAL, None, TypeError, 'Invalid type for ownerValue field'),
         ('missing_aggregator_value', MISSING_AGG_VAL, None, ValueError, 'Missing a required field in model info: aggregatorValue'),
+        ('inv_perc_aggregator_value', INV_PERCENTAGE, None, ValueError, 'aggregatorValue must be a number between 0 and 100'),
         ('invalid_aggregator_value', INV_AGG_VAL, None, TypeError, 'Invalid type for aggregatorValue field'),
         ('missing_provider', MISSING_PROV, None, ValueError, 'Missing a required field in model info: ownerProviderId'),
         ('invalid_provider_type', INV_PROV, None, TypeError, 'Invalid type for ownerProviderId field'),
