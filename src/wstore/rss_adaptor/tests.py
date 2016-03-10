@@ -18,7 +18,9 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from __future__ import unicode_literals
 
+from copy import deepcopy
 from mock import MagicMock
 from nose_parameterized import parameterized
 
@@ -212,7 +214,7 @@ class ModelManagerTestCase(TestCase):
 
         error = None
         try:
-            self.manager.create_revenue_model(data)
+            self.manager.create_revenue_model(deepcopy(data))
         except Exception as e:
             error = e
 
@@ -222,3 +224,7 @@ class ModelManagerTestCase(TestCase):
         else:
             self.assertTrue(isinstance(e, err_type))
             self.assertEquals(err_msg, unicode(e))
+
+    def test_update_model(self):
+        self.manager.update_revenue_model(deepcopy(BASIC_MODEL))
+        self.manager._make_request.assert_called_once('PUT', 'http://testhost.com/rssHost/rss/models', EXP_BASIC_MODEL)
