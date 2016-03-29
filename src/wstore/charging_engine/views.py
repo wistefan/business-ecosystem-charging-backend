@@ -142,7 +142,9 @@ class PayPalConfirmation(Resource):
             if item['id'] in involved_items and order.get_item_contract(item['id']).offering.is_digital:
                 digital_items.append(item)
 
-        self.ordering_client.update_state(raw_order, 'Completed', digital_items)
+        # Oder Items state is not checked
+        # self.ordering_client.update_items_state(raw_order, digital_items, 'InProgress')
+        self.ordering_client.update_items_state(raw_order, digital_items, 'Completed')
 
     def _set_renovation_states(self, transactions, raw_order, order):
         inventory_client = InventoryClient()
@@ -232,6 +234,7 @@ class PayPalConfirmation(Resource):
                 # Set the order to failed in the ordering API
                 self.ordering_client.update_state(raw_order, 'InProgress')
                 self.ordering_client.update_state(raw_order, 'Failed')
+                self.ordering_client.update_items_state(raw_order, raw_order.items, 'Failed')
                 order.delete()
 
             expl = ' due to an unexpected error'
@@ -280,6 +283,7 @@ class PayPalCancellation(Resource):
 
             # Set the order to failed in the ordering API
             client.update_state(raw_order, 'Failed')
+            client.update_items_state(raw_order, raw_order.items, 'Failed')
 
             order.delete()
         except:

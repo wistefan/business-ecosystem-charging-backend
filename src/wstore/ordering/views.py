@@ -44,12 +44,14 @@ class OrderingCollection(Resource):
         :param request:
         :return:
         """
-
         user = request.user
         try:
             order = json.loads(request.body)
         except:
             return build_response(request, 400, 'The provided data is not a valid JSON object')
+
+        client = OrderingClient()
+        client.update_state(order, 'InProgress')
 
         # Check that the user has a billing address
         response = None
@@ -68,27 +70,26 @@ class OrderingCollection(Resource):
             response = build_response(request, 400, err_msg)
 
         if response is not None:
-            client = OrderingClient()
-            client.update_state(order, 'InProgress')
+
             client.update_state(order, 'Failed')
 
         elif redirect_url is not None:
+
+            client.update_state(order, 'Pending')
+
             response = HttpResponse(json.dumps({
                 'redirectUrl': redirect_url
             }), status=200, mimetype='application/json; charset=utf-8')
 
         else:
             # All the order items are free so digital assets can be set as Completed
-            client = OrderingClient()
-            client.update_state(order, 'InProgress')
-
             digital_items = []
             for item in order['orderItem']:
                 contract = Contract.objects.get(item_id=item['id'])
                 if contract.offering.is_digital:
                     digital_items.append(item)
 
-            client.update_state(order, 'Completed', digital_items)
+            client.update_items_state(order, digital_items, 'Completed')
 
             response = build_response(request, 200, 'OK')
 

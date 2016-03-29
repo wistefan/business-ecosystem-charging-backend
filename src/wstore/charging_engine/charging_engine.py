@@ -80,6 +80,8 @@ class ChargingEngine:
                 raw_order = ordering_client.get_order(order.order_id)
 
                 ordering_client.update_state(raw_order, 'Failed')
+                ordering_client.update_items_state(raw_order, raw_order.items, 'Failed')
+
                 order.delete()
 
             else:
