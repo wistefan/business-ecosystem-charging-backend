@@ -569,6 +569,22 @@ class OrderingClientTestCase(TestCase):
 
         self._response.raise_for_status.assert_called_once_with()
 
+    def test_update_state(self):
+        client = ordering_client.OrderingClient()
+        new_state = 'Failed'
+
+        order = {
+            'id': '7'
+        }
+
+        client.update_state(order, new_state)
+
+        ordering_client.requests.patch.assert_called_once_with(
+            'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/' + order['id'],
+            json={'state': new_state})
+
+        self._response.raise_for_status.assert_called_once_with()
+
     def test_get_order(self):
         client = ordering_client.OrderingClient()
 
