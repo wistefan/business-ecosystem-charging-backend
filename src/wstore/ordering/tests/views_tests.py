@@ -129,10 +129,11 @@ class OrderingCollectionTestCase(TestCase):
             if redirect_url is None and not failed:
                 self.assertEquals([
                     call(data, 'InProgress'),
-                    call(data, 'Completed', [{
-                        'id': '2'}]
-                    )
                 ], views.OrderingClient().update_state.call_args_list)
+
+                self.assertEquals([
+                    call(data, 'Completed', [{'id': '2'}])
+                ], views.OrderingClient().update_items_state.call_args_list)
 
         if failed:
             self.assertEquals(

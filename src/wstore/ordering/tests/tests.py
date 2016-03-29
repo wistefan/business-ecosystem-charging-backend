@@ -549,7 +549,7 @@ class OrderingClientTestCase(TestCase):
             }]
         }, [{'id': '2'}])
     ])
-    def test_update_state(self, name, expected, items=None):
+    def test_update_items_state(self, name, expected, items=None):
         client = ordering_client.OrderingClient()
         order = {
             'id': '20',
@@ -561,7 +561,7 @@ class OrderingClientTestCase(TestCase):
                 'state': 'Acknowledged'
             }]
         }
-        client.update_state(order, 'InProgress', items)
+        client.update_items_state(order, 'InProgress', items)
 
         ordering_client.requests.patch.assert_called_once_with(
             'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/20',

@@ -84,7 +84,7 @@ class OrderingClient:
 
         r.raise_for_status()
 
-    def update_items_state(self, order, items, state):
+    def update_items_state(self, order, state, items=None):
 
         """
         Change the state of a given order including its order items
@@ -98,6 +98,9 @@ class OrderingClient:
         patch = {
             'orderItem': [],
         }
+
+        if items is None:
+            items = order['orderItem']
 
         for orderItem in order['orderItem']:
             for item in items:

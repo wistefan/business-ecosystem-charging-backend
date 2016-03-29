@@ -89,7 +89,7 @@ class OrderingCollection(Resource):
                 if contract.offering.is_digital:
                     digital_items.append(item)
 
-            client.update_items_state(order, digital_items, 'Completed')
+            client.update_items_state(order, 'Completed', digital_items)
 
             response = build_response(request, 200, 'OK')
 

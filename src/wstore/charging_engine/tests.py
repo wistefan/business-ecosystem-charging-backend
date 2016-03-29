@@ -709,8 +709,11 @@ class PayPalConfirmationTestCase(TestCase):
             self.assertEquals([call('1'), call('2')], self._order_inst.get_item_contract.call_args_list)
             self.assertEquals([
                 call(self._raw_order, 'InProgress'),
-                call(self._raw_order, 'Completed', completed)
             ], self._ordering_inst.update_state.call_args_list)
+
+            self.assertEquals([
+                call(self._raw_order, 'Completed', completed)
+            ], self._ordering_inst.update_items_state.call_args_list)
 
         elif to_del:
             self.assertEquals([
