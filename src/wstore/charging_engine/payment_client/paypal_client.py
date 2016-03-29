@@ -131,7 +131,9 @@ class PayPalClient(PaymentClient):
 
     def refund(self, sale_id):
         sale = paypalrestsdk.Sale.find(sale_id)
-        sale.refund({})
+
+        if not sale.refund({}):
+            raise PaymentError("The refund cannot be completed: " + sale.error)
 
     def get_checkout_url(self):
         return self._checkout_url
