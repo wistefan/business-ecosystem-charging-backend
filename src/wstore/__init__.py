@@ -22,11 +22,12 @@ from __future__ import unicode_literals
 
 import sys
 
+from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
 
 
 testing = sys.argv[1:2] == ['test']
 
-if not testing:
+if not testing and Context.objects.all():
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
