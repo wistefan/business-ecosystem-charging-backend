@@ -232,8 +232,9 @@ class PayPalConfirmation(Resource):
             # Rollback the purchase if existing
             if order is not None and raw_order is not None and concept == 'initial':
                 # Set the order to failed in the ordering API
-                self.ordering_client.update_state(raw_order, 'InProgress')
-                self.ordering_client.update_state(raw_order, 'Failed')
+                # Set all items as Failed, mark the whole order as failed
+                # self.ordering_client.update_state(raw_order, 'InProgress')
+                # self.ordering_client.update_state(raw_order, 'Failed')
                 self.ordering_client.update_items_state(raw_order, 'Failed')
                 order.delete()
 
@@ -282,7 +283,8 @@ class PayPalCancellation(Resource):
             raw_order = client.get_order(order.order_id)
 
             # Set the order to failed in the ordering API
-            client.update_state(raw_order, 'Failed')
+            # Set all items as Failed, mark the whole order as Failed
+            # client.update_state(raw_order, 'Failed')
             client.update_items_state(raw_order, 'Failed')
 
             order.delete()

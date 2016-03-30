@@ -71,7 +71,9 @@ class OrderingCollection(Resource):
 
         if response is not None:
 
-            client.update_state(order, 'Failed')
+            # When all items are marked as Failed, the API also mark the whole
+            # ordering as failed
+            client.update_items_state(order, 'Failed')
 
         elif redirect_url is not None:
 

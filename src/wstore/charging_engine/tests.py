@@ -717,9 +717,8 @@ class PayPalConfirmationTestCase(TestCase):
 
         elif to_del:
             self.assertEquals([
-                call(self._raw_order, 'InProgress'),
                 call(self._raw_order, 'Failed')
-            ], self._ordering_inst.update_state.call_args_list)
+            ], self._ordering_inst.update_items_state.call_args_list)
             self._order_inst.delete.assert_called_once_with()
 
 

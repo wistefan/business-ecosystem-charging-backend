@@ -136,9 +136,8 @@ class OrderingCollectionTestCase(TestCase):
                 ], views.OrderingClient().update_items_state.call_args_list)
 
         if failed:
-            self.assertEquals(
-                [call(data, 'InProgress'), call(data, 'Failed')],
-                views.OrderingClient().update_state.call_args_list)
+            self.assertEquals([call(data, 'InProgress')], views.OrderingClient().update_state.call_args_list)
+            self.assertEquals([call(data, 'Failed')], views.OrderingClient().update_items_state.call_args_list)
 
 
 BASIC_PRODUCT_EVENT = {
