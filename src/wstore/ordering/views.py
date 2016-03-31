@@ -53,47 +53,43 @@ class OrderingCollection(Resource):
         client = OrderingClient()
         client.update_state(order, 'InProgress')
 
-        # Check that the user has a billing address
-        response = None
-        if 'street' not in user.userprofile.current_organization.tax_address:
-            response = build_response(request, 400, 'The customer has not defined a billing address')
-
         try:
+            # Check that the user has a billing address
+            response = None
+            if 'street' not in user.userprofile.current_organization.tax_address:
+                raise OrderingError('The customer has not defined a billing address')
+
             om = OrderingManager()
             redirect_url = om.process_order(user, order)
-        except Exception as e:
 
-            err_msg = 'Your order could not be processed'
-            if isinstance(e, OrderingError):
-                err_msg = unicode(e)
+            if redirect_url is not None:
 
-            response = build_response(request, 400, err_msg)
+                client.update_state(order, 'Pending')
 
-        if response is not None:
+                response = HttpResponse(json.dumps({
+                    'redirectUrl': redirect_url
+                }), status=200, mimetype='application/json; charset=utf-8')
 
-            # When all items are marked as Failed, the API also mark the whole
-            # ordering as failed
+            else:
+                # All the order items are free so digital assets can be set as Completed
+                digital_items = []
+                order_model = Order.objects.get(order_id=order['id'])
+
+                for item in order['orderItem']:
+                    contract = order_model.get_item_contract(item_id=item['id'])
+                    if contract.offering.is_digital:
+                        digital_items.append(item)
+
+                client.update_items_state(order, 'Completed', digital_items)
+
+                response = build_response(request, 200, 'OK')
+
+        except OrderingError as e:
+            response = build_response(request, 400, unicode(e.value))
             client.update_items_state(order, 'Failed')
-
-        elif redirect_url is not None:
-
-            client.update_state(order, 'Pending')
-
-            response = HttpResponse(json.dumps({
-                'redirectUrl': redirect_url
-            }), status=200, mimetype='application/json; charset=utf-8')
-
-        else:
-            # All the order items are free so digital assets can be set as Completed
-            digital_items = []
-            for item in order['orderItem']:
-                contract = Contract.objects.get(item_id=item['id'])
-                if contract.offering.is_digital:
-                    digital_items.append(item)
-
-            client.update_items_state(order, 'Completed', digital_items)
-
-            response = build_response(request, 200, 'OK')
+        except Exception as e:
+            response = build_response(request, 500, 'Your order could not be processed')
+            client.update_items_state(order, 'Failed')
 
         return response
 
