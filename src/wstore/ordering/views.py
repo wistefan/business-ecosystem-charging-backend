@@ -56,8 +56,6 @@ class OrderingCollection(Resource):
         try:
             # Check that the user has a billing address
             response = None
-            if 'street' not in user.userprofile.current_organization.tax_address:
-                raise OrderingError('The customer has not defined a billing address')
 
             om = OrderingManager()
             redirect_url = om.process_order(user, order)
