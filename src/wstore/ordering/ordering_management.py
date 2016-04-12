@@ -263,7 +263,7 @@ class OrderingManager:
             r = requests.get(url, headers={'Authorization': 'Bearer ' + self._customer.userprofile.access_token })
 
             if r.status_code != 200:
-                raise OrderingError('Impossible to retrieve Billing Address')
+                raise OrderingError('There was an error at the time of retrieving the Billing Address')
 
             return r.json()
 

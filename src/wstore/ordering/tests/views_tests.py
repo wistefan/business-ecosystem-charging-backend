@@ -91,10 +91,6 @@ class OrderingCollectionTestCase(TestCase):
             'result': 'error',
             'message': 'The provided data is not a valid JSON object'
         }, False),
-        ('missing_billing', {}, None, 400, {
-            'result': 'error',
-            'message': 'The customer has not defined a billing address'
-        }, False, True, _missing_billing),
         ('ordering_error', {}, None, 400, {
             'result': 'error',
             'message': 'order error'
