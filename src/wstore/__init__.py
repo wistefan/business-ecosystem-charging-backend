@@ -23,7 +23,6 @@ from __future__ import unicode_literals
 import sys
 
 from django.conf import settings
-from urllib2 import HTTPError
 
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
@@ -47,8 +46,9 @@ if not testing and Context.objects.all():
     try:
         prov_manager.register_aggregator({
             'aggregatorId': settings.WSTOREMAIL,
-            'aggregatorName': settings.STORE_NAME
+            'aggregatorName': settings.STORE_NAME,
+            'defaultAggregator': True
         })
-    except HTTPError as e:  # If the error is a conflict means that the aggregator is already registered
-        if e.code != 409:
+    except Exception as e:  # If the error is a conflict means that the aggregator is already registered
+        if e.response.status_code != 409:
             raise e
