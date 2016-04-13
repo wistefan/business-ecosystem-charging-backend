@@ -42,7 +42,6 @@ class ResourceRetrievingTestCase(TestCase):
         resource = MagicMock()
         resource.pk = info['pk']
         resource.provider = provider
-        resource.product_ref = info['product_ref']
         resource.version = info['version']
         resource.content_type = info['content_type']
         resource.state = info['state']
@@ -244,7 +243,6 @@ class UploadAssetTestCase(TestCase):
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
-                product_ref='',
                 provider=self._user.userprofile.current_organization,
                 version='',
                 download_link='http://testdomain.com/media/assets/test_user/example.wgt',

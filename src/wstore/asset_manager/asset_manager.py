@@ -82,7 +82,6 @@ class AssetManager:
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
         resource = Resource.objects.create(
-            product_ref=resource_data['product_ref'],
             provider=provider,
             version=resource_data['version'],
             download_link=resource_data['link'],
@@ -102,7 +101,6 @@ class AssetManager:
         # This information will be extracted from the product specification
         resource_data = {
             'content_type': data['contentType'],
-            'product_ref': '',
             'version': '',
             'resource_type': '',
             'state': '',
@@ -146,7 +144,6 @@ class AssetManager:
     def get_resource_info(self, resource):
         return {
             'id': resource.pk,
-            'productHref': resource.product_ref,
             'version': resource.version,
             'contentType': resource.content_type,
             'state': resource.state,
