@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -18,16 +18,9 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
-from django.db import models
+from __future__ import unicode_literals
 
 
-class RevenueModel(models.Model):
-    """
-    This model is used to store revenue sharing models used
-    by the Revenue Sharing and Settlement system
-    """
-    revenue_class = models.CharField(max_length=50)
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
-
-    def __unicode__(self):
-        return self.revenue_class + ' ' + unicode(self.percentage)
+INVENTORY = 'http://localhost:8080/DSProductInventory'
+ORDERING = 'http://localhost:8080/DSProductOrdering'
+RSS = 'http://localhost:8080/DSRevenueSharing'

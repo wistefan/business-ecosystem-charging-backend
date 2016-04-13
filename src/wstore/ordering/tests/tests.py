@@ -112,11 +112,11 @@ class OrderingManagementTestCase(TestCase):
             asset=asset
         )
 
-    def _check_contract_call(self, pricing, revenue_class):
+    def _check_contract_call(self, pricing):
         ordering_management.Contract.assert_called_once_with(
             item_id="1",
             pricing_model=pricing,
-            revenue_class=revenue_class,
+            revenue_class="productClass",
             offering=self._offering_inst
         )
 
@@ -141,7 +141,7 @@ class OrderingManagementTestCase(TestCase):
                 'tax_rate': '20.00',
                 'duty_free': '10.00'
             }]
-        }, "single-payment")
+        })
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _non_digital_add_checker(self):
@@ -159,7 +159,7 @@ class OrderingManagementTestCase(TestCase):
                 'tax_rate': '20.00',
                 'duty_free': '10.00'
             }]
-        }, 'subscription')
+        })
 
     def _usage_add_checker(self):
         self._check_offering_call(self._asset_instance, description="")
@@ -172,13 +172,13 @@ class OrderingManagementTestCase(TestCase):
                 'tax_rate': '20.00',
                 'duty_free': '10.00'
             }]
-        }, 'use')
+        })
         ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _free_add_checker(self):
         self._check_offering_call(self._asset_instance)
 
-        self._check_contract_call({}, None)
+        self._check_contract_call({})
 
     def _basic_discount_checker(self):
         self._check_offering_call(self._asset_instance)
@@ -195,7 +195,7 @@ class OrderingManagementTestCase(TestCase):
                 'period': 'one time',
                 'value': 50
             }
-        }, 'use')
+        })
 
     def _recurring_fee_checker(self):
         self._check_offering_call(self._asset_instance)
@@ -219,7 +219,7 @@ class OrderingManagementTestCase(TestCase):
                     'value': '300.00'
                 }
             }
-        }, 'use')
+        })
 
     def _double_price_checker(self):
         self._check_offering_call(self._asset_instance)
@@ -237,7 +237,7 @@ class OrderingManagementTestCase(TestCase):
                 'tax_rate': '20.00',
                 'duty_free': '6.00'
             }]
-        }, 'use')
+        })
 
     def _double_usage_checker(self):
         self._check_offering_call(self._asset_instance)
@@ -254,7 +254,7 @@ class OrderingManagementTestCase(TestCase):
                 'tax_rate': '20.00',
                 'duty_free': '6.00'
             }]
-        }, 'use')
+        })
 
     def _invalid_billing(self):
         valid_response = MagicMock()

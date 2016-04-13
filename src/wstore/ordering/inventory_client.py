@@ -25,6 +25,7 @@ from datetime import datetime
 from urlparse import urljoin
 
 from django.core.exceptions import ImproperlyConfigured
+from django.conf import settings
 
 from wstore.models import Context
 
@@ -32,7 +33,7 @@ from wstore.models import Context
 class InventoryClient:
 
     def __init__(self):
-        self._inventory_api = 'http://localhost:8080/DSProductInventory'
+        self._inventory_api = settings.INVENTORY
 
     def _build_callback_url(self):
         # Use the local site for registering the callback

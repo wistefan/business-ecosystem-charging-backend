@@ -20,11 +20,13 @@
 
 from __future__ import unicode_literals
 
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
-from djangotoolbox.fields import DictField
+from djangotoolbox.fields import DictField, EmbeddedModelField
 
 from wstore.admin.rss.models import *
 from wstore.charging_engine.models import *
@@ -38,6 +40,7 @@ class Context(models.Model):
     newest = ListField()
     user_refs = DictField()
     allowed_currencies = DictField()
+    revenue_models = ListField(EmbeddedModelField(RevenueModel))
 
     def is_valid_currency(self, currency):
         """
@@ -149,6 +152,21 @@ def create_context(sender, instance, created, **kwargs):
                 }],
                 'default': 'EUR'
             }
+
+            from wstore.admin.rss.views import build_db_models
+            db_models = build_db_models([{
+                'class': 'single-payment',
+                'percentage': Decimal('10.0')
+            }, {
+                'class': 'subscription',
+                'percentage': Decimal('20.0')
+            }, {
+                'class': 'use',
+                'percentage': Decimal('30.0')
+            }])
+
+            # Create default revenue models
+            context.revenue_models = db_models
             context.save()
         else:
             context = Context.objects.all()[0]
@@ -162,16 +180,3 @@ post_save.connect(create_user_profile, sender=User)
 
 # Creates a context when the site is created
 post_save.connect(create_context, sender=Site)
-
-
-def set_tokens(sender, instance, created, **kwargs):
-    # Check if the user is staff
-    if instance.user.is_staff and instance.access_token:
-        # Check if it is needed to refresh RSS token credentials
-        for rss in RSS.objects.all():
-            rss.access_token = instance.access_token
-            rss.refresh_token = instance.refresh_token
-            rss.save()
-
-# Maintain consistency of admin credentials
-post_save.connect(set_tokens, sender=UserProfile)

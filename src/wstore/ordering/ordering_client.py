@@ -24,6 +24,7 @@ import requests
 from urlparse import urljoin
 
 from django.core.exceptions import ImproperlyConfigured
+from django.conf import settings
 
 from wstore.models import Context
 
@@ -31,7 +32,7 @@ from wstore.models import Context
 class OrderingClient:
 
     def __init__(self):
-        self._ordering_api = 'http://localhost:8080/DSProductOrdering'
+        self._ordering_api = settings.ORDERING
 
     def create_ordering_subscription(self):
         """
