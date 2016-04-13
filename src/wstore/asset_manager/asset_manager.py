@@ -118,7 +118,7 @@ class AssetManager:
         else:
             resource_data['content_path'] = self._save_resource_file(current_organization.name, file_)
 
-        resource_data['link'] = urljoin(site, resource_data['content_path'])
+        resource_data['link'] = urljoin(site, '/charging' + resource_data['content_path'])
         resource_data['metadata'] = data.get('metadata', {})
 
         return resource_data, current_organization

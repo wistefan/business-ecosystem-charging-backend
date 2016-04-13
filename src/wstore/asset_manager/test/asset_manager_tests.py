@@ -245,7 +245,7 @@ class UploadAssetTestCase(TestCase):
             asset_manager.Resource.objects.create.assert_called_once_with(
                 provider=self._user.userprofile.current_organization,
                 version='',
-                download_link='http://testdomain.com/media/assets/test_user/example.wgt',
+                download_link='http://testdomain.com/charging/media/assets/test_user/example.wgt',
                 resource_path='/media/assets/test_user/example.wgt',
                 content_type='application/x-widget',
                 resource_type='',
