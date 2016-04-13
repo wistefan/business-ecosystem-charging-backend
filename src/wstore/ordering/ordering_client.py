@@ -64,12 +64,34 @@ class OrderingClient:
 
         return r.json()
 
-    def update_state(self, order, state, items=None):
+    def update_state(self, order, state):
+        """
+        Change the state of a given order including without changing the state of the items
+        :param order: Order object as returned by the ordering API
+        :param state: New state
+        :return:
+        """
+
+        # Build patch body
+        patch = {
+            'state': state,
+        }
+
+        # Make PATCH request
+        path = '/DSProductOrdering/api/productOrdering/v2/productOrder/' + unicode(order['id'])
+        url = urljoin(self._ordering_api, path)
+
+        r = requests.patch(url, json=patch)
+
+        r.raise_for_status()
+
+    def update_items_state(self, order, state, items=None):
+
         """
         Change the state of a given order including its order items
         :param order: Order object as returned by the ordering API
-        :param state: New state
         :param items: list of order items to be updated
+        :param state: New state
         :return:
         """
 
@@ -78,7 +100,6 @@ class OrderingClient:
             'orderItem': [],
         }
 
-        # By default all the order items are updated
         if items is None:
             items = order['orderItem']
 

@@ -44,53 +44,50 @@ class OrderingCollection(Resource):
         :param request:
         :return:
         """
-
         user = request.user
         try:
             order = json.loads(request.body)
         except:
             return build_response(request, 400, 'The provided data is not a valid JSON object')
 
-        # Check that the user has a billing address
-        response = None
-        if 'street' not in user.userprofile.current_organization.tax_address:
-            response = build_response(request, 400, 'The customer has not defined a billing address')
+        client = OrderingClient()
+        client.update_state(order, 'InProgress')
 
         try:
+            # Check that the user has a billing address
+            response = None
+
             om = OrderingManager()
             redirect_url = om.process_order(user, order)
+
+            if redirect_url is not None:
+
+                client.update_state(order, 'Pending')
+
+                response = HttpResponse(json.dumps({
+                    'redirectUrl': redirect_url
+                }), status=200, mimetype='application/json; charset=utf-8')
+
+            else:
+                # All the order items are free so digital assets can be set as Completed
+                digital_items = []
+                order_model = Order.objects.get(order_id=order['id'])
+
+                for item in order['orderItem']:
+                    contract = order_model.get_item_contract(item_id=item['id'])
+                    if contract.offering.is_digital:
+                        digital_items.append(item)
+
+                client.update_items_state(order, 'Completed', digital_items)
+
+                response = build_response(request, 200, 'OK')
+
+        except OrderingError as e:
+            response = build_response(request, 400, unicode(e.value))
+            client.update_items_state(order, 'Failed')
         except Exception as e:
-
-            err_msg = 'Your order could not be processed'
-            if isinstance(e, OrderingError):
-                err_msg = unicode(e)
-
-            response = build_response(request, 400, err_msg)
-
-        if response is not None:
-            client = OrderingClient()
-            client.update_state(order, 'InProgress')
-            client.update_state(order, 'Failed')
-
-        elif redirect_url is not None:
-            response = HttpResponse(json.dumps({
-                'redirectUrl': redirect_url
-            }), status=200, mimetype='application/json; charset=utf-8')
-
-        else:
-            # All the order items are free so digital assets can be set as Completed
-            client = OrderingClient()
-            client.update_state(order, 'InProgress')
-
-            digital_items = []
-            for item in order['orderItem']:
-                contract = Contract.objects.get(item_id=item['id'])
-                if contract.offering.is_digital:
-                    digital_items.append(item)
-
-            client.update_state(order, 'Completed', digital_items)
-
-            response = build_response(request, 200, 'OK')
+            response = build_response(request, 500, 'Your order could not be processed')
+            client.update_items_state(order, 'Failed')
 
         return response
 

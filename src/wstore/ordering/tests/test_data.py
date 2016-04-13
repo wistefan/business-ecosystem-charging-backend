@@ -22,6 +22,8 @@
 from __future__ import unicode_literals
 
 
+BILLING_ACCOUNT_HREF = "http://serverlocation:port/billingManagement/billingAccount/1789"
+
 OFFERING = {
     "id": "5",
     "name": "Example offering",
@@ -44,6 +46,33 @@ PRODUCT = {
     }]
 }
 
+BILLING_ACCOUNT = {
+    "customerAccount": {
+        "href": "http://serverlocation:port/customerManagement/customerAccount/1789"
+    }
+}
+
+
+CUSTOMER_ACCOUNT = {
+    "customer": {
+        "href": "http://serverlocation:port/customerManagement/customer/19"
+    }
+}
+
+CUSTOMER = {
+    "contactMedium": [{
+        "type": "PostalAddress",
+        "medium": {
+            "streetOne": "Campus de Montegancedo",
+            "streetTwo": "s/n",
+            "postcode": "28660",
+            "city": "Madrid",
+            "stateOrProvince": "Madrid",
+            "country": "Spain"
+        }
+    }]
+}
+
 BASIC_ORDER = {
     "id": "12",
     "state": "Acknowledged",
@@ -54,7 +83,7 @@ BASIC_ORDER = {
          "action": "add",
          "billingAccount": [{
                "id": "1789",
-               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+               "href": BILLING_ACCOUNT_HREF
          }],
          "productOffering": {
             "id": "20",
@@ -104,7 +133,7 @@ RECURRING_ORDER = {
          "action": "add",
          "billingAccount": [{
                "id": "1789",
-               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+               "href": BILLING_ACCOUNT_HREF
          }],
          "productOffering": {
             "id": "20",
@@ -155,7 +184,7 @@ USAGE_ORDER = {
          "action": "add",
          "billingAccount": [{
                "id": "1789",
-               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+               "href": BILLING_ACCOUNT_HREF
          }],
          "productOffering": {
             "id": "20",
@@ -210,7 +239,7 @@ FREE_ORDER = {
          "action": "add",
          "billingAccount": [{
                "id": "1789",
-               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+               "href": BILLING_ACCOUNT_HREF
          }],
          "productOffering": {
             "id": "20",
@@ -231,7 +260,7 @@ NOPRODUCT_ORDER = {
          "action": "add",
          "billingAccount": [{
                "id": "1789",
-               "href": "http://serverlocation:port/billingManagement/billingAccount/1789"
+               "href": BILLING_ACCOUNT_HREF
          }],
          "productOffering": {
             "id": "20",

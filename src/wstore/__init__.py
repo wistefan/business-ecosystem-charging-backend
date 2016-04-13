@@ -25,14 +25,14 @@ import sys
 from django.conf import settings
 from urllib2 import HTTPError
 
+from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.rss_adaptor.rss_manager import ProviderManager
 
 
 testing = sys.argv[1:2] == ['test']
 
-if not testing:
-    # Create inventory subscription
+if not testing and Context.objects.all():
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
 

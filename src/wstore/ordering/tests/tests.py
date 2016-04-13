@@ -71,7 +71,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.requests = MagicMock()
         self._response = MagicMock()
         self._response.status_code = 200
-        self._response.json.side_effect = [OFFERING, PRODUCT]
+        self._response.json.side_effect = [OFFERING, PRODUCT, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
         ordering_management.requests.get.return_value = self._response
 
         # Mock organization model
@@ -82,6 +82,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.Organization = MagicMock()
         ordering_management.Organization.objects.get.return_value = self._org_inst
         self._customer.userprofile.current_organization = self._org_inst
+        self._customer.userprofile.access_token = 'example_token'
 
         # Mock Product validator
         self._validator_inst = MagicMock()
@@ -255,6 +256,14 @@ class OrderingManagementTestCase(TestCase):
             }]
         }, 'use')
 
+    def _invalid_billing(self):
+        valid_response = MagicMock()
+        valid_response.status_code = 200
+        valid_response.json.side_effect = [OFFERING, PRODUCT]
+        invalid_response = MagicMock()
+        invalid_response.status_code = 400
+        ordering_management.requests.get.side_effect = [valid_response, valid_response, invalid_response]
+
     def _non_digital_offering(self):
         self._validator_inst.parse_characteristics.return_value = (None, None, None)
 
@@ -265,7 +274,7 @@ class OrderingManagementTestCase(TestCase):
     def _no_offering_description(self):
         new_off = deepcopy(OFFERING)
         del(new_off['description'])
-        self._response.json.side_effect = [new_off, PRODUCT]
+        self._response.json.side_effect = [new_off, PRODUCT, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
 
     def _missing_offering(self):
         self._response.status_code = 404
@@ -303,6 +312,7 @@ class OrderingManagementTestCase(TestCase):
 
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
+        ('basic_add_invalid_billing', BASIC_ORDER, BASIC_PRICING, None, _invalid_billing, 'OrderingError: There was an error at the time of retrieving the Billing Address'),
         ('non_digital_add', BASIC_ORDER, BASIC_PRICING, _non_digital_add_checker, _non_digital_offering),
         ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker, _existing_offering),
         ('usage_add', USAGE_ORDER, USAGE_PRICING, _usage_add_checker, _no_offering_description),
@@ -349,11 +359,18 @@ class OrderingManagementTestCase(TestCase):
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
 
             # Check offering and product downloads
-            self.assertEquals(2, ordering_management.requests.get.call_count)
+            self.assertEquals(5, ordering_management.requests.get.call_count)
+
+            headers = {'Authorization': 'Bearer ' + self._customer.userprofile.access_token}
             self.assertEquals([
                 call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-                call('http://producturl.com/')
+                call('http://producturl.com/'),
+                call(BILLING_ACCOUNT_HREF, headers=headers),
+                call(BILLING_ACCOUNT['customerAccount']['href'], headers=headers),
+                call(CUSTOMER_ACCOUNT['customer']['href'], headers=headers)
             ], ordering_management.requests.get.call_args_list)
+
+            contact_medium = CUSTOMER['contactMedium'][0]['medium']
 
             ordering_management.Order.objects.create.assert_called_once_with(
                 order_id="12",
@@ -362,7 +379,11 @@ class OrderingManagementTestCase(TestCase):
                 date=self._now,
                 state='pending',
                 tax_address={
-                    'street': 'fake street'
+                    'street': contact_medium['streetOne'] + '\n' + contact_medium['streetTwo'],
+                    'postal': contact_medium['postcode'],
+                    'city': contact_medium['city'],
+                    'province': contact_medium['stateOrProvince'],
+                    'country': contact_medium['country']
                 },
                 contracts=[self._contract_inst],
                 description=""
@@ -549,7 +570,7 @@ class OrderingClientTestCase(TestCase):
             }]
         }, [{'id': '2'}])
     ])
-    def test_update_state(self, name, expected, items=None):
+    def test_update_items_state(self, name, expected, items=None):
         client = ordering_client.OrderingClient()
         order = {
             'id': '20',
@@ -561,11 +582,27 @@ class OrderingClientTestCase(TestCase):
                 'state': 'Acknowledged'
             }]
         }
-        client.update_state(order, 'InProgress', items)
+        client.update_items_state(order, 'InProgress', items)
 
         ordering_client.requests.patch.assert_called_once_with(
             'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/20',
             json=expected)
+
+        self._response.raise_for_status.assert_called_once_with()
+
+    def test_update_state(self):
+        client = ordering_client.OrderingClient()
+        new_state = 'Failed'
+
+        order = {
+            'id': '7'
+        }
+
+        client.update_state(order, new_state)
+
+        ordering_client.requests.patch.assert_called_once_with(
+            'http://localhost:8080/DSProductOrdering/api/productOrdering/v2/productOrder/' + order['id'],
+            json={'state': new_state})
 
         self._response.raise_for_status.assert_called_once_with()
 

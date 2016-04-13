@@ -257,6 +257,35 @@ class OrderingManager:
             offering=offering
         )
 
+    def _get_billing_address(self, items):
+
+        def _download_asset(url):
+            r = requests.get(url, headers={'Authorization': 'Bearer ' + self._customer.userprofile.access_token })
+
+            if r.status_code != 200:
+                raise OrderingError('There was an error at the time of retrieving the Billing Address')
+
+            return r.json()
+
+        billing_account = _download_asset(items[0]['billingAccount'][0]['href'])
+        customer_account = _download_asset(billing_account['customerAccount']['href'])
+        customer = _download_asset(customer_account['customer']['href'])
+
+        postal_addresses = [contactMedium for contactMedium in customer['contactMedium'] if contactMedium['type'] == 'PostalAddress']
+
+        if len(postal_addresses) != 1:
+            raise OrderingError('Provided Billing Account does not contain a Postal Address')
+
+        postal_address = postal_addresses[0]['medium']
+
+        return {
+            'street': postal_address['streetOne'] + '\n' + postal_address['streetTwo'],
+            'postal': postal_address['postcode'],
+            'city': postal_address['city'],
+            'province': postal_address['stateOrProvince'],
+            'country': postal_address['country']
+        }
+
     def _process_add_items(self, items, order_id, description):
 
         new_contracts = []
@@ -270,7 +299,7 @@ class OrderingManager:
             owner_organization=current_org,
             date=datetime.now(),
             state='pending',
-            tax_address=current_org.tax_address,
+            tax_address=self._get_billing_address(items),
             contracts=new_contracts,
             description=description
         )

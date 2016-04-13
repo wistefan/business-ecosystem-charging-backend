@@ -35,5 +35,8 @@ class PaymentClient():
     def direct_payment(self, currency, price, credit_card):
         pass
 
+    def refund(self):
+        pass
+
     def get_checkout_url(self):
         pass

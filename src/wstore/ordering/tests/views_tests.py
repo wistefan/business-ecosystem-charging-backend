@@ -91,15 +91,11 @@ class OrderingCollectionTestCase(TestCase):
             'result': 'error',
             'message': 'The provided data is not a valid JSON object'
         }, False),
-        ('missing_billing', {}, None, 400, {
-            'result': 'error',
-            'message': 'The customer has not defined a billing address'
-        }, False, True, _missing_billing),
         ('ordering_error', {}, None, 400, {
             'result': 'error',
-            'message': 'OrderingError: order error'
+            'message': 'order error'
         }, True, True, _ordering_error),
-        ('exception', {}, None, 400, {
+        ('exception', {}, None, 500, {
             'result': 'error',
             'message': 'Your order could not be processed'
         }, True, True, _exception)
@@ -110,12 +106,15 @@ class OrderingCollectionTestCase(TestCase):
         views.OrderingManager().process_order.return_value = redirect_url
 
         views.OrderingClient = MagicMock()
-        views.Contract = MagicMock()
+        views.Order = MagicMock()
+        order = MagicMock()
+        views.Order.objects.get.return_value = order
 
         c1 = MagicMock()
         c2 = MagicMock()
+        c1.offering.is_digital = True
         c2.offering.is_digital = False
-        views.Contract.objects.get.side_effect = [c1, c2]
+        order.get_item_contract.side_effect = [c1, c2]
 
         collection = views.OrderingCollection(permitted_methods=('POST',))
         response, body = api_call(self, collection, data, side_effect)
@@ -129,15 +128,15 @@ class OrderingCollectionTestCase(TestCase):
             if redirect_url is None and not failed:
                 self.assertEquals([
                     call(data, 'InProgress'),
-                    call(data, 'Completed', [{
-                        'id': '2'}]
-                    )
                 ], views.OrderingClient().update_state.call_args_list)
 
+                self.assertEquals([
+                    call(data, 'Completed', [{'id': '2'}])
+                ], views.OrderingClient().update_items_state.call_args_list)
+
         if failed:
-            self.assertEquals(
-                [call(data, 'InProgress'), call(data, 'Failed')],
-                views.OrderingClient().update_state.call_args_list)
+            self.assertEquals([call(data, 'InProgress')], views.OrderingClient().update_state.call_args_list)
+            self.assertEquals([call(data, 'Failed')], views.OrderingClient().update_items_state.call_args_list)
 
 
 BASIC_PRODUCT_EVENT = {

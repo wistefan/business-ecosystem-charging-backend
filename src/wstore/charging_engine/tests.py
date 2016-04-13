@@ -709,14 +709,16 @@ class PayPalConfirmationTestCase(TestCase):
             self.assertEquals([call('1'), call('2')], self._order_inst.get_item_contract.call_args_list)
             self.assertEquals([
                 call(self._raw_order, 'InProgress'),
-                call(self._raw_order, 'Completed', completed)
             ], self._ordering_inst.update_state.call_args_list)
+
+            self.assertEquals([
+                call(self._raw_order, 'Completed', completed)
+            ], self._ordering_inst.update_items_state.call_args_list)
 
         elif to_del:
             self.assertEquals([
-                call(self._raw_order, 'InProgress'),
                 call(self._raw_order, 'Failed')
-            ], self._ordering_inst.update_state.call_args_list)
+            ], self._ordering_inst.update_items_state.call_args_list)
             self._order_inst.delete.assert_called_once_with()
 
 
@@ -935,3 +937,85 @@ class SDRCollectionTestCase(TestCase):
         self._validate_response(response, exp_code, exp_response)
         if exp_code == 200:
             views.SDRManager().get_sdrs.assert_called_once_with(None, None, None)
+
+
+class PayPalRefundTestCase(TestCase):
+
+    tags = ('ordering', 'paypal-conf')
+
+    def setUp(self):
+
+        # Mock Authentication decorator
+        wstore.store_commons.utils.http.authentication_required = decorator_mock
+        reload(views)
+
+        # Create request factory
+        self.factory = RequestFactory()
+
+        # Create a Mock user
+        self.user = MagicMock()
+        org = MagicMock()
+        self.user.userprofile.current_organization = org
+
+        # Mock Order
+        views.Order = MagicMock()
+        self._order_inst = MagicMock()
+        self._order_inst.order_id = '1'
+        self._order_inst.owner_organization = org
+        self._order_inst.state = 'pending'
+        self._order_inst.pending_payment = {
+            'transactions': [{
+                'item': '1'
+            }, {
+                'item': '2'
+            }],
+            'concept': 'initial'
+        }
+        views.Order.objects.get.return_value = self._order_inst
+
+        # Mock payment client
+        mock_payment_client(self, views)
+
+        views.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
+
+    def tearDown(self):
+        reload(wstore.store_commons.utils.http)
+        reload(views)
+
+    @parameterized.expand([
+        ([],),
+        ([1],),
+        ([1, 2],),
+        ([1, 2], True)
+    ])
+    def test_refund_sales_empty(self, sales_ids, refund_fail=False):
+
+        # Mock
+        self._order_inst.sales_ids = sales_ids
+
+        if refund_fail:
+            self._payment_inst.refund.side_effect = Exception('unexpected')
+
+        # Create request
+        request = self.factory.post(
+            'charging/api/orderManagement/orders/accept/',
+            json.dumps({'orderId': 7}),
+            content_type='application/json',
+            HTTP_ACCEPT='application/json'
+        )
+        request.user = self.user
+
+        # Build class
+        paypal_view = views.PayPalRefund(permitted_methods=('POST',))
+        response = paypal_view.create(request)
+
+        # Check response
+        resp = json.loads(response.content)
+
+        if not refund_fail:
+            self.assertEquals(resp, {'message': 'Ok', 'result': 'correct'})
+
+            for sale_id in sales_ids:
+                self._payment_inst.refund.assert_any_call(sale_id)
+        else:
+            self.assertEquals(resp, {'message': 'Sales cannot be refunded', 'result': 'error'})

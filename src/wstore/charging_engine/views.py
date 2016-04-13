@@ -142,7 +142,9 @@ class PayPalConfirmation(Resource):
             if item['id'] in involved_items and order.get_item_contract(item['id']).offering.is_digital:
                 digital_items.append(item)
 
-        self.ordering_client.update_state(raw_order, 'Completed', digital_items)
+        # Oder Items state is not checked
+        # self.ordering_client.update_items_state(raw_order, 'InProgress', digital_items)
+        self.ordering_client.update_items_state(raw_order, 'Completed', digital_items)
 
     def _set_renovation_states(self, transactions, raw_order, order):
         inventory_client = InventoryClient()
@@ -219,7 +221,8 @@ class PayPalConfirmation(Resource):
 
             # build the payment client
             client = payment_client(order)
-            client.end_redirection_payment(token, payer_id)
+            order.sales_ids = client.end_redirection_payment(token, payer_id)
+            order.save()
 
             charging_engine = ChargingEngine(order)
             charging_engine.end_charging(transactions, concept)
@@ -229,8 +232,10 @@ class PayPalConfirmation(Resource):
             # Rollback the purchase if existing
             if order is not None and raw_order is not None and concept == 'initial':
                 # Set the order to failed in the ordering API
-                self.ordering_client.update_state(raw_order, 'InProgress')
-                self.ordering_client.update_state(raw_order, 'Failed')
+                # Set all items as Failed, mark the whole order as failed
+                # self.ordering_client.update_state(raw_order, 'InProgress')
+                # self.ordering_client.update_state(raw_order, 'Failed')
+                self.ordering_client.update_items_state(raw_order, 'Failed')
                 order.delete()
 
             expl = ' due to an unexpected error'
@@ -278,10 +283,45 @@ class PayPalCancellation(Resource):
             raw_order = client.get_order(order.order_id)
 
             # Set the order to failed in the ordering API
-            client.update_state(raw_order, 'Failed')
+            # Set all items as Failed, mark the whole order as Failed
+            # client.update_state(raw_order, 'Failed')
+            client.update_items_state(raw_order, 'Failed')
 
             order.delete()
         except:
             return build_response(request, 400, 'Invalid request')
+
+        return build_response(request, 200, 'Ok')
+
+
+class PayPalRefund(Resource):
+
+    # This method is used when the user cancel a charge
+    # when is using a PayPal account
+    @supported_request_mime_types(('application/json', ))
+    @authentication_required
+    def create(self, request):
+        # In case the user cancels the payment is necessary to update
+        # the database in order to avoid an inconsistent state
+        try:
+            data = json.loads(request.body)
+            order = Order.objects.get(order_id=data['orderId'])
+
+            # Get the payment client
+            # Load payment client
+            cln_str = settings.PAYMENT_CLIENT
+            client_package, client_class = cln_str.rsplit('.', 1)
+
+            payment_client = getattr(importlib.import_module(client_package), client_class)
+
+            # build the payment client
+            client = payment_client(order)
+
+            for sale in order.sales_ids:
+                client.refund(sale)
+
+            order.delete()
+        except:
+            return build_response(request, 400, 'Sales cannot be refunded')
 
         return build_response(request, 200, 'Ok')

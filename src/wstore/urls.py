@@ -43,5 +43,6 @@ urlpatterns = patterns('',
     url(r'^charging/api/orderManagement/products/renovateJob?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',))),
+    url(r'^charging/api/orderManagement/orders/refund/?$', charging_views.PayPalRefund(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/accounting/(?P<order_id>[\w]+)/(?P<product_id>[\w]+)/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST', 'GET')))
 )
