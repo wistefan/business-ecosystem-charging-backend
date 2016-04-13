@@ -83,7 +83,7 @@ class RSSAdaptorTestCase(TestCase):
             }],
             headers={
                 'content-type': 'application/json',
-                'X-Actor-ID': 'wstore',
+                'X-Nick-Name': 'wstore',
                 'X-Roles': 'provider',
                 'X-Email': 'testmail@mail.com'
             })
