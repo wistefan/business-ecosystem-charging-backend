@@ -242,13 +242,7 @@ class OrderingManager:
                     raise OrderingError('Invalid price alteration, it is not possible to determine if it is a discount or a fee')
 
         # Calculate the revenue sharing class
-        revenue_class = None
-        if 'pay_per_use' in pricing:
-            revenue_class = 'use'
-        elif 'subscription' in pricing:
-            revenue_class = 'subscription'
-        elif 'single_payment' in pricing:
-            revenue_class = 'single-payment'
+        revenue_class = offering_info['serviceCandidate']['id']
 
         return Contract(
             item_id=item['id'],
