@@ -45,7 +45,7 @@ class RSSManager(object):
 
         headers = {
             'content-type': 'application/json',
-            'X-Actor-ID': self._credentials['user'],
+            'X-Nick-Name': self._credentials['user'],
             'X-Roles': roles[:-1],
             'X-Email': self._credentials['email']
         }

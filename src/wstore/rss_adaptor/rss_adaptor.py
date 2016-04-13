@@ -70,7 +70,7 @@ class RSSAdaptor:
         url = settings.RSS + 'rss/cdrs'
         headers = {
             'content-type': 'application/json',
-            'X-Actor-ID': settings.STORE_NAME,
+            'X-Nick-Name': settings.STORE_NAME,
             'X-Roles': 'provider',
             'X-Email': settings.WSTOREMAIL
         }
