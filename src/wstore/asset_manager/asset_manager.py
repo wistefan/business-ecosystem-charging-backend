@@ -53,14 +53,16 @@ class AssetManager:
             raise ValueError('Invalid file name format: Unsupported character')
 
         # Create provider dir for assets if it does not exists
-        provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets')
-        provider_dir = os.path.join(provider_dir, provider)
+        provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets', provider)
 
         if not os.path.isdir(provider_dir):
             os.mkdir(provider_dir)
 
         file_path = os.path.join(provider_dir, file_name)
-        resource_path = file_path[file_path.index(settings.MEDIA_URL):]
+        resource_path = file_path[file_path.index(settings.MEDIA_DIR):]
+
+        if resource_path.startswith('/'):
+            resource_path = resource_path[1:]
 
         # Check if the file already exists
         if os.path.exists(file_path):
@@ -118,7 +120,7 @@ class AssetManager:
         else:
             resource_data['content_path'] = self._save_resource_file(current_organization.name, file_)
 
-        resource_data['link'] = urljoin(site, '/charging' + resource_data['content_path'])
+        resource_data['link'] = urljoin(site, '/charging/' + resource_data['content_path'])
         resource_data['metadata'] = data.get('metadata', {})
 
         return resource_data, current_organization

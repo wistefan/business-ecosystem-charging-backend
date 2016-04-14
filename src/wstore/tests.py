@@ -67,7 +67,7 @@ class ServeMediaTestCase(TestCase):
         views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst]
 
     def _validate_res_call(self):
-        views.Resource.objects.get.assert_called_once_with(resource_path='/media/assets/test_user/widget.wgt')
+        views.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/widget.wgt')
         self.assertEquals(0, views.Order.objects.get.call_count)
 
     def _validate_off_call(self):
@@ -92,7 +92,7 @@ class ServeMediaTestCase(TestCase):
 
     def _validate_serve(self, response, expected):
         views.os.path.isfile(expected)
-        views.serve.assert_called_once_with(self.request, expected, document_root='/')
+        views.serve.assert_called_once_with(self.request, expected, document_root='/home/test/media/')
 
     def _validate_xfile(self, response, expected):
         views.os.path.isfile(expected)
@@ -108,6 +108,7 @@ class ServeMediaTestCase(TestCase):
         views.settings.USE_XSENDFILE = True
         views.settings.MEDIA_ROOT = '/home/test/media/'
         views.settings.MEDIA_URL = '/media/'
+        views.settings.MEDIA_DIR = 'media/'
 
     def _asset_error(self):
         views.Resource.objects.get.side_effect = Exception('Not found')
@@ -129,10 +130,10 @@ class ServeMediaTestCase(TestCase):
         self._user.userprofile.current_organization.acquired_offerings = ['offpk1', 'offpk2']
 
     @parameterized.expand([
-        ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt'),
-        ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt', _acquired),
-        ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, '/home/test/media/assets/test_user/widget.wgt', _public_asset),
-        ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, '/home/test/media/bills/111111111111111111111111_userbill.pdf', _usexfiles),
+        ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt'),
+        ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, 'assets/test_user/widget.wgt', _acquired),
+        ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt', _public_asset),
+        ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, 'bills/111111111111111111111111_userbill.pdf', _usexfiles),
         ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
             'result': 'error',
             'message': 'The specified asset does not exists'
@@ -166,7 +167,7 @@ class ServeMediaTestCase(TestCase):
             'message': 'Resource not found'
         }))
     ])
-    @override_settings(MEDIA_ROOT='/home/test/media/', MEDIA_URL='/media/')
+    @override_settings(MEDIA_ROOT='/home/test/media/', MEDIA_URL='/media/', MEDIA_DIR='media/')
     def test_serve_media(self, name, path, file_name, call_validator, res_validator, expected, side_effect=None):
 
         if side_effect is not None:
