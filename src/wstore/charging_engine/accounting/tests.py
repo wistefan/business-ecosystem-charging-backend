@@ -29,7 +29,8 @@ from django.test import TestCase
 from django.core.exceptions import PermissionDenied
 
 from wstore.charging_engine.accounting import sdr_manager
-
+from wstore.charging_engine.accounting import usage_client
+from wstore.charging_engine.accounting.errors import UsageError
 
 BASIC_SDR = {
     'orderId': '1',
@@ -242,3 +243,135 @@ class SDRManagerTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(error), err_msg)
+
+
+BASIC_USAGE = {
+    'id': '3',
+    'usageCharacteristic': [{
+        'name': 'orderId',
+        'value': '2'
+    }, {
+        'name': 'ProductId',
+        'value': '1'
+    }]
+}
+
+NON_PRODUCT_USAGE = {
+    'usageCharacteristic': [{
+        'name': 'orderId',
+        'value': '2'
+    }, {
+        'name': 'ProductId',
+        'value': '2'
+    }]
+}
+
+
+class UsageClientTestCase(TestCase):
+
+    tags = ('usage-client',)
+
+    def setUp(self):
+        usage_client.settings.USAGE = 'http://example.com/DSUsageManagement'
+        usage_client.requests = MagicMock()
+
+        self._customer = 'test_customer'
+        self._product_id = '1'
+
+    @parameterized.expand([
+        ('all_usages', [NON_PRODUCT_USAGE, BASIC_USAGE], [BASIC_USAGE]),
+        ('filtered_by_state', [NON_PRODUCT_USAGE, BASIC_USAGE], [BASIC_USAGE], '&status=Guided', 'Guided'),
+        ('product_not_found', [NON_PRODUCT_USAGE], [])
+    ])
+    def test_retrieve_usage(self, name, response, exp_resp, extra_query='', state=None):
+        # Create mocks
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        usage_client.requests.get.return_value = mock_response
+        client = usage_client.UsageClient()
+
+        cust_usage = client.get_customer_usage(self._customer, self._product_id, state=state)
+
+        # Verify response
+        self.assertEquals(exp_resp, cust_usage)
+
+        # Verify calls
+        usage_client.requests.get.assert_called_once_with(
+            usage_client.settings.USAGE + '/api/usageManagement/v2/usage?relatedParty.id=' + self._customer + extra_query,
+            headers={u'Accept': u'application/json'}
+        )
+
+        mock_response.raise_for_status.assert_called_once_with()
+        mock_response.json.assert_called_once_with()
+
+    def _test_invalid_state(self, method, args, kwargs):
+        error = None
+        try:
+            method(*args, **kwargs)
+        except UsageError as e:
+            error = e
+
+        self.assertTrue(error is not None)
+        self.assertEquals('UsageError: Invalid usage status invalid', unicode(e))
+
+    def test_retrieve_usage_invalid_state(self):
+        client = usage_client.UsageClient()
+        self._test_invalid_state(client.get_customer_usage, (self._customer, self._product_id), {'state': 'invalid'})
+
+    def _test_patch(self, expected_json, method, args):
+        mock_response = MagicMock()
+        usage_client.requests.patch.return_value = mock_response
+
+        method(*args)
+
+        # Verify calls
+        usage_client.requests.patch.assert_called_once_with(
+            usage_client.settings.USAGE + '/api/usageManagement/v2/usage/' + BASIC_USAGE['id'],
+            json=expected_json
+        )
+
+        mock_response.raise_for_status.assert_called_once_with()
+
+    def test_update_usage_state(self):
+        # Create Mocks
+        status = 'Rated'
+        expected_json = deepcopy(BASIC_USAGE)
+        expected_json['status'] = status
+        client = usage_client.UsageClient()
+
+        self._test_patch(expected_json, client.update_usage_state, (status, deepcopy(BASIC_USAGE)))
+
+    def test_update_usage_invalid_state(self):
+        client = usage_client.UsageClient()
+        self._test_invalid_state(client.update_usage_state, ('invalid', BASIC_USAGE), {})
+
+    def test_rate_usage(self):
+        usage_client.settings.INVENTORY = 'http://example.com/DSProductInventory'
+        timestamp = '2016-04-15'
+        duty_free = '10'
+        price = '12'
+        rate = '20'
+        currency = 'EUR'
+        product_url = usage_client.settings.INVENTORY + '/api/productInventory/v2/product/' + self._product_id
+
+        expected_json = deepcopy(BASIC_USAGE)
+        expected_json['ratedProductUsage'] = [{
+            'ratingDate': timestamp,
+            'usageRatingTag': 'usage',
+            'isBilled': False,
+            'ratingAmountType': 'Total',
+            'taxIncludedRatingAmount': price,
+            'taxExcludedRatingAmount': duty_free,
+            'taxRate': rate,
+            'isTaxExempt': False,
+            'offerTariffType': 'Normal',
+            'currencyCode': currency,
+            'productRef': product_url
+        }]
+
+        client = usage_client.UsageClient()
+        self._test_patch(
+            expected_json,
+            client.rate_usage,
+            (deepcopy(BASIC_USAGE), timestamp, duty_free, price, rate, currency, self._product_id)
+        )
