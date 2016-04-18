@@ -279,7 +279,7 @@ class OrderingManager:
         postal_address = postal_addresses[0]['medium']
 
         return {
-            'street': postal_address['streetOne'] + '\n' + postal_address['streetTwo'],
+            'street': postal_address['streetOne'] + '\n' + postal_address.get('streetTwo', ''),
             'postal': postal_address['postcode'],
             'city': postal_address['city'],
             'province': postal_address['stateOrProvince'],
