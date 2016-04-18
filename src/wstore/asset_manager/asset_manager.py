@@ -53,14 +53,16 @@ class AssetManager:
             raise ValueError('Invalid file name format: Unsupported character')
 
         # Create provider dir for assets if it does not exists
-        provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets')
-        provider_dir = os.path.join(provider_dir, provider)
+        provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets', provider)
 
         if not os.path.isdir(provider_dir):
             os.mkdir(provider_dir)
 
         file_path = os.path.join(provider_dir, file_name)
-        resource_path = file_path[file_path.index(settings.MEDIA_URL):]
+        resource_path = file_path[file_path.index(settings.MEDIA_DIR):]
+
+        if resource_path.startswith('/'):
+            resource_path = resource_path[1:]
 
         # Check if the file already exists
         if os.path.exists(file_path):
@@ -82,7 +84,6 @@ class AssetManager:
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
         resource = Resource.objects.create(
-            product_ref=resource_data['product_ref'],
             provider=provider,
             version=resource_data['version'],
             download_link=resource_data['link'],
@@ -102,7 +103,6 @@ class AssetManager:
         # This information will be extracted from the product specification
         resource_data = {
             'content_type': data['contentType'],
-            'product_ref': '',
             'version': '',
             'resource_type': '',
             'state': '',
@@ -120,7 +120,7 @@ class AssetManager:
         else:
             resource_data['content_path'] = self._save_resource_file(current_organization.name, file_)
 
-        resource_data['link'] = urljoin(site, resource_data['content_path'])
+        resource_data['link'] = urljoin(site, '/charging/' + resource_data['content_path'])
         resource_data['metadata'] = data.get('metadata', {})
 
         return resource_data, current_organization
@@ -146,7 +146,6 @@ class AssetManager:
     def get_resource_info(self, resource):
         return {
             'id': resource.pk,
-            'productHref': resource.product_ref,
             'version': resource.version,
             'contentType': resource.content_type,
             'state': resource.state,

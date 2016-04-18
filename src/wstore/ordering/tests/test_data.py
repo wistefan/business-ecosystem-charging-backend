@@ -32,6 +32,9 @@ OFFERING = {
     "href": "http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)",
     "productSpecification": {
         "href": "http://producturl.com/"
+    },
+    "serviceCandidate": {
+        "id": "productClass"
     }
 }
 

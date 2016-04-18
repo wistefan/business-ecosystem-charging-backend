@@ -22,8 +22,11 @@ from __future__ import unicode_literals
 
 import sys
 
+from django.conf import settings
+
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
+from wstore.rss_adaptor.rss_manager import ProviderManager
 
 
 testing = sys.argv[1:2] == ['test']
@@ -31,3 +34,21 @@ testing = sys.argv[1:2] == ['test']
 if not testing and Context.objects.all():
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
+
+    # Create RSS default aggregator and provider
+    credentials = {
+        'user': settings.STORE_NAME,
+        'roles': ['provider'],
+        'email': settings.WSTOREMAIL
+    }
+    prov_manager = ProviderManager(credentials)
+
+    try:
+        prov_manager.register_aggregator({
+            'aggregatorId': settings.WSTOREMAIL,
+            'aggregatorName': settings.STORE_NAME,
+            'defaultAggregator': True
+        })
+    except Exception as e:  # If the error is a conflict means that the aggregator is already registered
+        if e.response.status_code != 409:
+            raise e

@@ -25,9 +25,7 @@ from bson import ObjectId
 from django.conf import settings
 
 from wstore.rss_adaptor.rss_adaptor import RSSAdaptorThread
-from wstore.rss_adaptor.utils.rss_codes import get_currency_code
 from wstore.store_commons.database import get_database_connection
-from wstore.models import RSS
 
 
 class CDRManager(object):
@@ -38,7 +36,7 @@ class CDRManager(object):
         self._order = order
         self._contract = contract
 
-    def _generate_cdr_part(self, part, model, cdr_info):
+    def _generate_cdr_part(self, part, event, cdr_info):
         # Create connection for raw database access
         db = get_database_connection()
 
@@ -49,119 +47,97 @@ class CDRManager(object):
 
         # Version 2 uses a correlation number per provider
         corr_number = db.wstore_organization.find_and_modify(
-            query={'_id': ObjectId(self._order.offering.owner_organization.pk)},
+            query={'_id': ObjectId(self._contract.offering.owner_organization.pk)},
             update={'$inc': {'correlation_number': 1}}
         )['correlation_number']
 
         return {
             'provider': cdr_info['provider'],
-            'service': cdr_info['service_name'],
-            'defined_model': model,
-            'correlation': str(corr_number),
-            'order': self._order.ref,
+            'correlation': unicode(corr_number),
+            'order': self._order.order_id + ' ' + self._contract.product_id,
             'offering': cdr_info['offering'],
             'product_class': cdr_info['product_class'],
             'description': cdr_info['description'],
             'cost_currency': currency,
-            'cost_value': str(part['value']),
-            'tax_currency': currency,
-            'tax_value': '0.0',
-            'source': '1',
-            'operator': '1',
-            'country': cdr_info['country_code'],
+            'cost_value': unicode(part['value']),
+            'tax_value': unicode(part['value'] - part['duty_free']),
             'time_stamp': cdr_info['time_stamp'],
             'customer': cdr_info['customer'],
-            'event': self._order.contract.revenue_class
+            'event': event
         }
 
-    def generate_cdr(self, applied_parts, time_stamp, price=None):
+    def generate_cdr(self, applied_parts, time_stamp, price=None, duty_free=None):
 
         cdrs = []
 
-        # Take the first RSS registered
-        rss_collection = RSS.objects.all()
+        # Set offering ID
+        off_model = self._contract.offering
+        offering = off_model.off_id + ' ' + off_model.name + ' ' + off_model.version
+        currency = self._contract.pricing_model['general_currency']
 
-        if len(rss_collection) > 0:
-            rss = RSS.objects.all()[0]
+        # Get the provider (Organization)
+        provider = off_model.owner_organization.name
 
-            # Get the provider (Organization)
-            provider = settings.STORE_NAME.lower() + '-provider'
+        # Get the customer
+        customer = self._order.owner_organization.name
 
-            # Set offering ID
-            off_model = self._contract.offering
-            offering = off_model.off_id + ' ' + off_model.name + ' ' + off_model.version
+        cdr_info = {
+            'provider': provider,
+            'offering': offering,
+            'time_stamp': time_stamp,
+            'customer': customer,
+            'product_class': self._contract.revenue_class
+        }
 
-            # Get the customer
-            customer = self._order.owner_organization.name
+        # If any deduction has been applied the whole payment is
+        # included in a single CDR instead of including parts in
+        # order to avoid a mismatch between the revenues being shared
+        # and the real payment
 
-            # Get the country code
-            country_code = '1'
-
-            # Get the product class
-            product_class = off_model.owner_organization.name + '/' + off_model.name + '/' + off_model.version
-
-            cdr_info = {
-                'rss': rss,
-                'provider': provider,
-                'service_name': offering,
-                'offering': offering,
-                'country_code': country_code,
-                'time_stamp': time_stamp,
-                'customer': customer,
-                'product_class': product_class
+        if price is not None:
+            # Create a payment part representing the whole payment
+            aggregated_part = {
+                'value': price,
+                'duty_free': duty_free,
+                'currency': self._contract.pricing_model['general_currency']
             }
+            cdr_info['description'] = 'Complete Charging event: ' + unicode(price) + ' ' + currency
+            cdrs.append(self._generate_cdr_part(aggregated_part, 'Charging event', cdr_info))
 
-            # If any deduction has been applied the whole payment is
-            # included in a single CDR instead of including parts in
-            # order to avoid a mismatch between the revenues being shared
-            # and the real payment
+        else:
+            # Check the type of the applied parts
+            if 'single_payment' in applied_parts:
 
-            if price:
-                # Create a payment part representing the whole payment
-                aggregated_part = {
-                    'value': price,
-                    'currency': self._contract.pricing_model['general_currency']
-                }
-                cdr_info['description'] = 'Complete Charging event: ' + str(price) + ' ' + self._contract.pricing_model['general_currency']
-                cdrs.append(self._generate_cdr_part(aggregated_part, 'Charging event', cdr_info))
+                # A cdr is generated for every price part
+                for part in applied_parts['single_payment']:
+                    cdr_info['description'] = 'One time payment: ' + unicode(part['value']) + ' ' + currency
+                    cdrs.append(self._generate_cdr_part(part, 'One time payment event', cdr_info))
 
-            else:
-                # Check the type of the applied parts
-                if 'single_payment' in applied_parts:
+            if 'subscription' in applied_parts:
 
-                    # A cdr is generated for every price part
-                    for part in applied_parts['single_payment']:
-                        cdr_info['description'] = 'Single payment: ' + part['value'] + ' ' + self._contract.pricing_model['general_currency']
-                        cdrs.append(self._generate_cdr_part(part, 'Single payment event', cdr_info))
+                # A cdr is generated by price part
+                for part in applied_parts['subscription']:
+                    cdr_info['description'] = 'Recurring payment: ' + unicode(part['value']) + ' ' + currency + ' ' + part['unit']
+                    cdrs.append(self._generate_cdr_part(part, 'Recurring payment event', cdr_info))
 
-                if 'subscription' in applied_parts:
+            if 'accounting' in applied_parts:
 
-                    # A cdr is generated by price part
-                    for part in applied_parts['subscription']:
-                        cdr_info['description'] = 'Subscription: ' + part['value'] + ' ' + self._contract.pricing_model['general_currency'] + ' ' + part['unit']
-                        cdrs.append(self._generate_cdr_part(part, 'Subscription event', cdr_info))
+                # A cdr is generated by price part
+                for part in applied_parts['accounting']:
+                    use_part = {
+                        'value': part['price'],
+                        'duty_free': part['duty_free'],
+                        'currency': currency
+                    }
 
-                if 'charges' in applied_parts:
+                    # Calculate the total consumption
+                    use = 0
+                    for sdr in part['accounting']:
+                        use += int(sdr['value'])
+                        cdr_info['description'] = 'Fee per ' + part['model']['unit'] + ', Consumption: ' + unicode(use)
 
-                    # A cdr is generated by price part
-                    for part in applied_parts['charges']:
-                        use_part = {
-                            'value': part['price'],
-                        }
-                        if 'price_function' in part['model']:
-                            cdr_info['description'] = part['model']['text_function']
-                            use_part['currency'] = self._contract.pricing_model['general_currency']
-                        else:
-                            use_part['currency'] = self._contract.pricing_model['general_currency']
+                    cdrs.append(self._generate_cdr_part(use_part, 'Pay per use event', cdr_info))
 
-                            # Calculate the total consumption
-                            use = 0
-                            for sdr in part['accounting']:
-                                use += int(sdr['value'])
-                            cdr_info['description'] = 'Fee per ' + part['model']['unit'] + ', Consumption: ' + str(use)
-
-                        cdrs.append(self._generate_cdr_part(use_part, 'Pay per use event', cdr_info))
-
-            # Send the created CDRs to the Revenue Sharing System
-            r = RSSAdaptorThread(rss, cdrs)
-            r.start()
+        # Send the created CDRs to the Revenue Sharing System
+        r = RSSAdaptorThread(cdrs)
+        r.start()

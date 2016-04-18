@@ -54,11 +54,12 @@ CUSTOMER_ROLE = 'customer'
 SITE_ID=u''
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
-MEDIA_ROOT = path.join(BASEDIR, 'media')
+MEDIA_DIR = 'media/'
+MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)
 BILL_ROOT = path.join(MEDIA_ROOT, 'bills')
 
 # URL that handles the media served from MEDIA_ROOT.
-MEDIA_URL = '/media/'
+MEDIA_URL = '/charging/media/'
 
 INSTALLED_APPS = (
     'django.contrib.auth',
@@ -169,3 +170,5 @@ RESOURCE_INDEX_DIR = path.join(BASEDIR, path.join('wstore', path.join('admin', '
 
 NOTIF_CERT_FILE = None
 NOTIF_CERT_KEY_FILE = None
+
+from services_settings import *

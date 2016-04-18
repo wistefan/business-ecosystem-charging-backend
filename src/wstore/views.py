@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -34,56 +34,67 @@ from wstore.ordering.models import Order, Offering
 
 class ServeMedia(API_Resource):
 
-    def read(self, request, path, name):
+    def _validate_asset_permissions(self, user, path, name):
+        err_code, err_msg = None, None
 
-        dir_path = os.path.join(settings.MEDIA_ROOT, path)
+        # Retrieve the given digital asset
+        try:
+            resource_path = os.path.join(settings.MEDIA_DIR, path, name)
+            asset = Resource.objects.get(resource_path=resource_path)
+        except:
+            err_code, err_msg = 404, 'The specified asset does not exists'
 
-        # Protect the resources from not authorized downloads
-        if path.startswith('assets'):
-            # Retrieve the given digital asset
-            try:
-                resource_path = os.path.join(settings.MEDIA_URL, path)
-                resource_path = os.path.join(resource_path, name)
-                asset = Resource.objects.get(resource_path=resource_path)
-            except:
-                return build_response(request, 404, 'The specified asset does not exists')
+        # Check if the user has permissions to download the asset
+        if err_code is None and not asset.is_public:
+            if user.is_anonymous():
+                err_code, err_msg = 401, 'You must be authenticated to download the specified asset'
 
-            # Check if the user has permissions to download the asset
-            if not asset.is_public:
-                if request.user.is_anonymous():
-                    return build_response(request, 401, 'You must be authenticated to download the specified asset')
+            if err_code is None and user.userprofile.current_organization != asset.provider:
+                # Check if the user has acquired the asset
+                for off in user.userprofile.current_organization.acquired_offerings:
+                    offering = Offering.objects.get(pk=off)
+                    if offering.asset == asset:
+                        break
+                else:
+                    err_code, err_msg = 403, 'You are not authorized to download the specified asset'
 
-                if request.user.userprofile.current_organization != asset.provider:
-                    # Check if the user has acquired the asset
-                    for off in request.user.userprofile.current_organization.acquired_offerings:
-                        offering = Offering.objects.get(pk=off)
-                        if offering.asset == asset:
-                            break
-                    else:
-                        return build_response(request, 403, 'You are not authorized to download the specified asset')
+        return err_code, err_msg
 
-        elif path.startswith('bills'):
-            if request.user.is_anonymous():
-                return build_response(request, 401, 'You must provide credentials for downloading invoices')
+    def _validate_invoice_permissions(self, user, name):
+        err_code, err_msg = None, None
 
+        if user.is_anonymous():
+            err_code, err_msg = 401, 'You must provide credentials for downloading invoices'
+        else:
             try:
                 order = Order.objects.get(pk=name[:24])
             except:
-                return build_response(request, 404, 'The specified invoice does not exists')
+                err_code, err_msg = 404, 'The specified invoice does not exists'
 
-            if order.owner_organization != request.user.userprofile.current_organization:
-                return build_response(request, 403, 'You are not authorized to download the specified invoice')
+            if err_code is None and order.owner_organization != user.userprofile.current_organization:
+                err_code, err_msg = 403, 'You are not authorized to download the specified invoice'
+
+        return err_code, err_msg
+
+    def read(self, request, path, name):
+        # Protect the resources from not authorized downloads
+        if path.startswith('assets'):
+            err_code, err_msg = self._validate_asset_permissions(request.user, path, name)
+        elif path.startswith('bills'):
+            err_code, err_msg = self._validate_invoice_permissions(request.user, name)
         else:
-            return build_response(request, 404, 'Resource not found')
+            err_code, err_msg = 404, 'Resource not found'
 
-        local_path = os.path.join(dir_path, name)
+        local_path = os.path.join(path, name)
+        if err_code is None and not os.path.isfile(os.path.join(settings.MEDIA_ROOT, local_path)):
+            err_code, err_msg = 404, 'Resource not found'
 
-        if not os.path.isfile(local_path):
-            return build_response(request, 404, 'Resource not found')
-
-        if not getattr(settings, 'USE_XSENDFILE', False):
-            return serve(request, local_path, document_root='/')
+        if err_code is not None:
+            response = build_response(request, err_code, err_msg)
+        elif not getattr(settings, 'USE_XSENDFILE', False):
+            response = serve(request, local_path, document_root=settings.MEDIA_ROOT)
         else:
             response = HttpResponse()
             response['X-Sendfile'] = smart_str(local_path)
-            return response
+
+        return response
