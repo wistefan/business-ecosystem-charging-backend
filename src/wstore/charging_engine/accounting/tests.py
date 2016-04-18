@@ -274,9 +274,14 @@ class UsageClientTestCase(TestCase):
     def setUp(self):
         usage_client.settings.USAGE = 'http://example.com/DSUsageManagement'
         usage_client.requests = MagicMock()
+        self._old_inv = usage_client.settings.INVENTORY
+        usage_client.settings.INVENTORY = 'http://example.com/DSProductInventory'
 
         self._customer = 'test_customer'
         self._product_id = '1'
+
+    def tearDown(self):
+        usage_client.settings.INVENTORY = self._old_inv
 
     @parameterized.expand([
         ('all_usages', [NON_PRODUCT_USAGE, BASIC_USAGE], [BASIC_USAGE]),
@@ -346,7 +351,6 @@ class UsageClientTestCase(TestCase):
         self._test_invalid_state(client.update_usage_state, ('invalid', BASIC_USAGE), {})
 
     def test_rate_usage(self):
-        usage_client.settings.INVENTORY = 'http://example.com/DSProductInventory'
         timestamp = '2016-04-15'
         duty_free = '10'
         price = '12'
