@@ -25,90 +25,30 @@ from datetime import datetime
 from django.core.exceptions import PermissionDenied
 
 from wstore.models import Organization
+from wstore.ordering.models import Order
 
 
 class SDRManager(object):
 
-    def __init__(self, user, order, contract):
+    def __init__(self, user):
         self._user = user
-        self._order = order
-        self._contract = contract
-        self._price_model = contract.pricing_model
 
-    def include_sdr(self, sdr):
-        # Check that the value field is a valid number
-        try:
-            float(sdr['value'])
-        except:
-            raise ValueError('The provided value is not a valid number')
-
-        # Check that the customer exist
-        customer = Organization.objects.filter(name=sdr['customer'])
-
-        if not len(customer):
-            raise ValueError('The specified customer ' + sdr['customer'] + ' does not exist')
-
-        # Check if the user making the request belongs to the customer organization
-        belongs = False
-        for org in self._user.userprofile.organizations:
-            if org['organization'] == self._order.owner_organization.pk:
-                belongs = True
-                break
-
-        if not belongs:
-            raise PermissionDenied("You don't belong to the customer organization")
-
-        if 'pay_per_use' not in self._price_model:
-            raise ValueError('The pricing model of the offering does not define pay-per-use components')
-
-        # Check the correlation number and timestamp
-        applied_sdrs = self._contract.applied_sdrs
-        pending_sdrs = self._contract.pending_sdrs
-
-        last_corr = 0
-        last_time = None
-
-        if len(pending_sdrs) > 0:
-            last_corr = int(pending_sdrs[-1]['correlationNumber'])
-            last_time = pending_sdrs[-1]['timestamp']
-        elif len(applied_sdrs) > 0:
-            last_corr = int(applied_sdrs[-1]['correlationNumber'])
-            last_time = applied_sdrs[-1]['timestamp']
-
-        # Truncate ms to 3 decimals (database supported)
-        sp_time = sdr['timestamp'].split('.')
-        milis = sp_time[1]
-
-        if len(milis) > 3:
-            milis = milis[:3]
-
-        sdr_time = sp_time[0] + '.' + milis
+    def _get_order_contract(self, order_id, product_id):
+        # Get the order
+        order = None
+        contract = None
 
         try:
-            time_stamp = datetime.strptime(sdr_time, '%Y-%m-%dT%H:%M:%S.%f')
+            order = Order.objects.get(order_id=order_id)
         except:
-            time_stamp = datetime.strptime(sdr_time, '%Y-%m-%d %H:%M:%S.%f')
+            pass
 
-        if int(sdr['correlationNumber']) != last_corr + 1:
-            raise ValueError('Invalid correlation number, expected: ' + str(last_corr + 1))
+        try:
+            contract = order.get_product_contract(product_id)
+        except:
+            pass
 
-        if last_time is not None and last_time > time_stamp:
-            raise ValueError('The provided timestamp specifies a lower timing than the last SDR received')
-
-        # Check that the pricing model contains the specified unit
-        found_model = False
-        for comp in self._price_model['pay_per_use']:
-            if sdr['unit'] == comp['unit']:
-                found_model = True
-                break
-
-        if not found_model:
-            raise ValueError('The specified unit is not included in the pricing model')
-
-        # Store the SDR
-        sdr['timestamp'] = time_stamp
-        self._contract.pending_sdrs.append(sdr)
-        self._order.save()
+        return order, contract
 
     def _get_datetime(self, time):
         try:
@@ -118,42 +58,93 @@ class SDRManager(object):
 
         return time_stamp
 
-    def get_sdrs(self, from_, to, unit):
+    def _get_sdr_values(self, sdr):
+        expected_fields = ['orderid', 'productid', 'correlationnumber', 'unit', 'value']
+        values = {}
 
-        if not self._user.is_staff and \
-                self._user.userprofile.current_organization != self._order.owner_organization:
-            raise PermissionDenied('You are not authorized to read accounting info of the given order')
+        if 'usageCharacteristic' not in sdr:
+            raise ValueError('Missing required field usageCharacteristic')
 
-        # Check from and to formats
-        if from_ is not None:
-            try:
-                from_ = self._get_datetime(from_)
-            except:
-                raise ValueError('Invalid "from" parameter, must be a datetime')
+        for usage_value in sdr['usageCharacteristic']:
+            if usage_value['name'].lower() in expected_fields:
+                if usage_value['name'].lower() not in values:
+                    values[usage_value['name'].lower()] = usage_value['value']
+                else:
+                    raise ValueError('Only a value is supported for characteristic ' + usage_value['name'])
 
-        if to is not None:
-            try:
-                to = self._get_datetime(to)
-            except:
-                raise ValueError('Invalid "to" parameter, must be a datetime')
+        if len(values) != len(expected_fields):
+            raise ValueError('Missing mandatory characteristics, must be: orderId, productId, correlationNumber, unit, value')
 
-        # Build response
-        response = []
-        sdrs = []
-        sdrs.extend(self._contract.applied_sdrs)
-        sdrs.extend(self._contract.pending_sdrs)
+        return values
 
-        for sdr in sdrs:
-            if from_ is not None and from_ > sdr['timestamp']:
-                continue
+    def validate_sdr(self, sdr):
 
-            if to is not None and to < sdr['timestamp']:
+        if sdr['status'].lower() != 'received':
+            raise ValueError('Invalid initial status, must be Received')
+
+        sdr_values = self._get_sdr_values(sdr)
+        order, contract = self._get_order_contract(sdr_values['orderid'], sdr_values['productid'])
+
+        if order is None:
+            raise ValueError('Invalid orderId, the order does not exists')
+
+        if contract is None:
+            raise ValueError('Invalid productId, the contract does not exist')
+
+        # Check that the value field is a valid number
+        try:
+            float(sdr_values['value'])
+        except:
+            raise ValueError('The provided value is not a valid number')
+
+        if 'relatedParty' not in sdr:
+            raise ValueError('Missing required field relatedParty')
+
+        # Check that the customer exist
+        customer_name = sdr['relatedParty']['id']
+        customer = Organization.objects.filter(name=customer_name)
+
+        if not len(customer):
+            raise ValueError('The specified customer ' + customer_name + ' does not exist')
+
+        # Check if the user making the request belongs to the customer organization
+        for org in self._user.userprofile.organizations:
+            if org['organization'] == order.owner_organization.pk:
                 break
+        else:
+            raise PermissionDenied("You don't belong to the customer organization")
 
-            if unit is not None and sdr['unit'].lower() != unit.lower():
-                continue
+        # Validate that the price mode included in the contract correspond to the one specified in the SDR
+        price_model = contract.pricing_model
+        if 'pay_per_use' not in price_model:
+            raise ValueError('The pricing model of the offering does not define pay-per-use components')
 
-            sdr['timestamp'] = unicode(sdr['timestamp'])
-            response.append(sdr)
+        # Check the correlation number and timestamp
+        if int(sdr_values['correlationnumber']) != contract.correlation_number:
+            raise ValueError('Invalid correlation number, expected: ' + unicode(contract.correlation_number))
 
-        return response
+        # Truncate ms to 3 decimals (database supported)
+        sp_time = sdr['date'].split('.')
+        milis = sp_time[1]
+
+        if len(milis) > 3:
+            milis = milis[:3]
+
+        sdr_time = sp_time[0] + '.' + milis
+
+        time_stamp = self._get_datetime(sdr_time)
+
+        if contract.last_usage is not None and contract.last_usage > time_stamp:
+            raise ValueError('The provided timestamp specifies a lower timing than the last SDR received')
+
+        # Check that the pricing model contains the specified unit
+        for comp in price_model['pay_per_use']:
+            if sdr_values['unit'].lower() == comp['unit'].lower():
+                break
+        else:
+            raise ValueError('The specified unit is not included in the pricing model')
+
+        # Save new usage information
+        contract.last_usage = time_stamp
+        contract.correlation_number += 1
+        order.save()

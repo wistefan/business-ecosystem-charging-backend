@@ -766,11 +766,14 @@ class SDRCollectionTestCase(TestCase):
     def setUp(self):
         views.Order = MagicMock()
         views.SDRManager = MagicMock()
-        manager_inst = MagicMock()
-        manager_inst.get_sdrs.return_value = [{
-            'orderId': '1'
-        }]
-        views.SDRManager.return_value = manager_inst
+
+        self._manager_inst = MagicMock()
+        views.SDRManager.return_value = self._manager_inst
+
+        usage_inst = MagicMock()
+        views.UsageClient = MagicMock()
+        views.UsageClient.return_value = usage_inst
+
         self.request = MagicMock()
         self.request.user.is_anonymous.return_value = False
         self.request.META.get.return_value = 'application/json'
@@ -783,13 +786,13 @@ class SDRCollectionTestCase(TestCase):
         views.Order.objects.get().get_product_contract.side_effect = Exception('Not found')
 
     def _permission_denied(self):
-        views.SDRManager().include_sdr.side_effect = PermissionDenied('Permission denied')
+        self._manager_inst.validate_sdr.side_effect = PermissionDenied('Permission denied')
 
     def _value_error(self):
-        views.SDRManager().include_sdr.side_effect = ValueError('Value error')
+        self._manager_inst.validate_sdr.side_effect = ValueError('Value error')
 
     def _exception(self):
-        views.SDRManager().include_sdr.side_effect = Exception('error')
+        self._manager_inst.validate_sdr.side_effect = Exception('error')
 
     def _validate_response(self, response, exp_code, exp_response):
         # Validate response
@@ -797,17 +800,6 @@ class SDRCollectionTestCase(TestCase):
         body = json.loads(response.content)
 
         self.assertEquals(exp_response, body)
-
-        # Validate calls if needed
-        if exp_code == 200:
-            views.Order.objects.get.assert_called_once_with(order_id='1')
-            views.Order.objects.get().get_product_contract.assert_called_once_with('2')
-
-            views.SDRManager.assert_called_once_with(
-                self.request.user,
-                views.Order.objects.get(),
-                views.Order.objects.get().get_product_contract()
-            )
 
     @parameterized.expand([
         ('correct', BASIC_SDR, 200, {
@@ -818,64 +810,8 @@ class SDRCollectionTestCase(TestCase):
             'result': 'error',
             'message': 'The request does not contain a valid JSON object'
         }),
-        ('mising_customer', {
-            'orderId': '1',
-            'productId': '2',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_number', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_record_type', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_unit', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_value', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_timestamp', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50'
-        }, 400, MISSING_FIELD_RESP),
-        ('inv_order_id', BASIC_SDR, 404, INV_ORDERID_RESP, _inv_order),
-        ('inv_product_id', BASIC_SDR, 404, INV_PRODUCTID_RESP, _inv_product),
         ('manager_permission_denied', BASIC_SDR, 403, MANAGER_DENIED_RESP, _permission_denied),
-        ('manager_value_error', BASIC_SDR, 400, MANAGER_VALUE_RESP, _value_error),
+        ('manager_value_error', BASIC_SDR, 422, MANAGER_VALUE_RESP, _value_error),
         ('manager_exception', BASIC_SDR, 500, {
             'result': 'error',
             'message': 'The SDR document could not be processed due to an unexpected error'
@@ -891,52 +827,18 @@ class SDRCollectionTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        collection = views.ServiceRecordCollection(permitted_methods=('POST', 'GET'))
-        response = collection.create(self.request, '1', '2')
+        collection = views.ServiceRecordCollection(permitted_methods=('POST',))
+        response = collection.create(self.request)
 
         self._validate_response(response, exp_code, exp_response)
-        if exp_code == 200:
-            views.SDRManager().include_sdr(json.loads(data))
-
-    def _permission_denied_get(self):
-        views.SDRManager().get_sdrs.side_effect = PermissionDenied('Permission denied')
-
-    def _value_error_get(self):
-        views.SDRManager().get_sdrs.side_effect = ValueError('Value error')
-
-    def _exception_get(self):
-        views.SDRManager().get_sdrs.side_effect = Exception('error')
-
-    @parameterized.expand([
-        ('correct', 200, [{
-            'orderId': '1'
-        }]),
-        ('inv_order_id', 404, INV_ORDERID_RESP, _inv_order),
-        ('inv_product_id', 404, INV_PRODUCTID_RESP, _inv_product),
-        ('manager_permission_denied', 403, MANAGER_DENIED_RESP, _permission_denied_get),
-        ('manager_value_error', 400, MANAGER_VALUE_RESP, _value_error_get),
-        ('manager_exception', 500, {
-            'result': 'error',
-            'message': 'The SDRs could not be retrieved due to an unexpected error'
-        }, _exception_get)
-    ])
-    def test_retrieve_sdr(self, name, exp_code, exp_response, side_effect=None):
-
-        if side_effect is not None:
-            side_effect(self)
-
-        collection = views.ServiceRecordCollection(permitted_methods=('GET', 'POST'))
-        response = collection.read(self.request, '1', '2')
-
-        self.assertEquals(exp_code, response.status_code)
-        body = json.loads(response.content)
-
-        self.assertEquals(exp_response, body)
-
-        # Validate calls
-        self._validate_response(response, exp_code, exp_response)
-        if exp_code == 200:
-            views.SDRManager().get_sdrs.assert_called_once_with(None, None, None)
+        if exp_code != 400:
+            parsed_data = json.loads(data)
+            if exp_code == 200:
+                views.SDRManager.assert_called_once_with(self.request.user)
+                self._manager_inst.validate_sdr.assert_called_once_with(parsed_data)
+                views.UsageClient().update_usage_state.assert_called_once_with('Guided', parsed_data)
+            else:
+                views.UsageClient().update_usage_state.assert_called_once_with('Rejected', parsed_data)
 
 
 class PayPalRefundTestCase(TestCase):

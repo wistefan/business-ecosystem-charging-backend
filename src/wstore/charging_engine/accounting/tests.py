@@ -33,47 +33,27 @@ from wstore.charging_engine.accounting import usage_client
 from wstore.charging_engine.accounting.errors import UsageError
 
 BASIC_SDR = {
-    'orderId': '1',
-    'productId': '2',
-    'customer': 'test_user',
-    'correlationNumber': '1',
-    'timestamp': '2015-10-20 17:31:57.100000',
-    'recordType': 'event',
-    'value': '10',
-    'unit': 'invocation'
-}
-
-SDR2 = {
-    'orderId': '1',
-    'productId': '2',
-    'customer': 'test_user',
-    'correlationNumber': '2',
-    'timestamp': '2015-10-22 17:31:57.100000',
-    'recordType': 'event',
-    'value': '5',
-    'unit': 'call'
-}
-
-SDR3 = {
-    'orderId': '1',
-    'productId': '2',
-    'customer': 'test_user',
-    'correlationNumber': '3',
-    'timestamp': '2015-10-23 17:31:57.100000',
-    'recordType': 'event',
-    'value': '15',
-    'unit': 'invocation'
-}
-
-SDR4 = {
-    'orderId': '1',
-    'productId': '2',
-    'customer': 'test_user',
-    'correlationNumber': '4',
-    'timestamp': '2015-10-24 17:31:57.100000',
-    'recordType': 'event',
-    'value': '10',
-    'unit': 'invocation'
+    'status': 'Received',
+    'date': '2015-10-20 17:31:57.100000',
+    'relatedParty': {
+        'id': 'test_user'
+    },
+    'usageCharacteristic': [{
+        'name': 'orderId',
+        'value': '1'
+    }, {
+        'name': 'productId',
+        'value': '2'
+    }, {
+        'name': 'correlationNumber',
+        'value': '1'
+    }, {
+        'name': 'value',
+        'value': '10'
+    }, {
+        'name': 'unit',
+        'value': 'invocation'
+    }]
 }
 
 
@@ -97,24 +77,18 @@ class SDRManagerTestCase(TestCase):
                 'unit': 'invocation'
             }]
         }
-        self._contract.pending_sdrs = []
-        self._contract.applied_sdrs = []
+        self._contract.correlation_number = 1
+        self._contract.last_usage = None
+
+        sdr_manager.Order = MagicMock()
+        sdr_manager.Order.objects.get.return_value = self._order
+        self._order.get_product_contract.return_value = self._contract
 
         self._user = MagicMock()
         self._user.is_staff = True
         self._user.userprofile.organizations = [{
             'organization': '1111'
         }]
-
-    def _side_create_applied(self):
-        sdr = deepcopy(BASIC_SDR)
-        sdr['timestamp'] = datetime.strptime(sdr['timestamp'], '%Y-%m-%d %H:%M:%S.%f')
-        self._contract.applied_sdrs = [sdr]
-
-    def _side_create_pending(self):
-        sdr = deepcopy(BASIC_SDR)
-        sdr['timestamp'] = datetime.strptime(sdr['timestamp'], '%Y-%m-%d %H:%M:%S.%f')
-        self._contract.pending_sdrs = [sdr]
 
     def _side_cust_not_exists(self):
         sdr_manager.Organization.objects.filter.return_value = []
@@ -141,30 +115,61 @@ class SDRManagerTestCase(TestCase):
             }]
         }
 
-    def _mod_inc_corr(self, sdr):
-        sdr['correlationNumber'] = 2
-        sdr['timestamp'] = '2015-10-20T17:31:57.838123'
+    def _side_inv_time(self):
+        self._contract.last_usage = datetime.strptime('2016-05-01 11:10:01.234', '%Y-%m-%d %H:%M:%S.%f')
 
-    def _mod_inv_time(self, sdr):
-        self._mod_inc_corr(sdr)
-        sdr['timestamp'] = '1980-05-01 11:10:01.234'
+    def _side_inv_order(self):
+        sdr_manager.Order.objects.get.side_effect = Exception()
+
+    def _side_inv_product(self):
+        self._order.get_product_contract.side_effect = Exception()
+
+    def _mod_inc_corr(self, sdr):
+        sdr['usageCharacteristic'][2]['value'] = '2'
+        sdr['date'] = '2015-10-20T17:31:57.838123'
 
     def _mod_inv_value(self, sdr):
-        sdr['value'] = 'a'
+        sdr['usageCharacteristic'][3]['value'] = 'a'
+
+    def _mod_no_chars(self, sdr):
+        del sdr['usageCharacteristic']
+
+    def _mod_inv_state(self, sdr):
+        sdr['status'] = 'Rated'
+
+    def _mod_multiple_values(self, sdr):
+        sdr['usageCharacteristic'].append({
+            'name': 'unit',
+            'value': 'invocation'
+        })
+
+    def _mod_missing_values(self, sdr):
+        sdr['usageCharacteristic'] = [{
+            'name': 'unit',
+            'value': 'invocation'
+        }]
+
+    def _mod_no_party(self, sdr):
+        del sdr['relatedParty']
 
     @parameterized.expand([
         ('basic', ),
-        ('applied',  0, 1, _mod_inc_corr, _side_create_applied),
-        ('pending',  1, 2, _mod_inc_corr, _side_create_pending),
-        ('inv_value', 0, 1, _mod_inv_value, None, ValueError, 'The provided value is not a valid number'),
-        ('customer_not_existing', 0, 1, None, _side_cust_not_exists, ValueError, 'The specified customer test_user does not exist'),
-        ('user_not_auth', 0, 1, None, _side_user_not_auth, PermissionDenied, "You don't belong to the customer organization"),
-        ('inv_corr', 0, 1, _mod_inc_corr, None, ValueError, 'Invalid correlation number, expected: 1'),
-        ('inv_time', 0, 1, _mod_inv_time, _side_create_applied, ValueError, 'The provided timestamp specifies a lower timing than the last SDR received'),
-        ('inv_purch', 0, 1, None, _side_inv_purchase, ValueError, 'The pricing model of the offering does not define pay-per-use components'),
-        ('inv_label', 0, 1, None, _side_inv_label, ValueError, 'The specified unit is not included in the pricing model')
+        ('inv_value', _mod_inv_value, None, ValueError, 'The provided value is not a valid number'),
+        ('customer_not_existing', None, _side_cust_not_exists, ValueError, 'The specified customer test_user does not exist'),
+        ('user_not_auth', None, _side_user_not_auth, PermissionDenied, "You don't belong to the customer organization"),
+        ('inv_corr', _mod_inc_corr, None, ValueError, 'Invalid correlation number, expected: 1'),
+        ('inv_time', None, _side_inv_time, ValueError, 'The provided timestamp specifies a lower timing than the last SDR received'),
+        ('inv_purch', None, _side_inv_purchase, ValueError, 'The pricing model of the offering does not define pay-per-use components'),
+        ('inv_label', None, _side_inv_label, ValueError, 'The specified unit is not included in the pricing model'),
+        ('inv_state', _mod_inv_state, None, ValueError, 'Invalid initial status, must be Received'),
+        ('missing_chars', _mod_no_chars, None, ValueError, 'Missing required field usageCharacteristic'),
+        ('multiple_values', _mod_multiple_values, None, ValueError, 'Only a value is supported for characteristic unit'),
+        ('missing_value', _mod_missing_values, None, ValueError, 'Missing mandatory characteristics, must be: orderId, productId, correlationNumber, unit, value'),
+        ('missing_party', _mod_no_party, None, ValueError, 'Missing required field relatedParty'),
+        ('inv_order', None, _side_inv_order, ValueError, 'Invalid orderId, the order does not exists'),
+        ('inv_product', None, _side_inv_product, ValueError, 'Invalid productId, the contract does not exist')
     ])
-    def test_sdr_feeding(self, name, pos=0, pending=1, mod=None, side_effect=None, err_type=None, err_msg=None):
+    def test_sdr_feeding(self, name, mod=None, side_effect=None, err_type=None, err_msg=None):
 
         sdr = deepcopy(BASIC_SDR)
 
@@ -174,11 +179,11 @@ class SDRManagerTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        sdr_mng = sdr_manager.SDRManager(self._user, self._order, self._contract)
+        sdr_mng = sdr_manager.SDRManager(self._user)
 
         error = None
         try:
-            sdr_mng.include_sdr(sdr)
+            sdr_mng.validate_sdr(sdr)
         except Exception as e:
             error = e
 
@@ -186,63 +191,17 @@ class SDRManagerTestCase(TestCase):
             self.assertTrue(error is None)
             sdr_manager.Organization.objects.filter.assert_called_once_with(name='test_user')
 
-            self.assertEqual(len(self._contract.pending_sdrs), pending)
+            sdr_manager.Order.objects.get.assert_called_once_with(order_id='1')
+            self._order.get_product_contract.assert_called_once_with('2')
 
-            loaded_sdr = self._contract.pending_sdrs[pos]
-            self.assertEquals(loaded_sdr, sdr)
+            self.assertEquals(int(sdr['usageCharacteristic'][2]['value']) + 1, self._contract.correlation_number)
+            self.assertEquals(
+                datetime.strptime('2015-10-20 17:31:57.100', '%Y-%m-%d %H:%M:%S.%f'), self._contract.last_usage)
 
             self._order.save.assert_called_once_with()
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
-
-    def _include_datetimes(self, sdrs):
-        stored_sdrs = []
-        for sdr in sdrs:
-            pattern = '%Y-%m-%dT%H:%M:%S.%f' if 'T' in sdr['timestamp'] else '%Y-%m-%d %H:%M:%S.%f'
-            new_sdr = deepcopy(sdr)
-            new_sdr['timestamp'] = datetime.strptime(sdr['timestamp'], pattern)
-            stored_sdrs.append(new_sdr)
-        return stored_sdrs
-
-    def _add_pending(self):
-        self._contract.pending_sdrs = self._include_datetimes([BASIC_SDR, SDR2, SDR3, SDR4])
-        self._contract.applied_sdrs = []
-
-    def _add_applied(self):
-        self._contract.pending_sdrs = []
-        self._contract.applied_sdrs = self._include_datetimes([BASIC_SDR, SDR2, SDR3, SDR4])
-
-    def _not_auth(self):
-        self._user.is_staff = False
-
-    @parameterized.expand([
-        ('basic', [BASIC_SDR, SDR2, SDR3, SDR4], None, None, None, _add_pending),
-        ('from_to', [SDR2, SDR3], '2015-10-21 17:31:57.0', '2015-10-24T00:00:00.0', None, _add_applied),
-        ('unit', [SDR2], None, None, 'call', _add_pending),
-        ('not_auth', [], None, None, None, _not_auth, PermissionDenied, 'You are not authorized to read accounting info of the given order'),
-        ('invalid_from', [], 'inv', None, None, None, ValueError, 'Invalid "from" parameter, must be a datetime'),
-        ('invalid_to', [], None, 'inv', None, None, ValueError, 'Invalid "to" parameter, must be a datetime')
-    ])
-    def test_sdr_retrieving(self, name, exp_response, from_, to, unit, side_effect=None, err_type=None, err_msg=None):
-
-        if side_effect is not None:
-            side_effect(self)
-
-        sdr_mng = sdr_manager.SDRManager(self._user, self._order, self._contract)
-
-        error = None
-        try:
-            response = sdr_mng.get_sdrs(from_, to, unit)
-        except Exception as e:
-            error = e
-
-        if err_type is None:
-            self.assertTrue(error is None)
-            self.assertEquals(exp_response, response)
-        else:
-            self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(error), err_msg)
 
 
 BASIC_USAGE = {

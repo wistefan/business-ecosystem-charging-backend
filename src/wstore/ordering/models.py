@@ -48,10 +48,11 @@ class Contract(models.Model):
     last_charge = models.DateTimeField(blank=True, null=True)
     # List with the made charges
     charges = ListField()
-    # List with the charged SDRs for that offering
-    applied_sdrs = ListField()
-    # List the pending SDRs for that offering
-    pending_sdrs = ListField()
+
+    # Usage fields
+    correlation_number = models.IntegerField(default=0)
+    last_usage = models.DateTimeField(blank=True, null=True)
+
     # Revenue sharing product class
     revenue_class = models.CharField(max_length=15, blank=True, null=True)
 
