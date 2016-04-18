@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -57,7 +57,7 @@ class RSSAdaptor:
                 'application': cdr['offering'],
                 'transactionType': 'C',
                 'event': cdr['event'],
-                'referenceCode': cdr['purchase'],
+                'referenceCode': cdr['order'],
                 'description': cdr['description'],
                 'chargedAmount': cdr['cost_value'],
                 'chargedTaxAmount': cdr['tax_value'],
