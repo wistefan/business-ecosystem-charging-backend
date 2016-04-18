@@ -52,7 +52,7 @@ class RSSAdaptorTestCase(TestCase):
         rss_ad.send_cdr([{
             'provider': 'test_provider',
             'correlation': '2',
-            'purchase': '1234567890',
+            'order': '1234567890',
             'offering': 'test_offering',
             'product_class': 'SaaS',
             'description': 'The description',
