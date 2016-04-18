@@ -155,7 +155,7 @@ class CDRGenerationTestCase(TestCase):
         contract = MagicMock()
         contract.revenue_class = 'one time'
         contract.offering.off_id = '2'
-        contract.product_id = '3'
+        contract.item_id = '3'
         contract.pricing_model = {
             'general_currency': 'EUR'
         }

@@ -55,7 +55,7 @@ class CDRManager(object):
         return {
             'provider': cdr_info['provider'],
             'correlation': unicode(corr_number),
-            'order': self._order.order_id + ' ' + self._contract.product_id,
+            'order': self._order.order_id + ' ' + self._contract.item_id,
             'offering': cdr_info['offering'],
             'product_class': cdr_info['product_class'],
             'description': cdr_info['description'],
