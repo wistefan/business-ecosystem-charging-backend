@@ -299,15 +299,16 @@ class UsageClientTestCase(TestCase):
     def test_update_usage_state(self):
         # Create Mocks
         status = 'Rated'
-        expected_json = deepcopy(BASIC_USAGE)
-        expected_json['status'] = status
+        expected_json = {
+            'status': status
+        }
         client = usage_client.UsageClient()
 
-        self._test_patch(expected_json, client.update_usage_state, (status, deepcopy(BASIC_USAGE)))
+        self._test_patch(expected_json, client.update_usage_state, (BASIC_USAGE['id'], status))
 
     def test_update_usage_invalid_state(self):
         client = usage_client.UsageClient()
-        self._test_invalid_state(client.update_usage_state, ('invalid', BASIC_USAGE), {})
+        self._test_invalid_state(client.update_usage_state, (BASIC_USAGE['id'], 'invalid'), {})
 
     def test_rate_usage(self):
         timestamp = '2016-04-15'
@@ -317,25 +318,26 @@ class UsageClientTestCase(TestCase):
         currency = 'EUR'
         product_url = usage_client.settings.INVENTORY + '/api/productInventory/v2/product/' + self._product_id
 
-        expected_json = deepcopy(BASIC_USAGE)
-        expected_json['status'] = 'Rated'
-        expected_json['ratedProductUsage'] = [{
-            'ratingDate': timestamp,
-            'usageRatingTag': 'usage',
-            'isBilled': False,
-            'ratingAmountType': 'Total',
-            'taxIncludedRatingAmount': price,
-            'taxExcludedRatingAmount': duty_free,
-            'taxRate': rate,
-            'isTaxExempt': False,
-            'offerTariffType': 'Normal',
-            'currencyCode': currency,
-            'productRef': product_url
-        }]
+        expected_json = {
+            'status': 'Rated',
+            'ratedProductUsage': [{
+                'ratingDate': timestamp,
+                'usageRatingTag': 'usage',
+                'isBilled': False,
+                'ratingAmountType': 'Total',
+                'taxIncludedRatingAmount': price,
+                'taxExcludedRatingAmount': duty_free,
+                'taxRate': rate,
+                'isTaxExempt': False,
+                'offerTariffType': 'Normal',
+                'currencyCode': currency,
+                'productRef': product_url
+            }]
+        }
 
         client = usage_client.UsageClient()
         self._test_patch(
             expected_json,
             client.rate_usage,
-            (deepcopy(BASIC_USAGE), timestamp, duty_free, price, rate, currency, self._product_id)
+            (BASIC_USAGE['id'], timestamp, duty_free, price, rate, currency, self._product_id)
         )

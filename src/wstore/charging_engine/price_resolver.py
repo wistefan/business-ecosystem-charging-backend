@@ -48,9 +48,19 @@ class PriceResolver:
 
             for sdr in accounting_info:
                 if sdr['unit'].lower() == component['unit'].lower():
-                    related_accounting.append(sdr)
-                    partial_price += (Decimal(sdr['value']) * Decimal(component['value']))
-                    partial_duty_free += (Decimal(sdr['value']) * Decimal(component['duty_free']))
+                    sdr_info = {
+                        'usage_id': sdr['usage_id']
+                    }
+                    comp_price = (Decimal(sdr['value']) * Decimal(component['value']))
+                    partial_price += comp_price
+                    sdr_info['price'] = unicode(comp_price)
+
+                    comp_duty_free = (Decimal(sdr['value']) * Decimal(component['duty_free']))
+                    partial_duty_free += comp_duty_free
+                    sdr_info['duty_free'] = unicode(comp_duty_free)
+
+                    # Save the information of the SDR document which is needed for further precessing
+                    related_accounting.append(sdr_info)
 
             # Include the applied SDRs
             self._applied_sdrs.append({
@@ -93,7 +103,9 @@ class PriceResolver:
 
         if 'pay_per_use' in pricing_model:
             # Calculate the payment associated with the price component
-            partial_price, partial_duty_free = self._pay_per_use_preprocesing(pricing_model['pay_per_use'], accounting_info)
+            partial_price, partial_duty_free = self._pay_per_use_preprocesing(
+                pricing_model['pay_per_use'], accounting_info)
+
             price += partial_price
             duty_free += partial_duty_free
 

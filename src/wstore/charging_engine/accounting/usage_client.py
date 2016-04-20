@@ -77,29 +77,31 @@ class UsageClient:
         # Filter only the usage belonging to the specified product
         return [usage_doc for usage_doc in raw_usage if self._belongs_to_product(usage_doc, product_id)]
 
-    def _patch_usage(self, usage):
-        path = 'api/usageManagement/v2/usage/' + unicode(usage['id'])
+    def _patch_usage(self, usage_id, patch):
+        path = 'api/usageManagement/v2/usage/' + unicode(usage_id)
         url = urljoin(self._usage_api, path)
 
-        r = requests.patch(url, json=usage)
+        r = requests.patch(url, json=patch)
         r.raise_for_status()
 
-    def update_usage_state(self, state, usage):
+    def update_usage_state(self, usage_id, state):
         """
         Updates the status of a given usage
+        :param usage_id: usage to be modified
         :param state: new status
-        :param usage: usage to be modified
         """
         self._validate_state(state)
 
         # Update document state
-        usage['status'] = state
-        self._patch_usage(usage)
+        patch = {
+            'status': state
+        }
+        self._patch_usage(usage_id, patch)
 
-    def rate_usage(self, usage, timestamp, duty_free, price, rate, currency, product_id):
+    def rate_usage(self, usage_id, timestamp, duty_free, price, rate, currency, product_id):
         """
         Rates a product with the amount to be charge to the customer based on the given usage
-        :param usage: usage where the rate is going to be included
+        :param usage_id: usage where the rate is going to be included
         :param timestamp: Timestamp when the used was rated
         :param duty_free: rate value without taxes
         :param price: rate value with taxes
@@ -113,19 +115,21 @@ class UsageClient:
             inventory_url += '/'
 
         product_url = urljoin(inventory_url, 'api/productInventory/v2/product/' + unicode(product_id))
-        usage['status'] = 'Rated'
-        usage['ratedProductUsage'] = [{
-            'ratingDate': timestamp,
-            'usageRatingTag': 'usage',
-            'isBilled': False,
-            'ratingAmountType': 'Total',
-            'taxIncludedRatingAmount': price,
-            'taxExcludedRatingAmount': duty_free,
-            'taxRate': rate,
-            'isTaxExempt': False,
-            'offerTariffType': 'Normal',
-            'currencyCode': currency,
-            'productRef': product_url
-        }]
+        patch = {
+            'status': 'Rated',
+            'ratedProductUsage': [{
+                'ratingDate': timestamp,
+                'usageRatingTag': 'usage',
+                'isBilled': False,
+                'ratingAmountType': 'Total',
+                'taxIncludedRatingAmount': price,
+                'taxExcludedRatingAmount': duty_free,
+                'taxRate': rate,
+                'isTaxExempt': False,
+                'offerTariffType': 'Normal',
+                'currencyCode': currency,
+                'productRef': product_url
+            }]
+        }
 
-        self._patch_usage(usage)
+        self._patch_usage(usage_id, patch)

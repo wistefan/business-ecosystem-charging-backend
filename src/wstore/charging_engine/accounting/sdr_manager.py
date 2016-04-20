@@ -58,7 +58,7 @@ class SDRManager(object):
 
         return time_stamp
 
-    def _get_sdr_values(self, sdr):
+    def get_sdr_values(self, sdr):
         expected_fields = ['orderid', 'productid', 'correlationnumber', 'unit', 'value']
         values = {}
 
@@ -82,7 +82,7 @@ class SDRManager(object):
         if sdr['status'].lower() != 'received':
             raise ValueError('Invalid initial status, must be Received')
 
-        sdr_values = self._get_sdr_values(sdr)
+        sdr_values = self.get_sdr_values(sdr)
         order, contract = self._get_order_contract(sdr_values['orderid'], sdr_values['productid'])
 
         if order is None:

@@ -21,13 +21,14 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import time
 import threading
 import importlib
 from bson import ObjectId
 from datetime import datetime, timedelta
 
 from django.conf import settings
+from wstore.charging_engine.accounting.sdr_manager import SDRManager
+from wstore.charging_engine.accounting.usage_client import UsageClient
 
 from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
@@ -149,9 +150,20 @@ class ChargingEngine:
             related_model['subscription'] = updated_subscriptions
 
     def _end_use_charge(self, contract, transaction):
-        # Move SDR from pending to applied
-        contract.applied_sdrs.extend(contract.pending_sdrs)
-        contract.pending_sdrs = []
+        # Change applied usage documents SDR Guided to Rated
+        usage_client = UsageClient()
+        for sdr_info in transaction['applied_accounting']:
+            for sdr in sdr_info['accounting']:
+
+                usage_client.rate_usage(
+                    sdr['usage_id'],
+                    unicode(contract.last_charge),
+                    sdr['duty_free'],
+                    sdr['price'],
+                    sdr_info['model']['tax_rate'],
+                    transaction['currency'],
+                    contract.product_id
+                )
 
         transaction['related_model']['accounting'] = transaction['applied_accounting']
 
@@ -321,6 +333,17 @@ class ChargingEngine:
 
         return self._execute_renovation_transactions(transactions, 'There is not recurring payments to renovate')
 
+    def _parse_raw_accounting(self, usage):
+        sdr_manager = SDRManager(self._order.customer)
+        sdrs = []
+
+        for usage_document in usage:
+            sdr_values = sdr_manager.get_sdr_values(usage_document)
+            sdr_values.update({'usage_id': usage_document['id']})
+            sdrs.append(sdr_values)
+
+        return sdrs
+
     def _process_use_charge(self, contracts):
         """
         Resolves usage charges, which includes pay-per-use payments
@@ -329,20 +352,25 @@ class ChargingEngine:
         self._order.state = 'pending'
 
         transactions = []
+        usage_client = UsageClient()
         for contract in contracts:
-            if 'pay_per_use' not in contract.pricing_model or not len(contract.pending_sdrs):
+            if 'pay_per_use' not in contract.pricing_model:
                 continue
 
             related_model = {
                 'pay_per_use': contract.pricing_model['pay_per_use']
             }
 
-            self._append_transaction(
-                transactions,
-                contract,
-                related_model,
-                accounting=contract.pending_sdrs
-            )
+            accounting = self._parse_raw_accounting(usage_client.get_customer_usage(
+                    self._order.owner_organization.name, contract.product_id, state='Guided'))
+
+            if len(accounting) > 0:
+                self._append_transaction(
+                    transactions,
+                    contract,
+                    related_model,
+                    accounting=accounting
+                )
 
         return self._execute_renovation_transactions(transactions, 'There is not usage payments to renovate')
 

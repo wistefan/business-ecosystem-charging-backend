@@ -18,21 +18,21 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from __future__ import unicode_literals
 from __future__ import absolute_import
-from django.core.exceptions import PermissionDenied
 
 import json
-from wstore.ordering.errors import OrderingError
-import wstore.store_commons.utils.http
 from bson.objectid import ObjectId
 from datetime import datetime
-
 from mock import MagicMock, call
 from nose_parameterized import parameterized
 
 from django.test import TestCase
 from django.test.client import RequestFactory
+from django.core.exceptions import PermissionDenied
 
+import wstore.store_commons.utils.http
+from wstore.ordering.errors import OrderingError
 from wstore.charging_engine import charging_engine
 from wstore.charging_engine import views
 from wstore.store_commons.utils.testing import decorator_mock
@@ -129,6 +129,7 @@ class ChargingEngineTestCase(TestCase):
         contract.item_id = info['item_id']
         contract.charges = []
         contract.pricing_model = info['pricing']
+        contract.product_id = 'product'
         return contract
 
     def _set_initial_contracts(self):
@@ -246,7 +247,19 @@ class ChargingEngineTestCase(TestCase):
             'item_id': '1',
             'pricing': self._get_pay_use()
         })
-        contract.pending_sdrs = [{
+
+        # Mock usage client
+        charging_engine.UsageClient = MagicMock()
+        charging_engine.UsageClient().get_customer_usage.return_value = [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }, {
+            'id': '3'
+        }]
+
+        charging_engine.SDRManager = MagicMock()
+        charging_engine.SDRManager().get_sdr_values.side_effect = [{
             'unit': 'call',
             'value': '10'
         }, {
@@ -282,11 +295,13 @@ class ChargingEngineTestCase(TestCase):
                     'duty_free': '8.33'
                 },
                 'accounting': [{
-                    'unit': 'call',
-                    'value': '10'
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
                 }, {
-                    'unit': 'call',
-                    'value': '10'
+                    'usage_id': '3',
+                    'price': '100.00',
+                    'duty_free': '83.30',
                 }],
                 'price': '200.00',
                 'duty_free': '166.60'
@@ -446,18 +461,12 @@ class ChargingEngineTestCase(TestCase):
         self._validate_subscription_calls()
 
     def _validate_end_usage_payment(self, transactions):
-        self.assertEquals([{
-            'unit': 'call',
-            'value': '10'
-        }, {
-            'unit': 'invocation',
-            'value': '1'
-        }, {
-            'unit': 'call',
-            'value': '10'
-        }], self._order.contracts[0].applied_sdrs)
-
-        self.assertEquals([], self._order.contracts[0].pending_sdrs)
+        self.assertEquals([
+            call('1', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product'),
+            call('3', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product')
+        ],
+            charging_engine.UsageClient().rate_usage.call_args_list
+        )
 
 
 
