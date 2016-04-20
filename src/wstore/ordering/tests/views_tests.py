@@ -293,7 +293,7 @@ class RenovationCollectionTestCase(TestCase):
             'result': 'error',
             'error': 'Value error'
         }, _charging_engine_value_error),
-        ('charging_error_ordering', RENOVATION_DATA, None, None, 400, {
+        ('charging_error_ordering', RENOVATION_DATA, None, None, 422, {
             'result': 'error',
             'error': 'OrderingError: ordering error'
         }, _charging_engine_ordering_error),
