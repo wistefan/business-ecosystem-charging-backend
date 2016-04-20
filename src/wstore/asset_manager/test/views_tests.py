@@ -136,7 +136,7 @@ class AssetCollectionTestCase(TestCase):
             self.assertEquals(body_response, return_value)
         else:
             self.assertEqual(type(body_response), dict)
-            self.assertEqual(body_response['message'], error_msg)
+            self.assertEqual(body_response['error'], error_msg)
             self.assertEqual(body_response['result'], 'error')
 
     def _not_found_asset(self):
@@ -153,19 +153,19 @@ class AssetCollectionTestCase(TestCase):
             'id': '1111'
         }, 200),
         ('no_provider', {
-            'message': 'You are not authorized to retrieve digital asset information',
+            'error': 'You are not authorized to retrieve digital asset information',
             'result': 'error'
         }, 403, _no_provider, False),
         ('not_found', {
-            'message': 'Not found',
+            'error': 'Not found',
             'result': 'error'
         }, 404, _not_found_asset),
         ('forbidden', {
-            'message': 'Not authorized',
+            'error': 'Not authorized',
             'result': 'error'
         }, 403, _not_owner_provider),
         ('exception', {
-            'message': 'An unexpected error occurred',
+            'error': 'An unexpected error occurred',
             'result': 'error'
         }, 500, _call_exception_single)
     ])
@@ -265,7 +265,7 @@ class AssetCollectionTestCase(TestCase):
                 })
             else:
                 self.assertEqual(body_response, {
-                    'message': msg,
+                    'error': msg,
                     'result': 'error'
                 })
 
@@ -305,13 +305,13 @@ class AssetCollectionTestCase(TestCase):
             content = data
 
         def validator(request, body_response):
-            self.assertEqual(body_response['message'], msg)
-
             if not error:
+                self.assertEqual(body_response['message'], msg)
                 views.ProductValidator.assert_called_once_with()
                 self.assertEqual(body_response['result'], 'correct')
                 self.validator_instance.validate.assert_called_once_with(data['action'], self.user.userprofile.current_organization, data['product'])
             else:
+                self.assertEqual(body_response['error'], msg)
                 self.assertEqual(body_response['result'], 'error')
 
         self._test_post_api(views.ValidateCollection, content, 'application/json', side_effect, code, validator)

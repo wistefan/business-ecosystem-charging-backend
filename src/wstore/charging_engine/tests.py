@@ -530,12 +530,12 @@ MISSING_PAYMENT = {
 
 MISSING_RESP = {
     'result': 'error',
-    'message': 'The payment has been canceled: Missing required field. It must contain reference, paymentId, and payerId'
+    'error': 'The payment has been canceled: Missing required field. It must contain reference, paymentId, and payerId'
 }
 
 LOCK_CLOSED_RESP = {
     'result': 'error',
-    'message': 'The payment has been canceled: The timeout set to process the payment has finished'
+    'error': 'The payment has been canceled: The timeout set to process the payment has finished'
 }
 
 
@@ -657,17 +657,17 @@ class PayPalConfirmationTestCase(TestCase):
         ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, True),
         ('invalid_ref', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled: The provided reference does not identify a valid order'
+            'error': 'The payment has been canceled: The provided reference does not identify a valid order'
         }, None, _invalid_ref, True),
         ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _lock_closed, True),
         ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, True, True),
         ('unauthorized', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled: You are not authorized to execute the payment'
+            'error': 'The payment has been canceled: You are not authorized to execute the payment'
         }, None, _unauthorized, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled due to an unexpected error'
+            'error': 'The payment has been canceled due to an unexpected error'
         }, None, _exception, True, True)
     ])
     def test_paypal_confirmation(self, name, data, expected_resp, completed=None, side_effect=None, error=False, to_del=False):
@@ -749,22 +749,22 @@ BASIC_SDR = {
 
 INV_ORDERID_RESP = {
     'result': 'error',
-    'message': 'Invalid orderId, the order does not exists'
+    'error': 'Invalid orderId, the order does not exists'
 }
 
 INV_PRODUCTID_RESP = {
     'result': 'error',
-    'message': 'Invalid productId, the contract does not exist'
+    'error': 'Invalid productId, the contract does not exist'
 }
 
 MANAGER_DENIED_RESP = {
     'result': 'error',
-    'message': 'Permission denied'
+    'error': 'Permission denied'
 }
 
 MANAGER_VALUE_RESP = {
     'result': 'error',
-    'message': 'Value error'
+    'error': 'Value error'
 }
 
 
@@ -817,13 +817,13 @@ class SDRCollectionTestCase(TestCase):
         }),
         ('invalid_json', 'invalid', 400, {
             'result': 'error',
-            'message': 'The request does not contain a valid JSON object'
+            'error': 'The request does not contain a valid JSON object'
         }),
         ('manager_permission_denied', BASIC_SDR, 403, MANAGER_DENIED_RESP, _permission_denied),
         ('manager_value_error', BASIC_SDR, 422, MANAGER_VALUE_RESP, _value_error),
         ('manager_exception', BASIC_SDR, 500, {
             'result': 'error',
-            'message': 'The SDR document could not be processed due to an unexpected error'
+            'error': 'The SDR document could not be processed due to an unexpected error'
         }, _exception)
     ])
     def test_feed_sdr(self, name, data, exp_code, exp_response, side_effect=None):
@@ -929,4 +929,4 @@ class PayPalRefundTestCase(TestCase):
             for sale_id in sales_ids:
                 self._payment_inst.refund.assert_any_call(sale_id)
         else:
-            self.assertEquals(resp, {'message': 'Sales cannot be refunded', 'result': 'error'})
+            self.assertEquals(resp, {'error': 'Sales cannot be refunded', 'result': 'error'})

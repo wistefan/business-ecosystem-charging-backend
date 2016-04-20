@@ -89,15 +89,15 @@ class OrderingCollectionTestCase(TestCase):
         }),
         ('invalid_data', 'invalid', None, 400, {
             'result': 'error',
-            'message': 'The provided data is not a valid JSON object'
+            'error': 'The provided data is not a valid JSON object'
         }, False),
         ('ordering_error', {}, None, 400, {
             'result': 'error',
-            'message': 'order error'
+            'error': 'order error'
         }, True, True, _ordering_error),
         ('exception', {}, None, 500, {
             'result': 'error',
-            'message': 'Your order could not be processed'
+            'error': 'Your order could not be processed'
         }, True, True, _exception)
     ])
     def test_create_order(self, name, data, redirect_url, exp_code, exp_response, called=True, failed=False, side_effect=None):
@@ -170,15 +170,15 @@ class InventoryCollectionTestCase(TestCase):
         }, 200, CORRECT_RESP, False),
         ('invalid_data', 'invalid', 400, {
             'result': 'error',
-            'message': 'The provided data is not a valid JSON object'
+            'error': 'The provided data is not a valid JSON object'
         }, False),
         ('missing_contract', BASIC_PRODUCT_EVENT, 404, {
             'result': 'error',
-            'message': 'There is not a contract for the specified product'
+            'error': 'There is not a contract for the specified product'
         }, False, _missing_contract),
         ('activation_failure', BASIC_PRODUCT_EVENT, 400, {
             'result': 'error',
-            'message': 'The asset has failed to be activated'
+            'error': 'The asset has failed to be activated'
         }, False, _activation_error)
     ])
     def test_activate_product(self, name, data, exp_code, exp_response, called=True, side_effect=None):
@@ -215,12 +215,12 @@ RENOVATION_DATA = {
 
 MISSING_FIELD_RESP = {
     'result': 'error',
-    'message': 'Missing required field, must contain name, id  and priceType fields'
+    'error': 'Missing required field, must contain name, id  and priceType fields'
 }
 
 INV_OID_RESP = {
     'result': 'error',
-    'message': 'The oid specified in the product name is not valid'
+    'error': 'The oid specified in the product name is not valid'
 }
 
 
@@ -257,7 +257,7 @@ class RenovationCollectionTestCase(TestCase):
         }, None, 'renovation', 200, CORRECT_RESP),
         ('invalid_data', 'invalid_data', None, None, 400, {
             'result': 'error',
-            'message': 'The provided data is not a valid JSON object'
+            'error': 'The provided data is not a valid JSON object'
         }),
         ('missing_name', {
             'id': '24',
@@ -279,7 +279,7 @@ class RenovationCollectionTestCase(TestCase):
         ('order_not_found', RENOVATION_DATA, None, None, 404, INV_OID_RESP, _order_not_found),
         ('invalid_product_id', RENOVATION_DATA, None, None, 404, {
             'result': 'error',
-            'message': 'The specified product id is not valid'
+            'error': 'The specified product id is not valid'
         }, _product_not_found),
         ('invalid_type', {
             'name': 'oid=1',
@@ -287,19 +287,19 @@ class RenovationCollectionTestCase(TestCase):
             'priceType': 'one time'
         }, None, None, 400, {
             'result': 'error',
-            'message': 'Invalid priceType only recurring and usage types can be renovated'
+            'error': 'Invalid priceType only recurring and usage types can be renovated'
         }),
         ('charging_error_value', RENOVATION_DATA, None, None, 400, {
             'result': 'error',
-            'message': 'Value error'
+            'error': 'Value error'
         }, _charging_engine_value_error),
         ('charging_error_ordering', RENOVATION_DATA, None, None, 400, {
             'result': 'error',
-            'message': 'OrderingError: ordering error'
+            'error': 'OrderingError: ordering error'
         }, _charging_engine_ordering_error),
         ('charging_error_unexp', RENOVATION_DATA, None, None, 500, {
             'result': 'error',
-            'message': 'An unexpected event prevented your payment to be created'
+            'error': 'An unexpected event prevented your payment to be created'
         }, _charging_engine_exception)
     ])
     def test_renovate_product(self, name, data, url, concept, exp_code, exp_response, side_effect=None):

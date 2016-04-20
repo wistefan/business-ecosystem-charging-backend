@@ -130,7 +130,7 @@ class UserEntryTestCase(TestCase):
         }),
         ('forbidden', _forbidden, 403, {
             'result': 'error',
-            'message': 'You are not authorized to retrieve user info'
+            'error': 'You are not authorized to retrieve user info'
         })
     ])
     def test_get_user(self, name, user_filler, status, response):
@@ -204,11 +204,11 @@ class UserEntryTestCase(TestCase):
         ('none', {}, 200, CORRECT_RES),
         ('forbidden', {}, 403, {
             'result': 'error',
-            'message': 'You are not authorized to update user info'
+            'error': 'You are not authorized to update user info'
         }, _forbidden),
         ('invalid_data', {}, 400, {
             'result': 'error',
-            'message': 'Invalid JSON content'
+            'error': 'Invalid JSON content'
         }, _invalid_data),
         ('incomplete',  {
             'billingAddress': {
@@ -216,7 +216,7 @@ class UserEntryTestCase(TestCase):
             }
         }, 400, {
             'result': 'error',
-            'message': 'Incomplete billing address, there is a missing field'
+            'error': 'Incomplete billing address, there is a missing field'
         }, _incomplete_profile)
     ])
     def test_user_update(self, name, data, status, response, side_effect=None):
