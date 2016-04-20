@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file is part of WStore.
 
@@ -42,7 +42,6 @@ class RSSAdaptorThread(threading.Thread):
 class RSSAdaptor:
 
     def send_cdr(self, cdr_info):
-
         # Build CDRs
         data = []
         for cdr in cdr_info:
@@ -57,7 +56,7 @@ class RSSAdaptor:
                 'application': cdr['offering'],
                 'transactionType': 'C',
                 'event': cdr['event'],
-                'referenceCode': cdr['purchase'],
+                'referenceCode': cdr['order'],
                 'description': cdr['description'],
                 'chargedAmount': cdr['cost_value'],
                 'chargedTaxAmount': cdr['tax_value'],
@@ -67,7 +66,12 @@ class RSSAdaptor:
             })
 
         # Make request
-        url = settings.RSS + 'rss/cdrs'
+        url = settings.RSS
+        if not url.endswith('/'):
+            url += '/'
+
+        url += 'rss/cdrs'
+
         headers = {
             'content-type': 'application/json',
             'X-Nick-Name': settings.STORE_NAME,
@@ -81,7 +85,7 @@ class RSSAdaptor:
             db = get_database_connection()
             # Restore correlation numbers
             for cdr in cdr_info:
-                org = Organization.objects.get(actor_id=cdr['provider'])
+                org = Organization.objects.get(name=cdr['provider'])
                 db.wstore_organization.find_and_modify(
                     query={'_id': ObjectId(org.pk)},
                     update={'$inc': {'correlation_number': -1}}

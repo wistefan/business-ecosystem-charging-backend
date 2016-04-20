@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 from bson import ObjectId
+from decimal import Decimal
 
 from django.conf import settings
 
@@ -54,13 +55,13 @@ class CDRManager(object):
         return {
             'provider': cdr_info['provider'],
             'correlation': unicode(corr_number),
-            'order': self._order.order_id + ' ' + self._contract.product_id,
+            'order': self._order.order_id + ' ' + self._contract.item_id,
             'offering': cdr_info['offering'],
             'product_class': cdr_info['product_class'],
             'description': cdr_info['description'],
             'cost_currency': currency,
             'cost_value': unicode(part['value']),
-            'tax_value': unicode(part['value'] - part['duty_free']),
+            'tax_value': unicode(Decimal(part['value']) - Decimal(part['duty_free'])),
             'time_stamp': cdr_info['time_stamp'],
             'customer': cdr_info['customer'],
             'event': event
