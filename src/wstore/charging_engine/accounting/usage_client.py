@@ -113,6 +113,7 @@ class UsageClient:
             inventory_url += '/'
 
         product_url = urljoin(inventory_url, 'api/productInventory/v2/product/' + unicode(product_id))
+        usage['status'] = 'Rated'
         usage['ratedProductUsage'] = [{
             'ratingDate': timestamp,
             'usageRatingTag': 'usage',

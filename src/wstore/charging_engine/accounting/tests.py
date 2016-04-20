@@ -318,6 +318,7 @@ class UsageClientTestCase(TestCase):
         product_url = usage_client.settings.INVENTORY + '/api/productInventory/v2/product/' + self._product_id
 
         expected_json = deepcopy(BASIC_USAGE)
+        expected_json['status'] = 'Rated'
         expected_json['ratedProductUsage'] = [{
             'ratingDate': timestamp,
             'usageRatingTag': 'usage',
