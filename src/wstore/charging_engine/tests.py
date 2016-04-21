@@ -298,10 +298,12 @@ class ChargingEngineTestCase(TestCase):
                     'usage_id': '1',
                     'price': '100.00',
                     'duty_free': '83.30',
+                    'value': '10'
                 }, {
                     'usage_id': '3',
                     'price': '100.00',
                     'duty_free': '83.30',
+                    'value': '10'
                 }],
                 'price': '200.00',
                 'duty_free': '166.60'

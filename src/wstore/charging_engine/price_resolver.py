@@ -49,7 +49,8 @@ class PriceResolver:
             for sdr in accounting_info:
                 if sdr['unit'].lower() == component['unit'].lower():
                     sdr_info = {
-                        'usage_id': sdr['usage_id']
+                        'usage_id': sdr['usage_id'],
+                        'value': sdr['value']
                     }
                     comp_price = (Decimal(sdr['value']) * Decimal(component['value']))
                     partial_price += comp_price
