@@ -101,8 +101,11 @@ class PayPalConfirmation(Resource):
         inventory_client = InventoryClient()
 
         for transaction in transactions:
-            contract = order.get_item_contract(transaction['item'])
-            inventory_client.activate_product(contract.product_id)
+            try:
+                contract = order.get_item_contract(transaction['item'])
+                inventory_client.activate_product(contract.product_id)
+            except:
+                pass
 
     # This method is used to receive the PayPal confirmation
     # when the customer is paying using his PayPal account
