@@ -57,6 +57,22 @@ class ChargingEngine:
             'use': self._end_use_charge
         }
 
+    def _initial_charge_timeout(self, order):
+        ordering_client = OrderingClient()
+        raw_order = ordering_client.get_order(order.order_id)
+
+        # Setting all the items as Failed, set the whole order as failed
+        # ordering_client.update_state(raw_order, 'Failed')
+        ordering_client.update_items_state(raw_order, 'Failed')
+
+        order.delete()
+
+    def _renew_charge_timeout(self, order):
+        order.state = 'paid'
+        order.pending_payment = {}
+
+        order.save()
+
     def _timeout_handler(self):
 
         db = get_database_connection()
@@ -74,23 +90,18 @@ class ChargingEngine:
 
             # Only rollback if the state is pending
             if pre_value['state'] == 'pending':
-                # Refresh the purchase
                 order = Order.objects.get(pk=self._order.pk)
+                timeout_processors = {
+                    'initial': self._initial_charge_timeout,
+                    'renovation': self._renew_charge_timeout,
+                    'use': self._renew_charge_timeout
+                }
+                timeout_processors[self._concept](order)
 
-                ordering_client = OrderingClient()
-                raw_order = ordering_client.get_order(order.order_id)
-
-                # Setting all the items as Failed, set the whole order as failed
-                # ordering_client.update_state(raw_order, 'Failed')
-                ordering_client.update_items_state(raw_order, 'Failed')
-
-                order.delete()
-
-            else:
-                db.wstore_order.find_one_and_update(
-                    {'_id': ObjectId(self._order.pk)},
-                    {'$set': {'_lock': False}}
-                )
+            db.wstore_order.find_one_and_update(
+                {'_id': ObjectId(self._order.pk)},
+                {'$set': {'_lock': False}}
+            )
 
     def _charge_client(self, transactions):
 

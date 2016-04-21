@@ -147,19 +147,19 @@ class PayPalConfirmation(Resource):
             pending_info = order.pending_payment
             concept = pending_info['concept']
 
-            # Check that the request user is authorized to end the payment
-            if request.user.userprofile.current_organization != order.owner_organization:
-                raise PaymentError('You are not authorized to execute the payment')
-
-            # If the purchase state value is different from pending means that
-            # the timeout function has completely ended before acquire the resource
+            # If the order state value is different from pending means that
+            # the timeout function has completely ended before acquiring the resource
             # so _lock is set to false and the view ends
-            if order.state != 'pending':
+            if pre_value['state'] != 'pending':
                 db.wstore_order.find_one_and_update(
                     {'_id': ObjectId(reference)},
                     {'$set': {'_lock': False}}
                 )
                 raise PaymentError('The timeout set to process the payment has finished')
+
+            # Check that the request user is authorized to end the payment
+            if request.user.userprofile.current_organization != order.owner_organization:
+                raise PaymentError('You are not authorized to execute the payment')
 
             transactions = pending_info['transactions']
 
@@ -181,13 +181,16 @@ class PayPalConfirmation(Resource):
         except Exception as e:
 
             # Rollback the purchase if existing
-            if order is not None and raw_order is not None and concept == 'initial':
-                # Set the order to failed in the ordering API
-                # Set all items as Failed, mark the whole order as failed
-                # self.ordering_client.update_state(raw_order, 'InProgress')
-                # self.ordering_client.update_state(raw_order, 'Failed')
-                self.ordering_client.update_items_state(raw_order, 'Failed')
-                order.delete()
+            if order is not None and raw_order is not None:
+                if concept == 'initial':
+                    # Set the order to failed in the ordering API
+                    # Set all items as Failed, mark the whole order as failed
+                    self.ordering_client.update_items_state(raw_order, 'Failed')
+                    order.delete()
+                else:
+                    order.state = 'paid'
+                    order.pending_payment = {}
+                    order.save()
 
             expl = ' due to an unexpected error'
             err_code = 500

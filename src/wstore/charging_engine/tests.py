@@ -575,7 +575,8 @@ class PayPalConfirmationTestCase(TestCase):
         views.get_database_connection = MagicMock()
         self._connection_inst = MagicMock()
         self._connection_inst.wstore_order.find_one_and_update.return_value = {
-            '_lock': False
+            '_lock': False,
+            'state': 'pending'
         }
         views.get_database_connection.return_value = self._connection_inst
 
@@ -630,7 +631,10 @@ class PayPalConfirmationTestCase(TestCase):
         }
 
     def _timeout(self):
-        self._order_inst.state = 'paid'
+        self._connection_inst.wstore_order.find_one_and_update.return_value = {
+            '_lock': False,
+            'state': 'paid'
+        }
 
     def _unauthorized(self):
         self.user.userprofile.current_organization = MagicMock()
