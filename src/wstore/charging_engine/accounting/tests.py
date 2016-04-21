@@ -234,7 +234,7 @@ class UsageClientTestCase(TestCase):
         usage_client.settings.USAGE = 'http://example.com/DSUsageManagement'
         usage_client.requests = MagicMock()
         self._old_inv = usage_client.settings.INVENTORY
-        usage_client.settings.INVENTORY = 'http://example.com/DSProductInventory'
+        usage_client.settings.INVENTORY = 'http://localhost:8080/DSProductInventory'
 
         self._customer = 'test_customer'
         self._product_id = '1'
@@ -311,12 +311,17 @@ class UsageClientTestCase(TestCase):
         self._test_invalid_state(client.update_usage_state, (BASIC_USAGE['id'], 'invalid'), {})
 
     def test_rate_usage(self):
+        usage_client.Context = MagicMock()
+        context = MagicMock()
+        context.site.domain = 'http://example.com/'
+        usage_client.Context.objects.all.return_value = [context]
+
         timestamp = '2016-04-15'
         duty_free = '10'
         price = '12'
         rate = '20'
         currency = 'EUR'
-        product_url = usage_client.settings.INVENTORY + '/api/productInventory/v2/product/' + self._product_id
+        product_url = context.site.domain + 'DSProductInventory/api/productInventory/v2/product/' + self._product_id
 
         expected_json = {
             'status': 'Rated',

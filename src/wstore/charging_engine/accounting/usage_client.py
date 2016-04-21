@@ -27,6 +27,7 @@ from urlparse import urljoin
 from django.conf import settings
 
 from wstore.charging_engine.accounting.errors import UsageError
+from wstore.models import Context
 
 
 class UsageClient:
@@ -110,15 +111,15 @@ class UsageClient:
         :param product_id: Id of the product that generates the usage
         :return:
         """
-        inventory_url = settings.INVENTORY
-        if not inventory_url.endswith('/'):
-            inventory_url += '/'
+        inventory_path = settings.INVENTORY.split('/')[3]
+        ext_host = Context.objects.all()[0].site.domain
+        inventory_url = urljoin(ext_host, inventory_path + '/')
 
         product_url = urljoin(inventory_url, 'api/productInventory/v2/product/' + unicode(product_id))
         patch = {
             'status': 'Rated',
             'ratedProductUsage': [{
-                'ratingDate': timestamp,
+                'ratingDate': timestamp.replace(' ', 'T'),
                 'usageRatingTag': 'usage',
                 'isBilled': False,
                 'ratingAmountType': 'Total',
