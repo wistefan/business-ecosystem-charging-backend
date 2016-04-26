@@ -20,6 +20,7 @@
 
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from copy import deepcopy
 
 import json
 from bson.objectid import ObjectId
@@ -310,8 +311,134 @@ class ChargingEngineTestCase(TestCase):
             }]
         }]
 
+    def _set_initial_alteration_contracts(self):
+        component = {
+            'value': '10.00',
+            'unit': 'one time',
+            'tax_rate': '0.00',
+            'duty_free': '10.00'
+        }
+
+        alteration_fee = {
+            'type': 'fee',
+            'value': {
+                'value': '5.00',
+                'duty_free': '5.00'
+            },
+            'condition': {
+                'op': 'gt',
+                'value': '5.00'
+            }
+        }
+
+        alteration_fixed_discount = {
+            'type': 'discount',
+            'value': '10.00'
+        }
+
+        # Create contracts
+        # Two price components
+        contract1 = self._mock_contract({
+            'description': 'Offering 1 description',
+            'offering_pk': '111111',
+            'item_id': '1',
+            'pricing': {
+                'general_currency': 'EUR',
+                'single_payment': [deepcopy(component), deepcopy(component)]
+            }
+        })
+
+        # Conditional fee
+        contract2 = self._mock_contract({
+            'description': 'Offering 2 description',
+            'offering_pk': '222222',
+            'item_id': '2',
+            'pricing': {
+                'general_currency': 'EUR',
+                'single_payment': [deepcopy(component)],
+                'alteration': deepcopy(alteration_fee)
+            }
+        })
+
+        # Fixed percentage discount
+        contract3 = self._mock_contract({
+            'description': 'Offering 3 description',
+            'offering_pk': '333333',
+            'item_id': '3',
+            'pricing': {
+                'general_currency': 'EUR',
+                'single_payment': [deepcopy(component)],
+                'alteration': deepcopy(alteration_fixed_discount)
+            }
+        })
+
+        # Non applicable discount
+        contract4 = self._mock_contract({
+            'description': 'Offering 4 description',
+            'offering_pk': '444444',
+            'item_id': '4',
+            'pricing': {
+                'general_currency': 'EUR',
+                'single_payment': [deepcopy(component)],
+                'alteration': {
+                    'type': 'discount',
+                    'value': '10.00',
+                    'condition': {
+                        'op': 'gt',
+                        'value': '50.00'
+                    }
+                }
+            }
+        })
+
+        self._order.contracts = [contract1, contract2, contract3, contract4]
+
+        # Mock get contracts
+        self._order.get_item_contract.side_effect = self._order.contracts
+
+        return [{
+            'price': '20.00',
+            'duty_free': '20.00',
+            'description': 'Offering 1 description',
+            'currency': 'EUR',
+            'related_model': {
+                'single_payment': [deepcopy(component), deepcopy(component)]
+            },
+            'item': '1'
+        }, {
+            'price': '15.00',
+            'duty_free': '15.00',
+            'description': 'Offering 2 description',
+            'currency': 'EUR',
+            'related_model': {
+                'single_payment': [deepcopy(component)],
+                'alteration': deepcopy(alteration_fee)
+            },
+            'item': '2'
+        }, {
+            'price': '9.00',
+            'duty_free': '9.00',
+            'description': 'Offering 3 description',
+            'currency': 'EUR',
+            'related_model': {
+                'single_payment': [deepcopy(component)],
+                'alteration': deepcopy(alteration_fixed_discount)
+            },
+            'item': '3'
+        }, {
+            'price': '10.00',
+            'duty_free': '10.00',
+            'description': 'Offering 4 description',
+            'currency': 'EUR',
+            'related_model': {
+                'single_payment': [deepcopy(component)]
+            },
+            'item': '4'
+        }]
+
     @parameterized.expand([
         ('initial', _set_initial_contracts),
+        ('initial', _set_initial_alteration_contracts),
         ('renovation', _set_renovation_contracts),
         ('use', _set_usage_contracts)
     ])
@@ -470,8 +597,6 @@ class ChargingEngineTestCase(TestCase):
             charging_engine.UsageClient().rate_usage.call_args_list
         )
 
-
-
     @parameterized.expand([
         ('initial', _set_initial_contracts, _validate_end_initial_payment),
         ('renovation', _set_renovation_contracts, _validate_end_renovation_payment),
@@ -507,7 +632,6 @@ class ChargingEngineTestCase(TestCase):
 
         self.assertFalse(error is None)
         self.assertEquals('Invalid charge type, must be initial, renovation, or use', unicode(e))
-
 
 BASIC_PAYPAL = {
     'reference': '111111111111111111111111',

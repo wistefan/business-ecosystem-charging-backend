@@ -29,6 +29,7 @@ class PriceResolver:
 
     def __init__(self):
         self._applied_sdrs = []
+        self._alteration_applied = False
 
     def _pay_per_use_preprocesing(self, use_models, accounting_info):
         """
@@ -76,6 +77,43 @@ class PriceResolver:
 
         return price, duty_free
 
+    def is_altered(self):
+        return self._alteration_applied
+
+    def _process_alteration(self, alteration, price, duty_free):
+        # Check if there is a condition
+        partial_price, partial_duty = Decimal(0), Decimal(0)
+        self._alteration_applied = True
+
+        if 'condition' in alteration:
+            condition_handlers = {
+                'eq': price.__eq__,
+                'lt': price.__lt__,
+                'gt': price.__gt__,
+                'le': price.__le__,
+                'ge': price.__ge__,
+            }
+            op = alteration['condition']['op']
+            value = alteration['condition']['value']
+
+            self._alteration_applied = condition_handlers[op](Decimal(value))
+
+        if self._alteration_applied:
+            # Check if the alteration is a percentage or a fixed value
+            if isinstance(alteration['value'], dict):
+                partial_price = Decimal(alteration['value']['value'])
+                partial_duty = Decimal(alteration['value']['duty_free'])
+            else:
+                partial_price = (Decimal(alteration['value']) * price) / Decimal('100')
+                partial_duty = (Decimal(alteration['value']) * duty_free) / Decimal('100')
+
+            # Check if the alteration is a discount
+            if alteration['type'] == 'discount':
+                partial_price *= Decimal('-1')
+                partial_duty *= Decimal('-1')
+
+        return partial_price, partial_duty
+
     def get_applied_sdr(self):
         """
            Returns the applied sdrs in a pay-per-use
@@ -106,6 +144,13 @@ class PriceResolver:
             # Calculate the payment associated with the price component
             partial_price, partial_duty_free = self._pay_per_use_preprocesing(
                 pricing_model['pay_per_use'], accounting_info)
+
+            price += partial_price
+            duty_free += partial_duty_free
+
+        # Apply price alterations if existing
+        if 'alteration' in pricing_model:
+            partial_price, partial_duty_free = self._process_alteration(pricing_model['alteration'], price, duty_free)
 
             price += partial_price
             duty_free += partial_duty_free

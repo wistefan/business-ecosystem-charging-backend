@@ -246,6 +246,9 @@ class ChargingEngine:
         # Call the price resolver
         price, duty_free = self._price_resolver.resolve_price(related_model, accounting)
 
+        if 'alteration' in related_model and not self._price_resolver.is_altered():
+            del related_model['alteration']
+
         transaction = {
             'price': price,
             'duty_free': duty_free,
@@ -278,6 +281,9 @@ class ChargingEngine:
 
             if 'subscription' in contract.pricing_model:
                 related_model['subscription'] = contract.pricing_model['subscription']
+
+            if 'alteration' in contract.pricing_model:
+                related_model['alteration'] = contract.pricing_model['alteration']
 
             if len(related_model):
                 self._append_transaction(transactions, contract, related_model)
