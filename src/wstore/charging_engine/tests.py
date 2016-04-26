@@ -18,21 +18,21 @@
 # along with WStore.
 # If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
 
+from __future__ import unicode_literals
 from __future__ import absolute_import
-from django.core.exceptions import PermissionDenied
 
 import json
-from wstore.ordering.errors import OrderingError
-import wstore.store_commons.utils.http
 from bson.objectid import ObjectId
 from datetime import datetime
-
 from mock import MagicMock, call
 from nose_parameterized import parameterized
 
 from django.test import TestCase
 from django.test.client import RequestFactory
+from django.core.exceptions import PermissionDenied
 
+import wstore.store_commons.utils.http
+from wstore.ordering.errors import OrderingError
 from wstore.charging_engine import charging_engine
 from wstore.charging_engine import views
 from wstore.store_commons.utils.testing import decorator_mock
@@ -129,6 +129,7 @@ class ChargingEngineTestCase(TestCase):
         contract.item_id = info['item_id']
         contract.charges = []
         contract.pricing_model = info['pricing']
+        contract.product_id = 'product'
         return contract
 
     def _set_initial_contracts(self):
@@ -246,7 +247,19 @@ class ChargingEngineTestCase(TestCase):
             'item_id': '1',
             'pricing': self._get_pay_use()
         })
-        contract.pending_sdrs = [{
+
+        # Mock usage client
+        charging_engine.UsageClient = MagicMock()
+        charging_engine.UsageClient().get_customer_usage.return_value = [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }, {
+            'id': '3'
+        }]
+
+        charging_engine.SDRManager = MagicMock()
+        charging_engine.SDRManager().get_sdr_values.side_effect = [{
             'unit': 'call',
             'value': '10'
         }, {
@@ -282,10 +295,14 @@ class ChargingEngineTestCase(TestCase):
                     'duty_free': '8.33'
                 },
                 'accounting': [{
-                    'unit': 'call',
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
                     'value': '10'
                 }, {
-                    'unit': 'call',
+                    'usage_id': '3',
+                    'price': '100.00',
+                    'duty_free': '83.30',
                     'value': '10'
                 }],
                 'price': '200.00',
@@ -446,18 +463,12 @@ class ChargingEngineTestCase(TestCase):
         self._validate_subscription_calls()
 
     def _validate_end_usage_payment(self, transactions):
-        self.assertEquals([{
-            'unit': 'call',
-            'value': '10'
-        }, {
-            'unit': 'invocation',
-            'value': '1'
-        }, {
-            'unit': 'call',
-            'value': '10'
-        }], self._order.contracts[0].applied_sdrs)
-
-        self.assertEquals([], self._order.contracts[0].pending_sdrs)
+        self.assertEquals([
+            call('1', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product'),
+            call('3', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product')
+        ],
+            charging_engine.UsageClient().rate_usage.call_args_list
+        )
 
 
 
@@ -521,12 +532,12 @@ MISSING_PAYMENT = {
 
 MISSING_RESP = {
     'result': 'error',
-    'message': 'The payment has been canceled: Missing required field. It must contain reference, paymentId, and payerId'
+    'error': 'The payment has been canceled: Missing required field. It must contain reference, paymentId, and payerId'
 }
 
 LOCK_CLOSED_RESP = {
     'result': 'error',
-    'message': 'The payment has been canceled: The timeout set to process the payment has finished'
+    'error': 'The payment has been canceled: The timeout set to process the payment has finished'
 }
 
 
@@ -566,7 +577,8 @@ class PayPalConfirmationTestCase(TestCase):
         views.get_database_connection = MagicMock()
         self._connection_inst = MagicMock()
         self._connection_inst.wstore_order.find_one_and_update.return_value = {
-            '_lock': False
+            '_lock': False,
+            'state': 'pending'
         }
         views.get_database_connection.return_value = self._connection_inst
 
@@ -621,7 +633,10 @@ class PayPalConfirmationTestCase(TestCase):
         }
 
     def _timeout(self):
-        self._order_inst.state = 'paid'
+        self._connection_inst.wstore_order.find_one_and_update.return_value = {
+            '_lock': False,
+            'state': 'paid'
+        }
 
     def _unauthorized(self):
         self.user.userprofile.current_organization = MagicMock()
@@ -648,17 +663,17 @@ class PayPalConfirmationTestCase(TestCase):
         ('missing_payment_id', MISSING_PAYMENT, MISSING_RESP, None, None, True),
         ('invalid_ref', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled: The provided reference does not identify a valid order'
+            'error': 'The payment has been canceled: The provided reference does not identify a valid order'
         }, None, _invalid_ref, True),
         ('lock_closed', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _lock_closed, True),
         ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, True, True),
         ('unauthorized', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled: You are not authorized to execute the payment'
+            'error': 'The payment has been canceled: You are not authorized to execute the payment'
         }, None, _unauthorized, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',
-            'message': 'The payment has been canceled due to an unexpected error'
+            'error': 'The payment has been canceled due to an unexpected error'
         }, None, _exception, True, True)
     ])
     def test_paypal_confirmation(self, name, data, expected_resp, completed=None, side_effect=None, error=False, to_del=False):
@@ -740,22 +755,22 @@ BASIC_SDR = {
 
 INV_ORDERID_RESP = {
     'result': 'error',
-    'message': 'Invalid orderId, the order does not exists'
+    'error': 'Invalid orderId, the order does not exists'
 }
 
 INV_PRODUCTID_RESP = {
     'result': 'error',
-    'message': 'Invalid productId, the contract does not exist'
+    'error': 'Invalid productId, the contract does not exist'
 }
 
 MANAGER_DENIED_RESP = {
     'result': 'error',
-    'message': 'Permission denied'
+    'error': 'Permission denied'
 }
 
 MANAGER_VALUE_RESP = {
     'result': 'error',
-    'message': 'Value error'
+    'error': 'Value error'
 }
 
 
@@ -766,11 +781,14 @@ class SDRCollectionTestCase(TestCase):
     def setUp(self):
         views.Order = MagicMock()
         views.SDRManager = MagicMock()
-        manager_inst = MagicMock()
-        manager_inst.get_sdrs.return_value = [{
-            'orderId': '1'
-        }]
-        views.SDRManager.return_value = manager_inst
+
+        self._manager_inst = MagicMock()
+        views.SDRManager.return_value = self._manager_inst
+
+        usage_inst = MagicMock()
+        views.UsageClient = MagicMock()
+        views.UsageClient.return_value = usage_inst
+
         self.request = MagicMock()
         self.request.user.is_anonymous.return_value = False
         self.request.META.get.return_value = 'application/json'
@@ -783,13 +801,13 @@ class SDRCollectionTestCase(TestCase):
         views.Order.objects.get().get_product_contract.side_effect = Exception('Not found')
 
     def _permission_denied(self):
-        views.SDRManager().include_sdr.side_effect = PermissionDenied('Permission denied')
+        self._manager_inst.validate_sdr.side_effect = PermissionDenied('Permission denied')
 
     def _value_error(self):
-        views.SDRManager().include_sdr.side_effect = ValueError('Value error')
+        self._manager_inst.validate_sdr.side_effect = ValueError('Value error')
 
     def _exception(self):
-        views.SDRManager().include_sdr.side_effect = Exception('error')
+        self._manager_inst.validate_sdr.side_effect = Exception('error')
 
     def _validate_response(self, response, exp_code, exp_response):
         # Validate response
@@ -798,17 +816,6 @@ class SDRCollectionTestCase(TestCase):
 
         self.assertEquals(exp_response, body)
 
-        # Validate calls if needed
-        if exp_code == 200:
-            views.Order.objects.get.assert_called_once_with(order_id='1')
-            views.Order.objects.get().get_product_contract.assert_called_once_with('2')
-
-            views.SDRManager.assert_called_once_with(
-                self.request.user,
-                views.Order.objects.get(),
-                views.Order.objects.get().get_product_contract()
-            )
-
     @parameterized.expand([
         ('correct', BASIC_SDR, 200, {
             'result': 'correct',
@@ -816,69 +823,13 @@ class SDRCollectionTestCase(TestCase):
         }),
         ('invalid_json', 'invalid', 400, {
             'result': 'error',
-            'message': 'The request does not contain a valid JSON object'
+            'error': 'The request does not contain a valid JSON object'
         }),
-        ('mising_customer', {
-            'orderId': '1',
-            'productId': '2',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_number', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_record_type', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'unit': 'call',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_unit', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'value': '50',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_value', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'timestamp': '2016-02-09T11:33:07.8'
-        }, 400, MISSING_FIELD_RESP),
-        ('missing_timestamp', {
-            'orderId': '1',
-            'productId': '2',
-            'customer': 'test_user',
-            'correlationNumber': '56',
-            'recordType': 'event',
-            'unit': 'call',
-            'value': '50'
-        }, 400, MISSING_FIELD_RESP),
-        ('inv_order_id', BASIC_SDR, 404, INV_ORDERID_RESP, _inv_order),
-        ('inv_product_id', BASIC_SDR, 404, INV_PRODUCTID_RESP, _inv_product),
         ('manager_permission_denied', BASIC_SDR, 403, MANAGER_DENIED_RESP, _permission_denied),
-        ('manager_value_error', BASIC_SDR, 400, MANAGER_VALUE_RESP, _value_error),
+        ('manager_value_error', BASIC_SDR, 422, MANAGER_VALUE_RESP, _value_error),
         ('manager_exception', BASIC_SDR, 500, {
             'result': 'error',
-            'message': 'The SDR document could not be processed due to an unexpected error'
+            'error': 'The SDR document could not be processed due to an unexpected error'
         }, _exception)
     ])
     def test_feed_sdr(self, name, data, exp_code, exp_response, side_effect=None):
@@ -891,52 +842,18 @@ class SDRCollectionTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        collection = views.ServiceRecordCollection(permitted_methods=('POST', 'GET'))
-        response = collection.create(self.request, '1', '2')
+        collection = views.ServiceRecordCollection(permitted_methods=('POST',))
+        response = collection.create(self.request)
 
         self._validate_response(response, exp_code, exp_response)
-        if exp_code == 200:
-            views.SDRManager().include_sdr(json.loads(data))
-
-    def _permission_denied_get(self):
-        views.SDRManager().get_sdrs.side_effect = PermissionDenied('Permission denied')
-
-    def _value_error_get(self):
-        views.SDRManager().get_sdrs.side_effect = ValueError('Value error')
-
-    def _exception_get(self):
-        views.SDRManager().get_sdrs.side_effect = Exception('error')
-
-    @parameterized.expand([
-        ('correct', 200, [{
-            'orderId': '1'
-        }]),
-        ('inv_order_id', 404, INV_ORDERID_RESP, _inv_order),
-        ('inv_product_id', 404, INV_PRODUCTID_RESP, _inv_product),
-        ('manager_permission_denied', 403, MANAGER_DENIED_RESP, _permission_denied_get),
-        ('manager_value_error', 400, MANAGER_VALUE_RESP, _value_error_get),
-        ('manager_exception', 500, {
-            'result': 'error',
-            'message': 'The SDRs could not be retrieved due to an unexpected error'
-        }, _exception_get)
-    ])
-    def test_retrieve_sdr(self, name, exp_code, exp_response, side_effect=None):
-
-        if side_effect is not None:
-            side_effect(self)
-
-        collection = views.ServiceRecordCollection(permitted_methods=('GET', 'POST'))
-        response = collection.read(self.request, '1', '2')
-
-        self.assertEquals(exp_code, response.status_code)
-        body = json.loads(response.content)
-
-        self.assertEquals(exp_response, body)
-
-        # Validate calls
-        self._validate_response(response, exp_code, exp_response)
-        if exp_code == 200:
-            views.SDRManager().get_sdrs.assert_called_once_with(None, None, None)
+        if exp_code != 400:
+            parsed_data = json.loads(data)
+            if exp_code == 200:
+                views.SDRManager.assert_called_once_with(self.request.user)
+                self._manager_inst.validate_sdr.assert_called_once_with(parsed_data)
+                views.UsageClient().update_usage_state.assert_called_once_with('Guided', parsed_data)
+            else:
+                views.UsageClient().update_usage_state.assert_called_once_with('Rejected', parsed_data)
 
 
 class PayPalRefundTestCase(TestCase):
@@ -1018,4 +935,4 @@ class PayPalRefundTestCase(TestCase):
             for sale_id in sales_ids:
                 self._payment_inst.refund.assert_any_call(sale_id)
         else:
-            self.assertEquals(resp, {'message': 'Sales cannot be refunded', 'result': 'error'})
+            self.assertEquals(resp, {'error': 'Sales cannot be refunded', 'result': 'error'})

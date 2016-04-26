@@ -26,7 +26,6 @@ import importlib
 from bson import ObjectId
 
 from django.conf import settings
-from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied
 
 from wstore.ordering.inventory_client import InventoryClient
@@ -38,94 +37,46 @@ from wstore.ordering.errors import PaymentError
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
 from wstore.store_commons.database import get_database_connection
+from wstore.charging_engine.accounting.usage_client import UsageClient
 
 
 class ServiceRecordCollection(Resource):
-
-    def _get_order_contract(self, order_id, product_id):
-        # Get the order
-        order = None
-        contract = None
-
-        try:
-            order = Order.objects.get(order_id=order_id)
-        except:
-            pass
-
-        try:
-            contract = order.get_product_contract(product_id)
-        except:
-            pass
-
-        return order, contract
 
     # This method is used to load SDR documents and
     # start the charging process
     @supported_request_mime_types(('application/json',))
     @authentication_required
-    def create(self, request, order_id, product_id):
+    def create(self, request):
         try:
             # Extract SDR document from the HTTP request
             data = json.loads(request.body)
         except:
+            # The usage document is not valid, so the state cannot be changed
             return build_response(request, 400, 'The request does not contain a valid JSON object')
 
-        # Validate SDR structure
-        if 'customer' not in data or 'correlationNumber' not in data\
-                or 'recordType' not in data or 'unit' not in data or 'value' not in data or 'timestamp' not in data:
-
-            msg = 'Missing required field, it must contain: orderId, productId, customer, '
-            msg += 'correlationNumber, timestamp, recordType, unit, and value'
-            return build_response(request, 400, msg)
-
-        order, contract = self._get_order_contract(order_id, product_id)
-
-        if order is None:
-            return build_response(request, 404, 'Invalid orderId, the order does not exists')
-
-        if contract is None:
-            return build_response(request, 404, 'Invalid productId, the contract does not exist')
-
-        # Include the new SDR
+        # Validate usage information
+        response = None
         try:
-            sdr_manager = SDRManager(request.user, order, contract)
-            sdr_manager.include_sdr(data)
+            sdr_manager = SDRManager(request.user)
+            sdr_manager.validate_sdr(data)
         except PermissionDenied as e:
-            return build_response(request, 403, unicode(e))
+            response = build_response(request, 403, unicode(e))
         except ValueError as e:
-            return build_response(request, 400, unicode(e))
+            response = build_response(request, 422, unicode(e))
         except:
-            return build_response(request, 500, 'The SDR document could not be processed due to an unexpected error')
+            response = build_response(request, 500, 'The SDR document could not be processed due to an unexpected error')
 
-        return build_response(request, 200, 'OK')
+        usage_client = UsageClient()
+        if response is not None:
+            # The usage document is not valid, change its state to Rejected
+            usage_client.update_usage_state('Rejected', data)
+        else:
+            # The usage document is valid, change its state to Guided
+            usage_client.update_usage_state('Guided', data)
+            response = build_response(request, 200, 'OK')
 
-    @authentication_required
-    def read(self, request, order_id, product_id):
-
-        order, contract = self._get_order_contract(order_id, product_id)
-
-        if order is None:
-            return build_response(request, 404, 'Invalid orderId, the order does not exists')
-
-        if contract is None:
-            return build_response(request, 404, 'Invalid productId, the contract does not exist')
-
-        # Get parameters
-        from_ = request.GET.get('from', None)
-        to = request.GET.get('to', None)
-        unit = request.GET.get('unit', None)
-
-        try:
-            sdr_manager = SDRManager(request.user, order, contract)
-            response = sdr_manager.get_sdrs(from_, to, unit)
-        except PermissionDenied as e:
-            return build_response(request, 403, unicode(e))
-        except ValueError as e:
-            return build_response(request, 400, unicode(e))
-        except:
-            return build_response(request, 500, 'The SDRs could not be retrieved due to an unexpected error')
-
-        return HttpResponse(json.dumps(response), status=200, mimetype="application/json")
+        # Update usage document state
+        return response
 
 
 class PayPalConfirmation(Resource):
@@ -150,8 +101,11 @@ class PayPalConfirmation(Resource):
         inventory_client = InventoryClient()
 
         for transaction in transactions:
-            contract = order.get_item_contract(transaction['item'])
-            inventory_client.activate_product(contract.product_id)
+            try:
+                contract = order.get_item_contract(transaction['item'])
+                inventory_client.activate_product(contract.product_id)
+            except:
+                pass
 
     # This method is used to receive the PayPal confirmation
     # when the customer is paying using his PayPal account
@@ -196,19 +150,19 @@ class PayPalConfirmation(Resource):
             pending_info = order.pending_payment
             concept = pending_info['concept']
 
-            # Check that the request user is authorized to end the payment
-            if request.user.userprofile.current_organization != order.owner_organization:
-                raise PaymentError('You are not authorized to execute the payment')
-
-            # If the purchase state value is different from pending means that
-            # the timeout function has completely ended before acquire the resource
+            # If the order state value is different from pending means that
+            # the timeout function has completely ended before acquiring the resource
             # so _lock is set to false and the view ends
-            if order.state != 'pending':
+            if pre_value['state'] != 'pending':
                 db.wstore_order.find_one_and_update(
                     {'_id': ObjectId(reference)},
                     {'$set': {'_lock': False}}
                 )
                 raise PaymentError('The timeout set to process the payment has finished')
+
+            # Check that the request user is authorized to end the payment
+            if request.user.userprofile.current_organization != order.owner_organization:
+                raise PaymentError('You are not authorized to execute the payment')
 
             transactions = pending_info['transactions']
 
@@ -230,13 +184,16 @@ class PayPalConfirmation(Resource):
         except Exception as e:
 
             # Rollback the purchase if existing
-            if order is not None and raw_order is not None and concept == 'initial':
-                # Set the order to failed in the ordering API
-                # Set all items as Failed, mark the whole order as failed
-                # self.ordering_client.update_state(raw_order, 'InProgress')
-                # self.ordering_client.update_state(raw_order, 'Failed')
-                self.ordering_client.update_items_state(raw_order, 'Failed')
-                order.delete()
+            if order is not None and raw_order is not None:
+                if concept == 'initial':
+                    # Set the order to failed in the ordering API
+                    # Set all items as Failed, mark the whole order as failed
+                    self.ordering_client.update_items_state(raw_order, 'Failed')
+                    order.delete()
+                else:
+                    order.state = 'paid'
+                    order.pending_payment = {}
+                    order.save()
 
             expl = ' due to an unexpected error'
             err_code = 500

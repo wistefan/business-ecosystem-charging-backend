@@ -136,35 +136,35 @@ class ServeMediaTestCase(TestCase):
         ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, 'bills/111111111111111111111111_userbill.pdf', _usexfiles),
         ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
             'result': 'error',
-            'message': 'The specified asset does not exists'
+            'error': 'The specified asset does not exists'
         }), _asset_error),
         ('asset_anonymous', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (401, {
             'result': 'error',
-            'message': 'You must be authenticated to download the specified asset'
+            'error': 'You must be authenticated to download the specified asset'
         }), _not_loged),
         ('asset_unauthorized', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (403, {
             'result': 'error',
-            'message': 'You are not authorized to download the specified asset'
+            'error': 'You are not authorized to download the specified asset'
         }), _unauthorized),
         ('invoice_not_found', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_error, (404, {
             'result': 'error',
-            'message': 'The specified invoice does not exists'
+            'error': 'The specified invoice does not exists'
         }), _order_error),
         ('invoice_anonymous', 'bills', '111111111111111111111111_userbill.pdf', _validate_empty_call, _validate_error, (401, {
             'result': 'error',
-            'message': 'You must provide credentials for downloading invoices'
+            'error': 'You must provide credentials for downloading invoices'
         }), _not_loged),
         ('invoice_unauthorized', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_error, (403, {
             'result': 'error',
-            'message': 'You are not authorized to download the specified invoice'
+            'error': 'You are not authorized to download the specified invoice'
         }), _unauthorized),
         ('file_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
             'result': 'error',
-            'message': 'Resource not found'
+            'error': 'Resource not found'
         }), _not_found),
         ('invalid_type', 'invalid/user', 'widget.wgt', _validate_empty_call, _validate_error, (404, {
             'result': 'error',
-            'message': 'Resource not found'
+            'error': 'Resource not found'
         }))
     ])
     @override_settings(MEDIA_ROOT='/home/test/media/', MEDIA_URL='/media/', MEDIA_DIR='media/')

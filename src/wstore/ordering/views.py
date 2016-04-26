@@ -163,6 +163,9 @@ class RenovationCollection(Resource):
             return build_response(request, 404, 'The oid specified in the product name is not valid')
 
         # Get contract to renovate
+        if isinstance(task['id'], int):
+            task['id'] = unicode(task['id'])
+
         try:
             contract = order.get_product_contract(task['id'])
         except:
@@ -183,7 +186,7 @@ class RenovationCollection(Resource):
         except ValueError as e:
             return build_response(request, 400, unicode(e))
         except OrderingError as e:
-            return build_response(request, 400, unicode(e))
+            return build_response(request, 422, unicode(e))
         except:
             return build_response(request, 500, 'An unexpected event prevented your payment to be created')
 

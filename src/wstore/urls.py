@@ -20,7 +20,6 @@
 
 from django.conf.urls import patterns, url
 
-from wstore.admin import views as admin_views
 from wstore.admin.users import views as user_views
 from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
@@ -40,9 +39,9 @@ urlpatterns = patterns('',
 
     url(r'^charging/api/orderManagement/orders/?$', ordering_views.OrderingCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/products/?$', ordering_views.InventoryCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/products/renovateJob?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
+    url(r'^charging/api/orderManagement/products/renewJob/?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/refund/?$', charging_views.PayPalRefund(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/accounting/(?P<order_id>[\w]+)/(?P<product_id>[\w]+)/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST', 'GET')))
+    url(r'^charging/api/orderManagement/accounting/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST',)))
 )

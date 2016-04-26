@@ -21,7 +21,9 @@
 from __future__ import unicode_literals
 
 
-INVENTORY = 'http://localhost:8080/DSProductInventory'
-ORDERING = 'http://localhost:8080/DSProductOrdering'
-RSS = 'http://localhost:8080/DSRevenueSharing'
-USAGE = 'http://localhost:8080/DSUsageManagement'
+class UsageError(Exception):
+    def __init__(self, msg):
+        self.value = msg
+
+    def __unicode__(self):
+        return 'UsageError: ' + self.value
