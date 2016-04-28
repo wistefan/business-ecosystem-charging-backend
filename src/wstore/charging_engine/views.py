@@ -45,7 +45,6 @@ class ServiceRecordCollection(Resource):
     # This method is used to load SDR documents and
     # start the charging process
     @supported_request_mime_types(('application/json',))
-    @authentication_required
     def create(self, request):
         try:
             # Extract SDR document from the HTTP request
@@ -57,7 +56,7 @@ class ServiceRecordCollection(Resource):
         # Validate usage information
         response = None
         try:
-            sdr_manager = SDRManager(request.user)
+            sdr_manager = SDRManager()
             sdr_manager.validate_sdr(data)
         except PermissionDenied as e:
             response = build_response(request, 403, unicode(e))

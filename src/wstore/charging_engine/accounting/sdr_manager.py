@@ -23,15 +23,13 @@ from __future__ import unicode_literals
 from datetime import datetime
 
 from django.core.exceptions import PermissionDenied
+from django.contrib.auth.models import User
 
 from wstore.models import Organization
 from wstore.ordering.models import Order
 
 
 class SDRManager(object):
-
-    def __init__(self, user):
-        self._user = user
 
     def _get_order_contract(self, order_id, product_id):
         # Get the order
@@ -78,7 +76,6 @@ class SDRManager(object):
         return values
 
     def validate_sdr(self, sdr):
-
         if sdr['status'].lower() != 'received':
             raise ValueError('Invalid initial status, must be Received')
 
@@ -108,7 +105,9 @@ class SDRManager(object):
             raise ValueError('The specified customer ' + customer_name + ' does not exist')
 
         # Check if the user making the request belongs to the customer organization
-        for org in self._user.userprofile.organizations:
+        user = User.objects.get(username=customer_name)
+
+        for org in user.userprofile.organizations:
             if org['organization'] == order.owner_organization.pk:
                 break
         else:
