@@ -89,6 +89,8 @@ class SDRManagerTestCase(TestCase):
         self._user.userprofile.organizations = [{
             'organization': '1111'
         }]
+        sdr_manager.User = MagicMock()
+        sdr_manager.User.objects.get.return_value = self._user
 
     def _side_cust_not_exists(self):
         sdr_manager.Organization.objects.filter.return_value = []
@@ -179,7 +181,7 @@ class SDRManagerTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        sdr_mng = sdr_manager.SDRManager(self._user)
+        sdr_mng = sdr_manager.SDRManager()
 
         error = None
         try:
@@ -199,6 +201,7 @@ class SDRManagerTestCase(TestCase):
                 datetime.strptime('2015-10-20 17:31:57.100', '%Y-%m-%d %H:%M:%S.%f'), self._contract.last_usage)
 
             self._order.save.assert_called_once_with()
+            sdr_manager.User.objects.get.assert_called_once_with(username='test_user')
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)

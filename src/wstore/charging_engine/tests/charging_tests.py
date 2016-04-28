@@ -973,7 +973,7 @@ class SDRCollectionTestCase(TestCase):
         if exp_code != 400:
             parsed_data = json.loads(data)
             if exp_code == 200:
-                views.SDRManager.assert_called_once_with(self.request.user)
+                views.SDRManager.assert_called_once_with()
                 self._manager_inst.validate_sdr.assert_called_once_with(parsed_data)
                 views.UsageClient().update_usage_state.assert_called_once_with('Guided', parsed_data)
             else:
