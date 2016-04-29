@@ -93,7 +93,7 @@ class PriceResolver:
                 'le': price.__le__,
                 'ge': price.__ge__,
             }
-            op = alteration['condition']['op']
+            op = alteration['condition']['operation']
             value = alteration['condition']['value']
 
             self._alteration_applied = condition_handlers[op](Decimal(value))

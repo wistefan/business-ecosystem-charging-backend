@@ -326,7 +326,7 @@ class ChargingEngineTestCase(TestCase):
                 'duty_free': '5.00'
             },
             'condition': {
-                'op': 'gt',
+                'operation': 'gt',
                 'value': '5.00'
             }
         }
@@ -384,7 +384,7 @@ class ChargingEngineTestCase(TestCase):
                     'type': 'discount',
                     'value': '10.00',
                     'condition': {
-                        'op': 'gt',
+                        'operation': 'gt',
                         'value': '50.00'
                     }
                 }
