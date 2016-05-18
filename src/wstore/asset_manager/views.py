@@ -24,6 +24,7 @@ import json
 
 from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
@@ -160,6 +161,8 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 400, unicode(e))
     except ProductError as e:
         return build_response(request, 400, unicode(e))
+    except PluginError as e:
+        return build_response(request, 422, unicode(e))
     except PermissionDenied as e:
         return build_response(request, 403, unicode(e))
     except:
