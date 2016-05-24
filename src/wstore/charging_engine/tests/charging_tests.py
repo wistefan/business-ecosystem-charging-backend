@@ -867,6 +867,7 @@ MISSING_FIELD_RESP = {
 }
 
 BASIC_SDR = {
+    'id': '1',
     'orderId': '1',
     'productId': '2',
     'customer': 'test_user',
@@ -975,9 +976,11 @@ class SDRCollectionTestCase(TestCase):
             if exp_code == 200:
                 views.SDRManager.assert_called_once_with()
                 self._manager_inst.validate_sdr.assert_called_once_with(parsed_data)
-                views.UsageClient().update_usage_state.assert_called_once_with('Guided', parsed_data)
+                views.UsageClient().update_usage_state.assert_called_once_with('1', 'Guided')
+                self._manager_inst.update_usage.assert_called_once_with()
             else:
-                views.UsageClient().update_usage_state.assert_called_once_with('Rejected', parsed_data)
+                views.UsageClient().update_usage_state.assert_called_once_with('1', 'Rejected')
+                self.assertEquals(0, self._manager_inst.update_usage.call_count)
 
 
 class PayPalRefundTestCase(TestCase):

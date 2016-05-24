@@ -55,8 +55,8 @@ class ServiceRecordCollection(Resource):
 
         # Validate usage information
         response = None
+        sdr_manager = SDRManager()
         try:
-            sdr_manager = SDRManager()
             sdr_manager.validate_sdr(data)
         except PermissionDenied as e:
             response = build_response(request, 403, unicode(e))
@@ -68,10 +68,11 @@ class ServiceRecordCollection(Resource):
         usage_client = UsageClient()
         if response is not None:
             # The usage document is not valid, change its state to Rejected
-            usage_client.update_usage_state('Rejected', data)
+            usage_client.update_usage_state(data['id'], 'Rejected')
         else:
             # The usage document is valid, change its state to Guided
-            usage_client.update_usage_state('Guided', data)
+            usage_client.update_usage_state(data['id'], 'Guided')
+            sdr_manager.update_usage()
             response = build_response(request, 200, 'OK')
 
         # Update usage document state

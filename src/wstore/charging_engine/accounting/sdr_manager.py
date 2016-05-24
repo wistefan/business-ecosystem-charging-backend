@@ -31,6 +31,11 @@ from wstore.ordering.models import Order
 
 class SDRManager(object):
 
+    def __init__(self):
+        self._order = None
+        self._contract = None
+        self._time_stamp = None
+
     def _get_order_contract(self, order_id, product_id):
         # Get the order
         order = None
@@ -48,11 +53,26 @@ class SDRManager(object):
 
         return order, contract
 
-    def _get_datetime(self, time):
+    def _get_datetime(self, raw_time):
         try:
-            time_stamp = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%f')
+            if '+' in raw_time:
+                # Time with offset, remove it from the string
+                time = raw_time.split('+')[0] + '.0'
+            else:
+                sp_time = raw_time.split('.')
+                milis = sp_time[1]
+
+                if len(milis) > 3:
+                    milis = milis[:3]
+
+                time = sp_time[0] + '.' + milis
+
+            try:
+                time_stamp = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%f')
+            except:
+                time_stamp = datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
         except:
-            time_stamp = datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+            raise ValueError('Invalid date format, must be YYYY-MM-ddTHH:mm:ss.ms, YYYY-MM-dd HH:mm:ss.ms, or YYYY-MM-ddTHH:mm:ss+HH:mm')
 
         return time_stamp
 
@@ -80,12 +100,12 @@ class SDRManager(object):
             raise ValueError('Invalid initial status, must be Received')
 
         sdr_values = self.get_sdr_values(sdr)
-        order, contract = self._get_order_contract(sdr_values['orderid'], sdr_values['productid'])
+        self._order, self._contract = self._get_order_contract(sdr_values['orderid'], sdr_values['productid'])
 
-        if order is None:
+        if self._order is None:
             raise ValueError('Invalid orderId, the order does not exists')
 
-        if contract is None:
+        if self._contract is None:
             raise ValueError('Invalid productId, the contract does not exist')
 
         # Check that the value field is a valid number
@@ -98,7 +118,7 @@ class SDRManager(object):
             raise ValueError('Missing required field relatedParty')
 
         # Check that the customer exist
-        customer_name = sdr['relatedParty']['id']
+        customer_name = sdr['relatedParty'][0]['id']
         customer = Organization.objects.filter(name=customer_name)
 
         if not len(customer):
@@ -108,32 +128,24 @@ class SDRManager(object):
         user = User.objects.get(username=customer_name)
 
         for org in user.userprofile.organizations:
-            if org['organization'] == order.owner_organization.pk:
+            if org['organization'] == self._order.owner_organization.pk:
                 break
         else:
             raise PermissionDenied("You don't belong to the customer organization")
 
         # Validate that the price mode included in the contract correspond to the one specified in the SDR
-        price_model = contract.pricing_model
+        price_model = self._contract.pricing_model
         if 'pay_per_use' not in price_model:
             raise ValueError('The pricing model of the offering does not define pay-per-use components')
 
         # Check the correlation number and timestamp
-        if int(sdr_values['correlationnumber']) != contract.correlation_number:
-            raise ValueError('Invalid correlation number, expected: ' + unicode(contract.correlation_number))
+        if int(sdr_values['correlationnumber']) != self._contract.correlation_number:
+            raise ValueError('Invalid correlation number, expected: ' + unicode(self._contract.correlation_number))
 
         # Truncate ms to 3 decimals (database supported)
-        sp_time = sdr['date'].split('.')
-        milis = sp_time[1]
+        self._time_stamp = self._get_datetime(sdr['date'])
 
-        if len(milis) > 3:
-            milis = milis[:3]
-
-        sdr_time = sp_time[0] + '.' + milis
-
-        time_stamp = self._get_datetime(sdr_time)
-
-        if contract.last_usage is not None and contract.last_usage > time_stamp:
+        if self._contract.last_usage is not None and self._contract.last_usage > self._time_stamp:
             raise ValueError('The provided timestamp specifies a lower timing than the last SDR received')
 
         # Check that the pricing model contains the specified unit
@@ -143,7 +155,8 @@ class SDRManager(object):
         else:
             raise ValueError('The specified unit is not included in the pricing model')
 
+    def update_usage(self):
         # Save new usage information
-        contract.last_usage = time_stamp
-        contract.correlation_number += 1
-        order.save()
+        self._contract.last_usage = self._time_stamp
+        self._contract.correlation_number += 1
+        self._order.save()

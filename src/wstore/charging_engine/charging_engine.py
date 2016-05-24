@@ -351,7 +351,7 @@ class ChargingEngine:
         return self._execute_renovation_transactions(transactions, 'There is not recurring payments to renovate')
 
     def _parse_raw_accounting(self, usage):
-        sdr_manager = SDRManager(self._order.customer)
+        sdr_manager = SDRManager()
         sdrs = []
 
         for usage_document in usage:

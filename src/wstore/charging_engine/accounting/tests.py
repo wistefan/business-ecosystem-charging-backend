@@ -35,9 +35,9 @@ from wstore.charging_engine.accounting.errors import UsageError
 BASIC_SDR = {
     'status': 'Received',
     'date': '2015-10-20 17:31:57.100000',
-    'relatedParty': {
+    'relatedParty': [{
         'id': 'test_user'
-    },
+    }],
     'usageCharacteristic': [{
         'name': 'orderId',
         'value': '1'
@@ -91,6 +91,8 @@ class SDRManagerTestCase(TestCase):
         }]
         sdr_manager.User = MagicMock()
         sdr_manager.User.objects.get.return_value = self._user
+
+        self._timestamp = datetime.strptime('2015-10-20 17:31:57.100', '%Y-%m-%d %H:%M:%S.%f')
 
     def _side_cust_not_exists(self):
         sdr_manager.Organization.objects.filter.return_value = []
@@ -196,16 +198,28 @@ class SDRManagerTestCase(TestCase):
             sdr_manager.Order.objects.get.assert_called_once_with(order_id='1')
             self._order.get_product_contract.assert_called_once_with('2')
 
-            self.assertEquals(int(sdr['usageCharacteristic'][2]['value']) + 1, self._contract.correlation_number)
-            self.assertEquals(
-                datetime.strptime('2015-10-20 17:31:57.100', '%Y-%m-%d %H:%M:%S.%f'), self._contract.last_usage)
+            self.assertEquals(self._contract, sdr_mng._contract)
+            self.assertEquals(self._order, sdr_mng._order)
+            self.assertEquals(self._timestamp, sdr_mng._time_stamp)
 
-            self._order.save.assert_called_once_with()
             sdr_manager.User.objects.get.assert_called_once_with(username='test_user')
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
 
+    def test_update_usage(self):
+        sdr_mng = sdr_manager.SDRManager()
+        sdr_mng._contract = self._contract
+        sdr_mng._order = self._order
+        sdr_mng._time_stamp = self._timestamp
+
+        sdr_mng.update_usage()
+
+        self.assertEquals(2, self._contract.correlation_number)
+        self.assertEquals(
+            self._timestamp, self._contract.last_usage)
+
+        self._order.save.assert_called_once_with()
 
 BASIC_USAGE = {
     'id': '3',
