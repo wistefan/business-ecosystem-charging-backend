@@ -39,7 +39,6 @@ class Context(models.Model):
     top_rated = ListField()
     newest = ListField()
     user_refs = DictField()
-    allowed_currencies = DictField()
 
     def is_valid_currency(self, currency):
         """
@@ -144,13 +143,6 @@ def create_context(sender, instance, created, **kwargs):
     if created:
         if not len(Context.objects.all()):
             context = Context.objects.get_or_create(site=instance)[0]
-            context.allowed_currencies = {
-                'allowed': [{
-                    'currency': 'EUR',
-                    'in_use': False
-                }],
-                'default': 'EUR'
-            }
             context.save()
         else:
             context = Context.objects.all()[0]
