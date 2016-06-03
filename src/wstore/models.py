@@ -27,8 +27,8 @@ from django.contrib.sites.models import Site
 from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField, EmbeddedModelField
+from django.db import models
 
-from wstore.admin.rss.models import *
 from wstore.charging_engine.models import *
 
 
@@ -40,7 +40,6 @@ class Context(models.Model):
     newest = ListField()
     user_refs = DictField()
     allowed_currencies = DictField()
-    revenue_models = ListField(EmbeddedModelField(RevenueModel))
 
     def is_valid_currency(self, currency):
         """
@@ -152,21 +151,6 @@ def create_context(sender, instance, created, **kwargs):
                 }],
                 'default': 'EUR'
             }
-
-            from wstore.admin.rss.views import build_db_models
-            db_models = build_db_models([{
-                'class': 'single-payment',
-                'percentage': Decimal('10.0')
-            }, {
-                'class': 'subscription',
-                'percentage': Decimal('20.0')
-            }, {
-                'class': 'use',
-                'percentage': Decimal('30.0')
-            }])
-
-            # Create default revenue models
-            context.revenue_models = db_models
             context.save()
         else:
             context = Context.objects.all()[0]
