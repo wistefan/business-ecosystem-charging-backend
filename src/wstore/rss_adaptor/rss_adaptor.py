@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 import requests
 import threading
 from bson import ObjectId
@@ -54,7 +56,7 @@ class RSSAdaptor:
                 'correlationNumber': cdr['correlation'],
                 'timestamp': time,
                 'application': cdr['offering'],
-                'transactionType': 'C',
+                'transactionType': cdr['type'],
                 'event': cdr['event'],
                 'referenceCode': cdr['order'],
                 'description': cdr['description'],

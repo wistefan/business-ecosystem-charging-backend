@@ -61,7 +61,8 @@ class RSSAdaptorTestCase(TestCase):
             'tax_value': '0.0',
             'time_stamp': '10-05-13 10:00:00',
             'customer': 'test_customer',
-            'event': 'One time'
+            'event': 'One time',
+            'type': 'C'
         }])
 
         rss_adaptor.requests.post.assert_called_once_with(

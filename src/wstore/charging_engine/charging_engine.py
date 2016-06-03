@@ -200,6 +200,7 @@ class ChargingEngine:
             contract.charges.append({
                 'date': time_stamp,
                 'cost': transaction['price'],
+                'duty_free': transaction['duty_free'],
                 'currency': transaction['currency'],
                 'concept': concept
             })

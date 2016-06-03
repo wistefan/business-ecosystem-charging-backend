@@ -549,14 +549,16 @@ class ChargingEngineTestCase(TestCase):
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
             'currency': 'EUR',
-            'concept': 'initial'
+            'concept': 'initial',
+            'duty_free': '10.00'
         }], self._order.contracts[0].charges)
 
         self.assertEquals([{
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
             'currency': 'EUR',
-            'concept': 'initial'
+            'concept': 'initial',
+            'duty_free': '10.00'
         }], self._order.contracts[1].charges)
 
         self._validate_subscription_calls()
@@ -583,7 +585,8 @@ class ChargingEngineTestCase(TestCase):
             'date': datetime(2016, 1, 20, 13, 12, 39),
             'cost': '12.00',
             'currency': 'EUR',
-            'concept': 'renovation'
+            'concept': 'renovation',
+            'duty_free': '10.00'
         }], self._order.contracts[1].charges)
 
         self.assertEquals([], self._order.contracts[2].charges)

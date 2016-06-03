@@ -27,6 +27,7 @@ from bson import ObjectId
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from wstore.charging_engine.charging.cdr_manager import CDRManager
 
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.ordering_client import OrderingClient
@@ -277,6 +278,15 @@ class PayPalRefund(Resource):
             for sale in order.sales_ids:
                 client.refund(sale)
 
+            # Only those orders with all its order items in ack state can be refunded
+            # that means that all the contracts have been refunded
+            for contract in order.contracts:
+                cdr_manager = CDRManager(order, contract)
+                charge = contract.charges[-1]
+
+                cdr_manager.refund_cdrs(charge['cost'], charge['duty_free'], unicode(charge['date']))
+
+            # Create a refund CDR for each contract
             order.delete()
         except:
             return build_response(request, 400, 'Sales cannot be refunded')
