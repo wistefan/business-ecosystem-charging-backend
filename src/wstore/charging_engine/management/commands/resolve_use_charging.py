@@ -47,7 +47,7 @@ class Command(BaseCommand):
             of the asset_manager that have pending SDR for more than
             a month
         """
-        now = time.mktime(datetime.now().timetuple())
+        now = time.mktime(datetime.utcnow().timetuple())
 
         if len(args) == 0:
             # Get contracts

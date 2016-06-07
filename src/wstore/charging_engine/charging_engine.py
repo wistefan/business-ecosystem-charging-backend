@@ -124,7 +124,7 @@ class ChargingEngine:
         return checkout_url
 
     def _calculate_renovation_date(self, unit):
-        return datetime.now() + timedelta(days=recurring_periods[unit.lower()])
+        return datetime.utcnow() + timedelta(days=recurring_periods[unit.lower()])
 
     def _end_initial_charge(self, contract, transaction):
         # If a subscription part has been charged update renovation date
@@ -190,7 +190,7 @@ class ChargingEngine:
             self._order.state = 'paid'
             self._order.save()
 
-        time_stamp = datetime.now()
+        time_stamp = datetime.utcnow()
 
         self._order.pending_payment = {}
 
@@ -211,7 +211,7 @@ class ChargingEngine:
 
             # If the customer has been charged create the CDR
             cdr_manager = CDRManager(self._order, contract)
-            cdr_manager.generate_cdr(transaction['related_model'], unicode(time_stamp))
+            cdr_manager.generate_cdr(transaction['related_model'], time_stamp.isoformat() + 'Z')
 
         self._order.save()
 
@@ -321,7 +321,7 @@ class ChargingEngine:
 
         self._order.state = 'pending'
 
-        now = datetime.now()
+        now = datetime.utcnow()
         transactions = []
         for contract in contracts:
             # Check if the contract has any recurring model

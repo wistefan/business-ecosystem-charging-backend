@@ -47,14 +47,12 @@ class RSSAdaptor:
         # Build CDRs
         data = []
         for cdr in cdr_info:
-            time = cdr['time_stamp'].split(' ')
-            time = time[0] + 'T' + time[1] + 'Z'
 
             data.append({
                 'cdrSource': settings.WSTOREMAIL,
                 'productClass': cdr['product_class'],
                 'correlationNumber': cdr['correlation'],
-                'timestamp': time,
+                'timestamp': cdr['time_stamp'],
                 'application': cdr['offering'],
                 'transactionType': cdr['type'],
                 'event': cdr['event'],

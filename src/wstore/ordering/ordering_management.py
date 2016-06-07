@@ -291,7 +291,7 @@ class OrderingManager:
             order_id=order_id,
             customer=self._customer,
             owner_organization=current_org,
-            date=datetime.now(),
+            date=datetime.utcnow(),
             state='pending',
             tax_address=self._get_billing_address(items),
             contracts=new_contracts,
@@ -316,7 +316,7 @@ class OrderingManager:
         # TODO: Process pay per use case
         if 'subscription' in contract.pricing_model:
             # Check if there are a pending subscription
-            now = datetime.now()
+            now = datetime.utcnow()
 
             for subs in contract.pricing_model['subscription']:
                 timedelta = subs['renovation_date'] - now

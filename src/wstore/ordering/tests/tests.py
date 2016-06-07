@@ -97,7 +97,7 @@ class OrderingManagementTestCase(TestCase):
 
         ordering_management.datetime = MagicMock()
         self._now = datetime(2016, 12, 03)
-        ordering_management.datetime.now.return_value = self._now
+        ordering_management.datetime.utcnow.return_value = self._now
 
     def _check_offering_call(self, asset, description="Example offering description", is_digital=True):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
@@ -664,7 +664,7 @@ class OrderTestCase(TestCase):
         self._order = Order.objects.create(
             description='',
             order_id='1',
-            date=datetime.now(),
+            date=datetime.utcnow(),
             customer=customer,
             state='pending',
             contracts=[self._contract1, self._contract2]
@@ -719,7 +719,7 @@ class InventoryClientTestCase(TestCase):
         from datetime import datetime
         now = datetime(2016, 1, 22, 4, 10, 25, 176751)
         inventory_client.datetime = MagicMock()
-        inventory_client.datetime.now.return_value = now
+        inventory_client.datetime.utcnow.return_value = now
 
     @parameterized.expand([
         ('basic', [{
@@ -774,7 +774,7 @@ class InventoryClientTestCase(TestCase):
 
         inventory_client.requests.patch.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
             'status': 'Active',
-            'startDate': '2016-01-22T04:10:25.176751'
+            'startDate': '2016-01-22T04:10:25.176751Z'
         })
         inventory_client.requests.patch().raise_for_status.assert_called_once_with()
 
@@ -794,11 +794,11 @@ class InventoryClientTestCase(TestCase):
         self.assertEquals([
             call('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
                 'status': 'Active',
-                'startDate': '2016-01-22T04:10:25.176751'
+                'startDate': '2016-01-22T04:10:25.176751Z'
             }),
             call('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1', json={
                 'status': 'Terminated',
-                'terminationDate': '2016-01-22T04:10:25.176751'
+                'terminationDate': '2016-01-22T04:10:25.176751Z'
             })
         ], inventory_client.requests.patch.call_args_list)
 

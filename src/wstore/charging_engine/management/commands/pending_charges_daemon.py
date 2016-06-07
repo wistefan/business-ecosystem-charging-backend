@@ -32,7 +32,7 @@ from wstore.ordering.inventory_client import InventoryClient
 class Command(BaseCommand):
 
     def _check_renovation_date(self, renovation_date, order, contract):
-        now = datetime.now()
+        now = datetime.utcnow()
 
         timed = renovation_date - now
 

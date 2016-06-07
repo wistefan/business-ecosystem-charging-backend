@@ -59,7 +59,7 @@ class RSSAdaptorTestCase(TestCase):
             'cost_currency': 'EUR',
             'cost_value': '10',
             'tax_value': '0.0',
-            'time_stamp': '10-05-13 10:00:00',
+            'time_stamp': '10-05-13T10:00:00Z',
             'customer': 'test_customer',
             'event': 'One time',
             'type': 'C'

@@ -36,7 +36,7 @@ class ChargesDaemonTestCase(TestCase):
     def setUp(self):
         # Mock datetime
         pending_charges_daemon.datetime = MagicMock()
-        pending_charges_daemon.datetime.now.return_value = datetime(2016, 02, 8)
+        pending_charges_daemon.datetime.utcnow.return_value = datetime(2016, 02, 8)
 
         # Mock inventory client
         pending_charges_daemon.InventoryClient = MagicMock()

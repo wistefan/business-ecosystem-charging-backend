@@ -187,7 +187,7 @@ class InvoiceBuilder(object):
             if last_charge is None:
                 # If last charge is None means that it is the invoice generation
                 # associated with a free offering
-                date = str(datetime.now()).split(' ')[0]
+                date = str(datetime.utcnow()).split(' ')[0]
             else:
                 date = str(last_charge).split(' ')[0]
 

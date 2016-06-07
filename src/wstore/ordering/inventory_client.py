@@ -86,7 +86,7 @@ class InventoryClient:
         url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Active',
-            'startDate': unicode(datetime.now()).replace(' ', 'T')
+            'startDate': datetime.utcnow().isoformat() + 'Z'
         }
 
         r = requests.patch(url, json=patch_body)
@@ -122,7 +122,7 @@ class InventoryClient:
         url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Terminated',
-            'terminationDate': unicode(datetime.now()).replace(' ', 'T')
+            'terminationDate': datetime.utcnow().isoformat() + 'Z'
         }
 
         r = requests.patch(url, json=patch_body)

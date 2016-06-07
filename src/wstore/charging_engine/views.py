@@ -284,7 +284,7 @@ class PayPalRefund(Resource):
                 cdr_manager = CDRManager(order, contract)
                 charge = contract.charges[-1]
 
-                cdr_manager.refund_cdrs(charge['cost'], charge['duty_free'], unicode(charge['date']))
+                cdr_manager.refund_cdrs(charge['cost'], charge['duty_free'], charge['date'].isoformat() + 'Z')
 
             # Create a refund CDR for each contract
             order.delete()

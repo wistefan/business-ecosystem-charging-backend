@@ -80,7 +80,7 @@ class ChargingEngineTestCase(TestCase):
         # Mock datetime
         now = datetime(2016, 1, 20, 13, 12, 39)
         charging_engine.datetime = MagicMock()
-        charging_engine.datetime.now.return_value = now
+        charging_engine.datetime.utcnow.return_value = now
 
         charging_engine.NotificationsHandler = MagicMock()
         charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
@@ -198,7 +198,7 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 3 description',
             'offering_pk': '333333',
             'item_id': '3',
-            'pricing': self._get_subscription(datetime.now())
+            'pricing': self._get_subscription(datetime.utcnow())
         })
 
         self._order.contracts = [contract1, contract2, contract3]
@@ -228,7 +228,7 @@ class ChargingEngineTestCase(TestCase):
                 'description': 'Offering 3 description',
                 'offering_pk': '333333',
                 'item_id': '3',
-                'pricing': self._get_subscription(datetime.now())
+                'pricing': self._get_subscription(datetime.utcnow())
             })
         ]
         return []
@@ -534,8 +534,8 @@ class ChargingEngineTestCase(TestCase):
         ], charging_engine.CDRManager.call_args_list)
 
         self.assertEquals([
-            call(transactions[0]['related_model'], '2016-01-20 13:12:39'),
-            call(transactions[1]['related_model'], '2016-01-20 13:12:39')
+            call(transactions[0]['related_model'], '2016-01-20T13:12:39Z'),
+            call(transactions[1]['related_model'], '2016-01-20T13:12:39Z')
         ], charging_engine.CDRManager().generate_cdr.call_args_list)
 
         charging_engine.NotificationsHandler().send_acquired_notification.assert_called_once_with(self._order)
@@ -572,7 +572,7 @@ class ChargingEngineTestCase(TestCase):
 
         # No new offering has been included
         self.assertEquals([], self._order.owner_organization.acquired_offerings)
-        charging_engine.CDRManager().generate_cdr.assert_called_once_with(transactions[0]['related_model'], '2016-01-20 13:12:39')
+        charging_engine.CDRManager().generate_cdr.assert_called_once_with(transactions[0]['related_model'], '2016-01-20T13:12:39Z')
 
         self.assertEquals(0, self._order.contracts[0].call_count)
         self.assertEquals(0, self._order.contracts[2].call_count)
