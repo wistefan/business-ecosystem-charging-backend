@@ -194,17 +194,9 @@ class ChargingEngine:
 
         self._order.pending_payment = {}
 
+        invoice_builder = InvoiceBuilder(self._order)
         for transaction in transactions:
             contract = self._order.get_item_contract(transaction['item'])
-            # Update contracts
-            contract.charges.append({
-                'date': time_stamp,
-                'cost': transaction['price'],
-                'duty_free': transaction['duty_free'],
-                'currency': transaction['currency'],
-                'concept': concept
-            })
-
             contract.last_charge = time_stamp
 
             self.end_processors[concept](contract, transaction)
@@ -213,14 +205,27 @@ class ChargingEngine:
             cdr_manager = CDRManager(self._order, contract)
             cdr_manager.generate_cdr(transaction['related_model'], time_stamp.isoformat() + 'Z')
 
+            # Generate the invoice
+            invoice_path = ''
+            try:
+                invoice_path = invoice_builder.generate_invoice(contract, transaction, concept)
+            except:
+                pass
+
+            # Update contracts
+            contract.charges.append({
+                'date': time_stamp,
+                'cost': transaction['price'],
+                'duty_free': transaction['duty_free'],
+                'currency': transaction['currency'],
+                'concept': concept,
+                'invoice': invoice_path
+            })
+
         self._order.save()
 
         # TODO: Improve the rollback in case of unexpected exception
         try:
-            # Generate the invoice
-            invoice_builder = InvoiceBuilder(self._order)
-            invoice_builder.generate_invoice(transactions, concept)
-
             # Send notifications if required
             handler = NotificationsHandler()
             if concept == 'initial':

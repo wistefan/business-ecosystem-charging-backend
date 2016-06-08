@@ -20,12 +20,12 @@
 
 from __future__ import unicode_literals
 from __future__ import absolute_import
-from copy import deepcopy
 
 import json
 from bson.objectid import ObjectId
 from datetime import datetime
 from mock import MagicMock, call
+from copy import deepcopy
 from nose_parameterized import parameterized
 
 from django.test import TestCase
@@ -50,6 +50,7 @@ def mock_payment_client(self, module):
     self._payment_class.return_value = self._payment_inst
     module.importlib.import_module.return_value = module_mock
 
+INVOICE_PATH = '/media/invoice/invoice1.pdf'
 
 class ChargingEngineTestCase(TestCase):
 
@@ -73,6 +74,7 @@ class ChargingEngineTestCase(TestCase):
 
         # Mock invoice builder
         charging_engine.InvoiceBuilder = MagicMock()
+        charging_engine.InvoiceBuilder.return_value.generate_invoice.return_value = INVOICE_PATH
 
         # Mock CDR Manager
         charging_engine.CDRManager = MagicMock()
@@ -496,7 +498,7 @@ class ChargingEngineTestCase(TestCase):
 
         # Check invoice generation calls
         charging_engine.InvoiceBuilder.assert_called_once_with(self._order)
-        charging_engine.InvoiceBuilder().generate_invoice.assert_called_once_with([], 'initial')
+        self.assertEquals(charging_engine.InvoiceBuilder().generate_invoice.call_count, 0)
 
         # Check order status
         self.assertEquals('paid', self._order.state)
@@ -550,7 +552,8 @@ class ChargingEngineTestCase(TestCase):
             'cost': '12.00',
             'currency': 'EUR',
             'concept': 'initial',
-            'duty_free': '10.00'
+            'duty_free': '10.00',
+            'invoice': INVOICE_PATH
         }], self._order.contracts[0].charges)
 
         self.assertEquals([{
@@ -558,7 +561,8 @@ class ChargingEngineTestCase(TestCase):
             'cost': '12.00',
             'currency': 'EUR',
             'concept': 'initial',
-            'duty_free': '10.00'
+            'duty_free': '10.00',
+            'invoice': INVOICE_PATH
         }], self._order.contracts[1].charges)
 
         self._validate_subscription_calls()
@@ -586,7 +590,8 @@ class ChargingEngineTestCase(TestCase):
             'cost': '12.00',
             'currency': 'EUR',
             'concept': 'renovation',
-            'duty_free': '10.00'
+            'duty_free': '10.00',
+            'invoice': INVOICE_PATH
         }], self._order.contracts[1].charges)
 
         self.assertEquals([], self._order.contracts[2].charges)
