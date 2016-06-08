@@ -45,14 +45,15 @@ class InvoiceBuilder(object):
             'use': self._fill_use_context
         }
 
-    def _process_subscription_parts(self, applied_parts, parts, currency):
+    def _process_subscription_parts(self, applied_parts, parts):
         if 'subscription' in applied_parts:
             for part in applied_parts['subscription']:
                 parts['subs_parts'].append(
-                    (part['duty_free'], part['tax_rate'], part['value'],
-                     currency, part['unit'], unicode(part['renovation_date'])))
+                    (part['duty_free'], part['tax_rate'], part['value'], part['unit'], unicode(part['renovation_date'])))
 
-    def _get_initial_parts(self, applied_parts, currency):
+    def _get_initial_parts(self, transaction):
+        applied_parts = transaction['related_model']
+
         # If initial can only contain single payments and subscriptions
         parts = {
             'single_parts': [],
@@ -60,58 +61,53 @@ class InvoiceBuilder(object):
         }
         if 'single_payment' in applied_parts:
             for part in applied_parts['single_payment']:
-                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value'], currency))
+                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value']))
 
-        self._process_subscription_parts(applied_parts, parts, currency)
+        self._process_subscription_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_initial.html')
         return parts, bill_template
 
     def _process_usage_component(self, applied_parts, parts, comp_name, part_name, part_sub):
-        if comp_name in applied_parts and len(applied_parts[comp_name]) > 0:
-            parts[part_name] = []
-            parts[part_sub] = 0
+        # if comp_name in applied_parts and len(applied_parts[comp_name]) > 0:
+        parts[part_name] = []
+        parts[part_sub] = Decimal(0)
 
-            # Fill use tuples for the invoice
-            for part in applied_parts[comp_name]:
-                model = part['model']
-                if 'price_function' in model:
-                    unit = 'price function'
-                    value_unit = model['text_function']
-                    use = '- '
-                else:
-                    unit = model['unit']
-                    value_unit = model['value']
+        # Fill use tuples for the invoice
+        for part in applied_parts:
+            model = part['model']
+            unit = model['unit']
+            value_unit = model['value']
 
-                    # Aggregate use made
-                    use = 0
-                    for sdr in part['accounting']:
-                        use += int(sdr['value'])
+            # Aggregate use made
+            use = Decimal(0)
+            for sdr in part['accounting']:
+                use += Decimal(sdr['value'])
 
-                parts[part_name].append((model['label'], unit, value_unit, use, part['price']))
-                parts[part_sub] += part['price']
+            parts[part_name].append((unit, value_unit, unicode(use), part['price']))
+            parts[part_sub] += Decimal(part['price'])
 
     def _process_usage_parts(self, applied_parts, parts):
         self._process_usage_component(applied_parts, parts, 'charges', 'use_parts', 'use_subtotal')
-        self._process_usage_component(applied_parts, parts, 'deductions', 'deduct_parts', 'deduct_subtotal')
+        # self._process_usage_component(applied_parts, parts, 'deductions', 'deduct_parts', 'deduct_subtotal')
 
-    def _get_renovation_parts(self, applied_parts, currency):
+    def _get_renovation_parts(self, transaction):
+        applied_parts = transaction['related_model']
+
         parts = {
-            'subs_parts': [],
-            'subs_subtotal': 0
+            'subs_parts': []
         }
         # If renovation, It contains subscriptions
-        self._process_subscription_parts(applied_parts, parts, currency)
-
-        # Check use based charges
-        self._process_usage_parts(applied_parts, parts)
+        self._process_subscription_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_renovation.html')
         return parts, bill_template
 
-    def _get_use_parts(self, applied_parts, currency):
+    def _get_use_parts(self, transaction):
+        applied_parts = transaction['applied_accounting']
+
         # If use, can only contain pay per use parts or deductions
         parts = {
             'use_parts': [],
@@ -137,25 +133,10 @@ class InvoiceBuilder(object):
 
     def _fill_renovation_context(self, context, parts):
         context['subs_parts'] = parts['subs_parts']
-        context['subs_subtotal'] = parts['subs_subtotal']
-
-        if 'use_parts' in parts:
-            context['use'] = True
-            context['use_parts'] = parts['use_parts']
-            context['use_subtotal'] = parts['use_subtotal']
-        else:
-            context['use'] = False
-
-        if 'deduct_parts' in parts:
-            context['deduction'] = True
-            context['deduct_parts'] = parts['deduct_parts']
-            context['deduct_subtotal'] = parts['deduct_subtotal']
-        else:
-            context['deduction'] = False
 
     def _fill_use_context(self, context, parts):
         context['use_parts'] = parts['use_parts']
-        context['use_subtotal'] = parts['use_subtotal']
+        context['use_subtotal'] = unicode(parts['use_subtotal'])
 
         if 'deduct_parts' in parts:
             context['deduction'] = True
@@ -181,7 +162,7 @@ class InvoiceBuilder(object):
         """
 
         # Get invoice context parts and invoice template
-        parts, bill_template = self._template_processors[type_](transaction['related_model'], transaction['currency'])
+        parts, bill_template = self._template_processors[type_](transaction)
 
         tax = self._order.tax_address
         customer_profile = self._order.customer.userprofile

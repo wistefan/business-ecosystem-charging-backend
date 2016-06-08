@@ -92,6 +92,41 @@ MERGED_TRANS = {
     'duty_free': '10'
 }
 
+USAGE_TRANS = {
+    'price': '200.00',
+    'duty_free': '166.60',
+    'currency': 'EUR',
+    'related_model': {
+        'pay_per_use': [{
+            'value': '10.00',
+            'unit': 'call',
+            'tax_rate': '20.00',
+            'duty_free': '8.33'
+        }]
+    },
+    'applied_accounting': [{
+        'model': {
+            'value': '10.00',
+            'unit': 'call',
+            'tax_rate': '20.00',
+            'duty_free': '8.33'
+        },
+        'accounting': [{
+            'usage_id': '1',
+            'price': '100.00',
+            'duty_free': '83.30',
+            'value': '10'
+        }, {
+            'usage_id': '3',
+            'price': '100.00',
+            'duty_free': '83.30',
+            'value': '10'
+        }],
+        'price': '200.00',
+        'duty_free': '166.60'
+    }]
+}
+
 COMMON_CONTEXT = {
     'basedir': BASEDIR,
     'offering_name': OFFERING_NAME,
@@ -118,7 +153,7 @@ BASIC_PRICES = {
 SINGLE_PAYMENT_CONTEXT = {
     'exists_single': True,
     'exists_subs': False,
-    'single_parts': [('10.00', '20', '12.00', 'EUR')]
+    'single_parts': [('10.00', '20', '12.00')]
 }
 SINGLE_PAYMENT_CONTEXT.update(COMMON_CONTEXT)
 SINGLE_PAYMENT_CONTEXT.update(BASIC_PRICES)
@@ -126,7 +161,7 @@ SINGLE_PAYMENT_CONTEXT.update(BASIC_PRICES)
 SUBSCRIPTION_CONTEXT = {
     'exists_single': False,
     'exists_subs': True,
-    'subs_parts': [('10.00', '20', '12.00', 'EUR', 'monthly', unicode(TIMESTAMP))]
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
 }
 SUBSCRIPTION_CONTEXT.update(COMMON_CONTEXT)
 SUBSCRIPTION_CONTEXT.update(BASIC_PRICES)
@@ -134,11 +169,28 @@ SUBSCRIPTION_CONTEXT.update(BASIC_PRICES)
 MERGED_CONTEXT = {
     'exists_single': True,
     'exists_subs': True,
-    'subs_parts': [('10.00', '20', '12.00', 'EUR', 'monthly', unicode(TIMESTAMP))],
-    'single_parts': [('10.00', '20', '12.00', 'EUR')]
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))],
+    'single_parts': [('10.00', '20', '12.00')]
 }
 MERGED_CONTEXT.update(COMMON_CONTEXT)
 MERGED_CONTEXT.update(BASIC_PRICES)
+
+RENEW_CONTEXT = {
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
+}
+RENEW_CONTEXT.update(COMMON_CONTEXT)
+RENEW_CONTEXT.update(BASIC_PRICES)
+
+USAGE_CONTEXT = {
+    'subtotal': '166.60',
+    'tax': '33.40',
+    'total': '200.00',
+    'cur': 'EUR',
+    'use_parts': [('call', '10.00', '20', '200.00')],
+    'use_subtotal': '200.00',
+    'deduction': False
+}
+USAGE_CONTEXT.update(COMMON_CONTEXT)
 
 
 class InvoiceBuilderTestCase(TestCase):
@@ -185,9 +237,17 @@ class InvoiceBuilderTestCase(TestCase):
     @parameterized.expand([
         ('initial_one_time', 'initial', SINGLE_PAYMENT_TRANS, SINGLE_PAYMENT_CONTEXT),
         ('initial_recurring', 'initial', SUBSCRIPTION_TRANS, SUBSCRIPTION_CONTEXT),
-        ('initial_merged', 'initial', MERGED_TRANS, MERGED_CONTEXT)
+        ('initial_merged', 'initial', MERGED_TRANS, MERGED_CONTEXT),
+        ('renew_subs', 'renovation', SUBSCRIPTION_TRANS, RENEW_CONTEXT),
+        ('use_no_deducted', 'use', USAGE_TRANS, USAGE_CONTEXT)
     ])
     def test_invoice_generation(self, name, concept, transaction, exp_context):
+
+        templates = {
+            'initial': 'contracting/bill_template_initial.html',
+            'renovation': 'contracting/bill_template_renovation.html',
+            'use': 'contracting/bill_template_use.html'
+        }
 
         builder = invoice_builder.InvoiceBuilder(self._order)
 
@@ -203,7 +263,7 @@ class InvoiceBuilderTestCase(TestCase):
         self.assertEquals(exp_path, invoice_path)
 
         # Validate calls
-        invoice_builder.loader.get_template.assert_called_once_with('contracting/bill_template_initial.html')
+        invoice_builder.loader.get_template.assert_called_once_with(templates[concept])
         invoice_builder.Context.assert_called_once_with(exp_context)
         self._template.render.assert_called_once_with(invoice_builder.Context())
 

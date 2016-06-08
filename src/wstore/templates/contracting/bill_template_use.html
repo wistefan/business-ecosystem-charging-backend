@@ -29,9 +29,6 @@
                     <thead>
                         <tr>
                             <th>
-                                Name
-                            </th>
-                            <th>
                                 Unit
                             </th>
                             <th>
@@ -46,11 +43,8 @@
                         <tr>
                     </thead>
                     <tbody>
-                        {% for n, u, v, s, p in use_parts %}
+                        {% for u, v, s, p in use_parts %}
                         <tr>
-                            <td>
-                                {{ n }}
-                            </td>
                             <td>
                                 {{ u }}
                             </td>
@@ -87,9 +81,6 @@
                     <thead>
                         <tr>
                             <th>
-                                Name
-                            </th>
-                            <th>
                                 Unit
                             </th>
                             <th>
@@ -104,11 +95,8 @@
                         <tr>
                     </thead>
                     <tbody>
-                        {% for n, v, u, s, p in deduct_parts %}
+                        {% for u, v, s, p in deduct_parts %}
                         <tr>
-                            <td>
-                                {{ n }}
-                            </td>
                             <td>
                                 {{ u }}
                             </td>
