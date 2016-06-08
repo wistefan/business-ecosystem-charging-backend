@@ -14,15 +14,11 @@
                     <p><b>Ref: </b> {{ ref }}</p>
                 </div>
             </div>
-            <div class="row">
+            <div class="row" style="margin-top: 20px;">
                 <div class="col-md-3">
-                    <p><b>Customer Info:</b></p>
-                    <p>{{ organization }}</p>
-                    <p>{{ customer }}</p>
+                    <p>{{ customer }}, {{ organization }}</p>
                     <p>{{ address }}</p>
-                    <p>{{ postal }}</p>
-                    <p>{{ city }}</p>
-                    <p>{{ province }}</p>
+                    <p>{{ postal }}, {{ city }} ({{ province }})</p>
                     <p>{{ country }}</p>
                 </div>
             </div>
@@ -45,21 +41,21 @@
                                 Period
                             </th>
                             <th>
-                                Renovation date
+                                Renew date
                             </th>
                         <tr>
                     </thead>
                     <tbody>
-                        {% for f, tr, v, c, u, d in subs_parts %}
+                        {% for f, tr, v, u, d in subs_parts %}
                         <tr>
                             <td>
-                                {{ f }} {{ c }}
+                                {{ f }} {{ cur }}
                             </td>
                             <td>
                                 {{ tr }} %
                             </td>
                             <td>
-                                {{ v }} {{ c }}
+                                {{ v }} {{ cur }}
                             </td>
                             <td>
                                 {{ u }}
@@ -71,8 +67,9 @@
                         {% endfor %}
                     </tbody>
                 </table>
-
-                <div class="row">
+            </div>
+            <div class="row">
+                <h3>Total</h3>
                 <table class="table table-bordered" id="price">
                     <thead>
                         <tr>
