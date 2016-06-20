@@ -37,6 +37,15 @@ class Offering(models.Model):
     asset = models.ForeignKey(Resource, null=True, blank=True)
 
 
+class Charge(models.Model):
+    date = models.DateTimeField()
+    cost = models.CharField(max_length=100)
+    duty_free = models.CharField(max_length=100)
+    currency = models.CharField(max_length=3)
+    concept = models.CharField(max_length=100)
+    invoice = models.CharField(max_length=200)
+
+
 class Contract(models.Model):
     item_id = models.CharField(max_length=50)
     product_id = models.CharField(max_length=50, blank=True, null=True)
@@ -47,7 +56,7 @@ class Contract(models.Model):
     # Date of the last charge to the customer
     last_charge = models.DateTimeField(blank=True, null=True)
     # List with the made charges
-    charges = ListField()
+    charges = ListField(EmbeddedModelField(Charge))
 
     # Usage fields
     correlation_number = models.IntegerField(default=0)
@@ -68,7 +77,6 @@ class Order(models.Model):
     sales_ids = ListField()
 
     state = models.CharField(max_length=50)
-    bills = ListField()
     tax_address = DictField()
 
     # List of contracts attached to the current order

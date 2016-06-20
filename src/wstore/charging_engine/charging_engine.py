@@ -34,7 +34,7 @@ from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
 from wstore.ordering.errors import OrderingError
-from wstore.ordering.models import Order
+from wstore.ordering.models import Order, Charge
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 from wstore.admin.users.notification_handler import NotificationsHandler
@@ -213,14 +213,14 @@ class ChargingEngine:
                 pass
 
             # Update contracts
-            contract.charges.append({
-                'date': time_stamp,
-                'cost': transaction['price'],
-                'duty_free': transaction['duty_free'],
-                'currency': transaction['currency'],
-                'concept': concept,
-                'invoice': invoice_path
-            })
+            contract.charges.append(Charge(
+                date=time_stamp,
+                cost=transaction['price'],
+                duty_free=transaction['duty_free'],
+                currency=transaction['currency'],
+                concept=concept,
+                invoice=invoice_path
+            ))
 
         self._order.save()
 

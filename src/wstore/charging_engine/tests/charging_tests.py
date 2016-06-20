@@ -87,6 +87,10 @@ class ChargingEngineTestCase(TestCase):
         charging_engine.NotificationsHandler = MagicMock()
         charging_engine.settings.PAYMENT_CLIENT = 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
 
+        self._charge = MagicMock()
+        charging_engine.Charge = MagicMock()
+        charging_engine.Charge.return_value = self._charge
+
     def _get_single_payment(self):
         return {
             'general_currency': 'EUR',
@@ -547,23 +551,21 @@ class ChargingEngineTestCase(TestCase):
             call(self._order, self._order.contracts[1])
         ], charging_engine.NotificationsHandler().send_provider_notification.call_args_list)
 
-        self.assertEquals([{
-            'date': datetime(2016, 1, 20, 13, 12, 39),
-            'cost': '12.00',
-            'currency': 'EUR',
-            'concept': 'initial',
-            'duty_free': '10.00',
-            'invoice': INVOICE_PATH
-        }], self._order.contracts[0].charges)
+        basic_charge_call = call(
+            date=datetime(2016, 1, 20, 13, 12, 39),
+            cost='12.00',
+            currency='EUR',
+            concept='initial',
+            duty_free='10.00',
+            invoice=INVOICE_PATH
+        )
 
-        self.assertEquals([{
-            'date': datetime(2016, 1, 20, 13, 12, 39),
-            'cost': '12.00',
-            'currency': 'EUR',
-            'concept': 'initial',
-            'duty_free': '10.00',
-            'invoice': INVOICE_PATH
-        }], self._order.contracts[1].charges)
+        self.assertEquals([
+            basic_charge_call, basic_charge_call
+        ], charging_engine.Charge.call_args_list)
+
+        self.assertEquals([self._charge], self._order.contracts[0].charges)
+        self.assertEquals([self._charge], self._order.contracts[1].charges)
 
         self._validate_subscription_calls()
 
@@ -585,14 +587,16 @@ class ChargingEngineTestCase(TestCase):
 
         charging_engine.NotificationsHandler().send_renovation_notification.assert_called_once_with(self._order, transactions)
 
-        self.assertEquals([{
-            'date': datetime(2016, 1, 20, 13, 12, 39),
-            'cost': '12.00',
-            'currency': 'EUR',
-            'concept': 'renovation',
-            'duty_free': '10.00',
-            'invoice': INVOICE_PATH
-        }], self._order.contracts[1].charges)
+        charging_engine.Charge.assert_called_once_with(
+            date=datetime(2016, 1, 20, 13, 12, 39),
+            cost='12.00',
+            currency='EUR',
+            concept='renovation',
+            duty_free='10.00',
+            invoice=INVOICE_PATH
+        )
+
+        self.assertEquals([self._charge], self._order.contracts[1].charges)
 
         self.assertEquals([], self._order.contracts[2].charges)
         self._validate_subscription_calls()
