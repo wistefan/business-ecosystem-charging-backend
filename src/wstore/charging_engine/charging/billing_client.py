@@ -52,24 +52,23 @@ class BillingClient:
             'taxIncludedAmount': charge_model.cost,
             'taxExcludedAmount': charge_model.duty_free,
             'appliedCustomerBillingTaxRate': [{
-                'amount': tax_rate,
+                'amount': unicode(tax_rate),
                 'taxCategory': 'VAT'
             }],
             'serviceId': [{
                 'id': product_id,
                 'type': 'Inventory product'
-            }],
-            'period': []
+            }]
         }
 
         if end_date is not None or start_date is not None:
             start_period = start_date.isoformat() + 'Z' if start_date is not None else str_time
             end_period = end_date.isoformat() + 'Z' if end_date is not None else str_time
 
-            charge['period'].append({
+            charge['period'] = [{
                 'startPeriod': start_period,
                 'endPeriod': end_period
-            })
+            }]
 
         url = self._billing_api + 'api/billingManagement/v2/appliedCustomerBillingCharge'
         req = Request('POST', url, json=charge)

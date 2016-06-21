@@ -22,12 +22,13 @@ from __future__ import unicode_literals
 
 from bson.objectid import ObjectId
 from decimal import Decimal
+from datetime import datetime
 from mock import MagicMock
 from nose_parameterized import parameterized
 
 from django.test import TestCase
 
-from wstore.charging_engine.charging import cdr_manager
+from wstore.charging_engine.charging import billing_client, cdr_manager
 
 INITIAL_EXP = [{
     'provider': 'provider',
@@ -193,3 +194,106 @@ class CDRGenerationTestCase(TestCase):
 
         cdr_manager.RSSAdaptorThread.assert_called_once_with(exp_cdr)
         cdr_manager.RSSAdaptorThread().start.assert_called_once_with()
+
+
+TIMESTAMP = datetime(2016, 06, 21, 10, 0, 0)
+RENEW_DATE = datetime(2016, 07, 21, 10, 0, 0)
+START_DATE = datetime(2016, 05, 21, 10, 0, 0)
+
+COMMON_CHARGE = {
+    'date': TIMESTAMP.isoformat() + 'Z',
+    'currencyCode': 'EUR',
+    'taxIncludedAmount': '10',
+    'taxExcludedAmount': '8',
+    'appliedCustomerBillingTaxRate': [{
+        'amount': '20',
+        'taxCategory': 'VAT'
+    }],
+    'serviceId': [{
+        'id': '1',
+        'type': 'Inventory product'
+    }]
+}
+
+BASIC_CHARGE = {
+    'description': 'initial http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'type': 'initial'
+}
+BASIC_CHARGE.update(COMMON_CHARGE)
+
+RECURRING_CHARGE = {
+    'description': 'recurring http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'type': 'recurring',
+    'period': [{
+        'startPeriod': TIMESTAMP.isoformat() + 'Z',
+        'endPeriod': RENEW_DATE.isoformat() + 'Z'
+    }]
+}
+RECURRING_CHARGE.update(COMMON_CHARGE)
+
+USAGE_CHARGE = {
+    'description': 'usage http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'type': 'usage',
+    'period': [{
+        'startPeriod': START_DATE.isoformat() + 'Z',
+        'endPeriod': TIMESTAMP.isoformat() + 'Z'
+    }]
+}
+USAGE_CHARGE.update(COMMON_CHARGE)
+
+
+class BillingClientTestCase(TestCase):
+
+    tags = ('billing', )
+
+    @parameterized.expand([
+        ('initial', None, None, BASIC_CHARGE),
+        ('recurring', None, RENEW_DATE, RECURRING_CHARGE),
+        ('usage', START_DATE, None, USAGE_CHARGE)
+    ])
+    def test_create_charge(self, name, start_date, end_date, exp_body):
+        # Create Mocks
+        billing_client.settings.BILLING = 'http://billing.api.com'
+
+        charge = MagicMock()
+        charge.date = TIMESTAMP
+        charge.cost = '10'
+        charge.duty_free = '8'
+        charge.invoice_path = 'charging/media/bills/bill1.pdf'
+        charge.currency = 'EUR'
+
+        billing_client.Context = MagicMock()
+        context = MagicMock()
+        context.site.domain = 'http://extpath.com:8080/'
+        billing_client.Context.objects.all.return_value = [context]
+
+        billing_client.Request = MagicMock()
+        billing_client.Session = MagicMock()
+        session = MagicMock()
+        billing_client.Session.return_value = session
+
+        preped = MagicMock()
+        preped.headers = {}
+        session.prepare_request.return_value = preped
+
+        # Call the method to test
+        client = billing_client.BillingClient()
+        client.create_charge(charge, name, '1', start_date=start_date, end_date=end_date)
+
+        # Validate calls
+        billing_client.Request.assert_called_once_with(
+            'POST',
+            'http://billing.api.com/api/billingManagement/v2/appliedCustomerBillingCharge',
+            json=exp_body
+        )
+
+        billing_client.Session.assert_called_once_with()
+        session.prepare_request.assert_called_once_with(billing_client.Request())
+
+        self.assertEquals(
+            'extpath.com:8080',
+            preped.headers['Host']
+        )
+
+        session.send.assert_called_once_with(preped)
+        session.send().raise_for_status.assert_called_once_with()
