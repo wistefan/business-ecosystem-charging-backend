@@ -238,15 +238,15 @@ class InvoiceBuilderTestCase(TestCase):
         ('initial_one_time', 'initial', SINGLE_PAYMENT_TRANS, SINGLE_PAYMENT_CONTEXT),
         ('initial_recurring', 'initial', SUBSCRIPTION_TRANS, SUBSCRIPTION_CONTEXT),
         ('initial_merged', 'initial', MERGED_TRANS, MERGED_CONTEXT),
-        ('renew_subs', 'renovation', SUBSCRIPTION_TRANS, RENEW_CONTEXT),
-        ('use_no_deducted', 'use', USAGE_TRANS, USAGE_CONTEXT)
+        ('renew_subs', 'recurring', SUBSCRIPTION_TRANS, RENEW_CONTEXT),
+        ('use_no_deducted', 'usage', USAGE_TRANS, USAGE_CONTEXT)
     ])
     def test_invoice_generation(self, name, concept, transaction, exp_context):
 
         templates = {
             'initial': 'contracting/bill_template_initial.html',
-            'renovation': 'contracting/bill_template_renovation.html',
-            'use': 'contracting/bill_template_use.html'
+            'recurring': 'contracting/bill_template_renovation.html',
+            'usage': 'contracting/bill_template_use.html'
         }
 
         builder = invoice_builder.InvoiceBuilder(self._order)

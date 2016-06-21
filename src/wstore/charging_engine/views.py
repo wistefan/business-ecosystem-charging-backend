@@ -210,8 +210,8 @@ class PayPalConfirmation(Resource):
 
         states_processors = {
             'initial': self._set_initial_states,
-            'renovation': self._set_renovation_states,
-            'use': self._set_renovation_states
+            'recurring': self._set_renovation_states,
+            'usage': self._set_renovation_states
         }
         states_processors[concept](transactions, raw_order, order)
 

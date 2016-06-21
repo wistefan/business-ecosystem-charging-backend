@@ -173,16 +173,12 @@ class RenovationCollection(Resource):
 
         # Build charging engine
         charging_engine = ChargingEngine(order)
-        concepts = {
-            'recurring': 'renovation',
-            'usage': 'use'
-        }
 
-        if task['priceType'].lower() not in concepts:
+        if task['priceType'].lower() not in ['recurring', 'usage']:
             return build_response(request, 400, 'Invalid priceType only recurring and usage types can be renovated')
 
         try:
-            redirect_url = charging_engine.resolve_charging(type_=concepts[task['priceType']].lower(), related_contracts=[contract])
+            redirect_url = charging_engine.resolve_charging(type_=task['priceType'].lower(), related_contracts=[contract])
         except ValueError as e:
             return build_response(request, 400, unicode(e))
         except OrderingError as e:

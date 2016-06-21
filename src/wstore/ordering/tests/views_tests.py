@@ -244,17 +244,17 @@ class RenovationCollectionTestCase(TestCase):
         self.charging_inst.resolve_charging.side_effect = Exception('Exception')
 
     @parameterized.expand([
-        ('subscription', RENOVATION_DATA, 'http://redirecturl.com', 'renovation', 200, CORRECT_RESP),
+        ('subscription', RENOVATION_DATA, 'http://redirecturl.com', 'recurring', 200, CORRECT_RESP),
         ('usage', {
             'name': 'oid=1',
             'id': '24',
             'priceType': 'usage'
-        }, 'http://redirecturl.com', 'use', 200, CORRECT_RESP),
+        }, 'http://redirecturl.com', 'usage', 200, CORRECT_RESP),
         ('free', {
             'name': 'oid=1',
             'id': '24',
             'priceType': 'recurring'
-        }, None, 'renovation', 200, CORRECT_RESP),
+        }, None, 'recurring', 200, CORRECT_RESP),
         ('invalid_data', 'invalid_data', None, None, 400, {
             'result': 'error',
             'error': 'The provided data is not a valid JSON object'

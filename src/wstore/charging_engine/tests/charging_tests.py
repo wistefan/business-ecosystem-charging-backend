@@ -52,6 +52,7 @@ def mock_payment_client(self, module):
 
 INVOICE_PATH = '/media/invoice/invoice1.pdf'
 
+
 class ChargingEngineTestCase(TestCase):
 
     tags = ('ordering', 'charging-engine')
@@ -90,6 +91,8 @@ class ChargingEngineTestCase(TestCase):
         self._charge = MagicMock()
         charging_engine.Charge = MagicMock()
         charging_engine.Charge.return_value = self._charge
+
+        charging_engine.BillingClient = MagicMock()
 
     def _get_single_payment(self):
         return {
@@ -136,7 +139,7 @@ class ChargingEngineTestCase(TestCase):
         contract.item_id = info['item_id']
         contract.charges = []
         contract.pricing_model = info['pricing']
-        contract.product_id = 'product'
+        contract.product_id = info['product_id']
         return contract
 
     def _set_initial_contracts(self):
@@ -144,13 +147,15 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 1 description',
             'offering_pk': '111111',
             'item_id': '1',
-            'pricing': self._get_single_payment()
+            'pricing': self._get_single_payment(),
+            'product_id': 'product1'
         })
         contract2 = self._mock_contract({
             'description': 'Offering 2 description',
             'offering_pk': '222222',
             'item_id': '2',
-            'pricing': self._get_subscription()
+            'pricing': self._get_subscription(),
+            'product_id': 'product2'
         })
 
         self._order.contracts = [contract1, contract2]
@@ -192,19 +197,22 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 1 description',
             'offering_pk': '111111',
             'item_id': '1',
-            'pricing': self._get_single_payment()
+            'pricing': self._get_single_payment(),
+            'product_id': 'product1'
         })
         contract2 = self._mock_contract({
             'description': 'Offering 2 description',
             'offering_pk': '222222',
             'item_id': '2',
-            'pricing': self._get_subscription(datetime(2015, 10, 01, 10, 10))
+            'pricing': self._get_subscription(datetime(2015, 10, 01, 10, 10)),
+            'product_id': 'product2'
         })
         contract3 = self._mock_contract({
             'description': 'Offering 3 description',
             'offering_pk': '333333',
             'item_id': '3',
-            'pricing': self._get_subscription(datetime.utcnow())
+            'pricing': self._get_subscription(datetime.utcnow()),
+            'product_id': 'product3'
         })
 
         self._order.contracts = [contract1, contract2, contract3]
@@ -234,7 +242,8 @@ class ChargingEngineTestCase(TestCase):
                 'description': 'Offering 3 description',
                 'offering_pk': '333333',
                 'item_id': '3',
-                'pricing': self._get_subscription(datetime.utcnow())
+                'pricing': self._get_subscription(datetime.utcnow()),
+                'product_id': 'product1'
             })
         ]
         return []
@@ -252,7 +261,8 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering description',
             'offering_pk': '11111',
             'item_id': '1',
-            'pricing': self._get_pay_use()
+            'pricing': self._get_pay_use(),
+            'product_id': 'product1'
         })
 
         # Mock usage client
@@ -278,6 +288,7 @@ class ChargingEngineTestCase(TestCase):
         }]
         contract.applied_sdrs = []
         self._order.contracts = [contract]
+        self._order.date = datetime(2016, 1, 20, 13, 12, 39)
         self._order.get_item_contract.side_effect = [contract]
 
         return [{
@@ -351,7 +362,8 @@ class ChargingEngineTestCase(TestCase):
             'pricing': {
                 'general_currency': 'EUR',
                 'single_payment': [deepcopy(component), deepcopy(component)]
-            }
+            },
+            'product_id': 'product1'
         })
 
         # Conditional fee
@@ -363,7 +375,8 @@ class ChargingEngineTestCase(TestCase):
                 'general_currency': 'EUR',
                 'single_payment': [deepcopy(component)],
                 'alteration': deepcopy(alteration_fee)
-            }
+            },
+            'product_id': 'product2'
         })
 
         # Fixed percentage discount
@@ -375,7 +388,8 @@ class ChargingEngineTestCase(TestCase):
                 'general_currency': 'EUR',
                 'single_payment': [deepcopy(component)],
                 'alteration': deepcopy(alteration_fixed_discount)
-            }
+            },
+            'product_id': 'product3'
         })
 
         # Non applicable discount
@@ -394,7 +408,8 @@ class ChargingEngineTestCase(TestCase):
                         'value': '50.00'
                     }
                 }
-            }
+            },
+            'product_id': 'product4'
         })
 
         self._order.contracts = [contract1, contract2, contract3, contract4]
@@ -445,8 +460,8 @@ class ChargingEngineTestCase(TestCase):
     @parameterized.expand([
         ('initial', _set_initial_contracts),
         ('initial', _set_initial_alteration_contracts),
-        ('renovation', _set_renovation_contracts),
-        ('use', _set_usage_contracts)
+        ('recurring', _set_renovation_contracts),
+        ('usage', _set_usage_contracts)
     ])
     def test_payment(self, name, contract_gen):
 
@@ -483,7 +498,7 @@ class ChargingEngineTestCase(TestCase):
 
         error = None
         try:
-            charging.resolve_charging('renovation')
+            charging.resolve_charging('recurring')
         except OrderingError as e:
             error = e
 
@@ -503,6 +518,7 @@ class ChargingEngineTestCase(TestCase):
         # Check invoice generation calls
         charging_engine.InvoiceBuilder.assert_called_once_with(self._order)
         self.assertEquals(charging_engine.InvoiceBuilder().generate_invoice.call_count, 0)
+        self.assertEquals(charging_engine.BillingClient().create_charge.call_count, 0)
 
         # Check order status
         self.assertEquals('paid', self._order.state)
@@ -567,6 +583,11 @@ class ChargingEngineTestCase(TestCase):
         self.assertEquals([self._charge], self._order.contracts[0].charges)
         self.assertEquals([self._charge], self._order.contracts[1].charges)
 
+        self.assertEquals([
+            call(self._charge, 'initial', self._order.contracts[0].product_id, start_date=None, end_date=None),
+            call(self._charge, 'initial', self._order.contracts[1].product_id, start_date=None, end_date=datetime(2016, 2, 19, 13, 12, 39)),
+        ], charging_engine.BillingClient().create_charge.call_args_list)
+
         self._validate_subscription_calls()
 
     def _validate_end_renovation_payment(self, transactions):
@@ -591,7 +612,7 @@ class ChargingEngineTestCase(TestCase):
             date=datetime(2016, 1, 20, 13, 12, 39),
             cost='12.00',
             currency='EUR',
-            concept='renovation',
+            concept='recurring',
             duty_free='10.00',
             invoice=INVOICE_PATH
         )
@@ -599,20 +620,27 @@ class ChargingEngineTestCase(TestCase):
         self.assertEquals([self._charge], self._order.contracts[1].charges)
 
         self.assertEquals([], self._order.contracts[2].charges)
+
+        charging_engine.BillingClient().create_charge.assert_called_once_with(
+            self._charge, 'recurring', self._order.contracts[1].product_id, start_date=None, end_date=datetime(2016, 2, 19, 13, 12, 39))
+
         self._validate_subscription_calls()
 
     def _validate_end_usage_payment(self, transactions):
         self.assertEquals([
-            call('1', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product'),
-            call('3', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', 'product')
+            call('1', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', self._order.contracts[0].product_id),
+            call('3', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', self._order.contracts[0].product_id)
         ],
             charging_engine.UsageClient().rate_usage.call_args_list
         )
 
+        charging_engine.BillingClient().create_charge.assert_called_once_with(
+            self._charge, 'usage', self._order.contracts[0].product_id, start_date=datetime(2016, 1, 20, 13, 12, 39), end_date=None)
+
     @parameterized.expand([
         ('initial', _set_initial_contracts, _validate_end_initial_payment),
-        ('renovation', _set_renovation_contracts, _validate_end_renovation_payment),
-        ('use', _set_usage_contracts, _validate_end_usage_payment)
+        ('recurring', _set_renovation_contracts, _validate_end_renovation_payment),
+        ('usage', _set_usage_contracts, _validate_end_usage_payment)
     ])
     def test_end_payment(self, name, contract_gen, validator):
         self._order.state = 'pending'
@@ -622,6 +650,7 @@ class ChargingEngineTestCase(TestCase):
         charging.end_charging(transactions, name)
 
         charging_engine.NotificationsHandler.assert_called_once_with()
+        charging_engine.BillingClient.assert_called_once_with()
         validator(self, transactions)
 
         # Validate calls
@@ -643,7 +672,7 @@ class ChargingEngineTestCase(TestCase):
             error = e
 
         self.assertFalse(error is None)
-        self.assertEquals('Invalid charge type, must be initial, renovation, or use', unicode(e))
+        self.assertEquals('Invalid charge type, must be initial, recurring, or usage', unicode(e))
 
 BASIC_PAYPAL = {
     'reference': '111111111111111111111111',

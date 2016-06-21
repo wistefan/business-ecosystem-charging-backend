@@ -61,8 +61,8 @@ class Command(BaseCommand):
             # Search last usage charge
             last_charge = None
             for charge in reversed(contract.charges):
-                if charge['concept'] == 'use':
-                    last_charge = charge['date']
+                if charge.concept == 'usage':
+                    last_charge = charge.date
                     break
 
             # No use charge has been applied yet

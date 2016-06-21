@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 
 INVENTORY = 'http://localhost:8080/DSProductInventory'
 ORDERING = 'http://localhost:8080/DSProductOrdering'
+BILLING = 'http://localhost:8080/DSBillingManagement'
 RSS = 'http://localhost:8080/DSRevenueSharing'
 USAGE = 'http://localhost:8080/DSUsageManagement'
 AUTHORIZE_SERVICE = 'http://localhost:8004/authorizeService/apiKeys'

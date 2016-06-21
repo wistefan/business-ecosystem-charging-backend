@@ -36,13 +36,13 @@ class InvoiceBuilder(object):
         self._order = order
         self._template_processors = {
             'initial': self._get_initial_parts,
-            'renovation': self._get_renovation_parts,
-            'use': self._get_use_parts
+            'recurring': self._get_renovation_parts,
+            'usage': self._get_use_parts
         }
         self._context_processors = {
             'initial': self._fill_initial_context,
-            'renovation': self._fill_renovation_context,
-            'use': self._fill_use_context
+            'recurring': self._fill_renovation_context,
+            'usage': self._fill_use_context
         }
 
     def _process_subscription_parts(self, applied_parts, parts):

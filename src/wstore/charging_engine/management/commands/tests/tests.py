@@ -66,14 +66,14 @@ class ChargesDaemonTestCase(TestCase):
             'pay_per_use': []
         }, id_)
 
-        contract.charges = [{
-            'concept': 'one time'
-        }, {
-            'concept': 'use',
-            'date': date
-        }, {
-            'concept': 'one time'
-        }]
+        charge1 = MagicMock()
+        charge1.concept = 'initial'
+
+        charge2 = MagicMock()
+        charge2.concept = 'usage'
+        charge2.date = date
+
+        contract.charges = [charge1, charge2, charge1]
         return contract
 
     def _test_charging_daemon(self, contracts):
@@ -114,7 +114,6 @@ class ChargesDaemonTestCase(TestCase):
         self._test_charging_daemon([contract1, contract2, contract3])
 
     def test_usage_renovation(self):
-        #import ipdb; ipdb.set_trace()
 
         # Not expired
         contract1 = self._build_usage_contract(datetime(2016, 03, 01), '1')
