@@ -216,13 +216,13 @@ COMMON_CHARGE = {
 }
 
 BASIC_CHARGE = {
-    'description': 'initial http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'description': 'initial charge of 10 EUR http://extpath.com:8080/charging/media/bills/bill1.pdf',
     'type': 'initial'
 }
 BASIC_CHARGE.update(COMMON_CHARGE)
 
 RECURRING_CHARGE = {
-    'description': 'recurring http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'description': 'recurring charge of 10 EUR http://extpath.com:8080/charging/media/bills/bill1.pdf',
     'type': 'recurring',
     'period': [{
         'startPeriod': TIMESTAMP.isoformat() + 'Z',
@@ -232,7 +232,7 @@ RECURRING_CHARGE = {
 RECURRING_CHARGE.update(COMMON_CHARGE)
 
 USAGE_CHARGE = {
-    'description': 'usage http://extpath.com:8080/charging/media/bills/bill1.pdf',
+    'description': 'usage charge of 10 EUR http://extpath.com:8080/charging/media/bills/bill1.pdf',
     'type': 'usage',
     'period': [{
         'startPeriod': START_DATE.isoformat() + 'Z',

@@ -42,7 +42,7 @@ class BillingClient:
 
         domain = Context.objects.all()[0].site.domain
         invoice_url = urljoin(domain, charge_model.invoice_path)
-        description = model + ' ' + invoice_url
+        description = model + ' charge of ' + charge_model.cost + ' ' + charge_model.currency + ' ' + invoice_url
 
         charge = {
             'date': str_time,
