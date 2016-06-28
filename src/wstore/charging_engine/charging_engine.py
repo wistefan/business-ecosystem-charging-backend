@@ -32,9 +32,10 @@ from wstore.charging_engine.accounting.usage_client import UsageClient
 
 from wstore.charging_engine.price_resolver import PriceResolver
 from wstore.charging_engine.charging.cdr_manager import CDRManager
+from wstore.charging_engine.charging.billing_client import BillingClient
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
 from wstore.ordering.errors import OrderingError
-from wstore.ordering.models import Order
+from wstore.ordering.models import Order, Charge
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 from wstore.admin.users.notification_handler import NotificationsHandler
@@ -48,13 +49,13 @@ class ChargingEngine:
         self._price_resolver = PriceResolver()
         self.charging_processors = {
             'initial': self._process_initial_charge,
-            'renovation': self._process_renovation_charge,
-            'use': self._process_use_charge
+            'recurring': self._process_renovation_charge,
+            'usage': self._process_use_charge
         }
         self.end_processors = {
             'initial': self._end_initial_charge,
-            'renovation': self._end_renovation_charge,
-            'use': self._end_use_charge
+            'recurring': self._end_renovation_charge,
+            'usage': self._end_use_charge
         }
 
     def _initial_charge_timeout(self, order):
@@ -93,8 +94,8 @@ class ChargingEngine:
                 order = Order.objects.get(pk=self._order.pk)
                 timeout_processors = {
                     'initial': self._initial_charge_timeout,
-                    'renovation': self._renew_charge_timeout,
-                    'use': self._renew_charge_timeout
+                    'recurring': self._renew_charge_timeout,
+                    'usage': self._renew_charge_timeout
                 }
                 timeout_processors[self._concept](order)
 
@@ -129,13 +130,15 @@ class ChargingEngine:
     def _end_initial_charge(self, contract, transaction):
         # If a subscription part has been charged update renovation date
         related_model = transaction['related_model']
+        valid_to = None
         if 'subscription' in related_model:
             updated_subscriptions = []
 
             for subs in contract.pricing_model['subscription']:
                 up_sub = subs
                 # Calculate renovation date
-                up_sub['renovation_date'] = self._calculate_renovation_date(subs['unit'])
+                valid_to = self._calculate_renovation_date(subs['unit'])
+                up_sub['renovation_date'] = valid_to
                 updated_subscriptions.append(up_sub)
 
             contract.pricing_model['subscription'] = updated_subscriptions
@@ -145,12 +148,16 @@ class ChargingEngine:
         self._order.owner_organization.acquired_offerings.append(contract.offering.pk)
         self._order.owner_organization.save()
 
+        return None, valid_to
+
     def _end_renovation_charge(self, contract, transaction):
 
         related_model = transaction['related_model']
         # Process contract subscriptions
+        valid_to = None
         for subs in related_model['subscription']:
-            subs['renovation_date'] = self._calculate_renovation_date(subs['unit'])
+            valid_to = self._calculate_renovation_date(subs['unit'])
+            subs['renovation_date'] = valid_to
             updated_subscriptions = related_model['subscription']
 
             if 'unmodified' in related_model:
@@ -160,9 +167,12 @@ class ChargingEngine:
             contract.pricing_model['subscription'] = updated_subscriptions
             related_model['subscription'] = updated_subscriptions
 
+        return None, valid_to
+
     def _end_use_charge(self, contract, transaction):
         # Change applied usage documents SDR Guided to Rated
         usage_client = UsageClient()
+
         for sdr_info in transaction['applied_accounting']:
             for sdr in sdr_info['accounting']:
 
@@ -177,6 +187,8 @@ class ChargingEngine:
                 )
 
         transaction['related_model']['accounting'] = transaction['applied_accounting']
+
+        return contract.charges[-1].date if len(contract.charges) > 0 else self._order.date, None
 
     def end_charging(self, transactions, concept):
         """
@@ -194,33 +206,46 @@ class ChargingEngine:
 
         self._order.pending_payment = {}
 
+        invoice_builder = InvoiceBuilder(self._order)
+        billing_client = BillingClient() if concept != 'initial' else None
+
         for transaction in transactions:
             contract = self._order.get_item_contract(transaction['item'])
-            # Update contracts
-            contract.charges.append({
-                'date': time_stamp,
-                'cost': transaction['price'],
-                'duty_free': transaction['duty_free'],
-                'currency': transaction['currency'],
-                'concept': concept
-            })
-
             contract.last_charge = time_stamp
 
-            self.end_processors[concept](contract, transaction)
+            valid_from, valid_to = self.end_processors[concept](contract, transaction)
 
             # If the customer has been charged create the CDR
             cdr_manager = CDRManager(self._order, contract)
             cdr_manager.generate_cdr(transaction['related_model'], time_stamp.isoformat() + 'Z')
 
+            # Generate the invoice
+            invoice_path = ''
+            try:
+                invoice_path = invoice_builder.generate_invoice(contract, transaction, concept)
+            except:
+                pass
+
+            # Update contracts
+            charge = Charge(
+                date=time_stamp,
+                cost=transaction['price'],
+                duty_free=transaction['duty_free'],
+                currency=transaction['currency'],
+                concept=concept,
+                invoice=invoice_path
+            )
+            contract.charges.append(charge)
+
+            # Send the charge to the billing API to allow user accesses
+            if concept != 'initial':
+                # When the change concept is initial, the product has not been yet created in the inventory
+                billing_client.create_charge(charge, concept, contract.product_id, start_date=valid_from, end_date=valid_to)
+
         self._order.save()
 
         # TODO: Improve the rollback in case of unexpected exception
         try:
-            # Generate the invoice
-            invoice_builder = InvoiceBuilder(self._order)
-            invoice_builder.generate_invoice(transactions, concept)
-
             # Send notifications if required
             handler = NotificationsHandler()
             if concept == 'initial':
@@ -229,7 +254,7 @@ class ChargingEngine:
                 for cont in self._order.contracts:
                     handler.send_provider_notification(self._order, cont)
 
-            elif concept == 'renovation' or concept == 'use':
+            elif concept == 'recurring' or concept == 'usage':
                 handler.send_renovation_notification(self._order, transactions)
         except:
             pass
@@ -404,7 +429,7 @@ class ChargingEngine:
         self._concept = type_
 
         if type_ not in self.charging_processors:
-            raise ValueError('Invalid charge type, must be initial, renovation, or use')
+            raise ValueError('Invalid charge type, must be initial, recurring, or usage')
 
         if related_contracts is None:
             related_contracts = self._order.contracts

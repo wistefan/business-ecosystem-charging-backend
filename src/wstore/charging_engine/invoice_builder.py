@@ -36,21 +36,24 @@ class InvoiceBuilder(object):
         self._order = order
         self._template_processors = {
             'initial': self._get_initial_parts,
-            'renovation': self._get_renovation_parts,
-            'use': self._get_use_parts
+            'recurring': self._get_renovation_parts,
+            'usage': self._get_use_parts
         }
         self._context_processors = {
             'initial': self._fill_initial_context,
-            'renovation': self._fill_renovation_context,
-            'use': self._fill_use_context
+            'recurring': self._fill_renovation_context,
+            'usage': self._fill_use_context
         }
 
-    def _process_subscription_parts(self, applied_parts, parts, currency):
+    def _process_subscription_parts(self, applied_parts, parts):
         if 'subscription' in applied_parts:
             for part in applied_parts['subscription']:
-                parts['subs_parts'].append((part['duty_free'], part['tax_rate'], part['value'], currency, part['unit'], str(part['renovation_date'])))
+                parts['subs_parts'].append(
+                    (part['duty_free'], part['tax_rate'], part['value'], part['unit'], unicode(part['renovation_date'])))
 
-    def _get_initial_parts(self, applied_parts, currency):
+    def _get_initial_parts(self, transaction):
+        applied_parts = transaction['related_model']
+
         # If initial can only contain single payments and subscriptions
         parts = {
             'single_parts': [],
@@ -58,58 +61,53 @@ class InvoiceBuilder(object):
         }
         if 'single_payment' in applied_parts:
             for part in applied_parts['single_payment']:
-                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value'], currency))
+                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value']))
 
-        self._process_subscription_parts(applied_parts, parts, currency)
+        self._process_subscription_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_initial.html')
         return parts, bill_template
 
     def _process_usage_component(self, applied_parts, parts, comp_name, part_name, part_sub):
-        if comp_name in applied_parts and len(applied_parts[comp_name]) > 0:
-            parts[part_name] = []
-            parts[part_sub] = 0
+        # if comp_name in applied_parts and len(applied_parts[comp_name]) > 0:
+        parts[part_name] = []
+        parts[part_sub] = Decimal(0)
 
-            # Fill use tuples for the invoice
-            for part in applied_parts[comp_name]:
-                model = part['model']
-                if 'price_function' in model:
-                    unit = 'price function'
-                    value_unit = model['text_function']
-                    use = '- '
-                else:
-                    unit = model['unit']
-                    value_unit = model['value']
+        # Fill use tuples for the invoice
+        for part in applied_parts:
+            model = part['model']
+            unit = model['unit']
+            value_unit = model['value']
 
-                    # Aggregate use made
-                    use = 0
-                    for sdr in part['accounting']:
-                        use += int(sdr['value'])
+            # Aggregate use made
+            use = Decimal(0)
+            for sdr in part['accounting']:
+                use += Decimal(sdr['value'])
 
-                parts[part_name].append((model['label'], unit, value_unit, use, part['price']))
-                parts[part_sub] += part['price']
+            parts[part_name].append((unit, value_unit, unicode(use), part['price']))
+            parts[part_sub] += Decimal(part['price'])
 
     def _process_usage_parts(self, applied_parts, parts):
         self._process_usage_component(applied_parts, parts, 'charges', 'use_parts', 'use_subtotal')
-        self._process_usage_component(applied_parts, parts, 'deductions', 'deduct_parts', 'deduct_subtotal')
+        # self._process_usage_component(applied_parts, parts, 'deductions', 'deduct_parts', 'deduct_subtotal')
 
-    def _get_renovation_parts(self, applied_parts, currency):
+    def _get_renovation_parts(self, transaction):
+        applied_parts = transaction['related_model']
+
         parts = {
-            'subs_parts': [],
-            'subs_subtotal': 0
+            'subs_parts': []
         }
         # If renovation, It contains subscriptions
-        self._process_subscription_parts(applied_parts, parts, currency)
-
-        # Check use based charges
-        self._process_usage_parts(applied_parts, parts)
+        self._process_subscription_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_renovation.html')
         return parts, bill_template
 
-    def _get_use_parts(self, applied_parts, currency):
+    def _get_use_parts(self, transaction):
+        applied_parts = transaction['applied_accounting']
+
         # If use, can only contain pay per use parts or deductions
         parts = {
             'use_parts': [],
@@ -135,25 +133,10 @@ class InvoiceBuilder(object):
 
     def _fill_renovation_context(self, context, parts):
         context['subs_parts'] = parts['subs_parts']
-        context['subs_subtotal'] = parts['subs_subtotal']
-
-        if 'use_parts' in parts:
-            context['use'] = True
-            context['use_parts'] = parts['use_parts']
-            context['use_subtotal'] = parts['use_subtotal']
-        else:
-            context['use'] = False
-
-        if 'deduct_parts' in parts:
-            context['deduction'] = True
-            context['deduct_parts'] = parts['deduct_parts']
-            context['deduct_subtotal'] = parts['deduct_subtotal']
-        else:
-            context['deduction'] = False
 
     def _fill_use_context(self, context, parts):
         context['use_parts'] = parts['use_parts']
-        context['use_subtotal'] = parts['use_subtotal']
+        context['use_subtotal'] = unicode(parts['use_subtotal'])
 
         if 'deduct_parts' in parts:
             context['deduction'] = True
@@ -162,91 +145,83 @@ class InvoiceBuilder(object):
         else:
             context['deduction'] = False
 
-    def generate_invoice(self, transactions, type_):
+    def _avoid_existing_name(self, name, ix):
+        new_name = name + '_' + unicode(ix) + '.pdf'
+        path = os.path.join(settings.BILL_ROOT, new_name)
+
+        if os.path.exists(path):
+            path, new_name = self._avoid_existing_name(name, ix + 1)
+
+        return path, new_name
+
+    def generate_invoice(self, contract, transaction, type_):
         """
         Create a PDF invoice based on the price components used to charge the user
-        :param transactions: Total amount charged to the customer
+        :param transaction: Total amount charged to the customer
         :param type_: Type of the charge, initial, renovation, pay-per-use
         """
 
-        for transaction in transactions:
-            currency = transaction['currency']
+        # Get invoice context parts and invoice template
+        parts, bill_template = self._template_processors[type_](transaction)
 
-            # Get invoice context parts and invoice template
-            parts, bill_template = self._template_processors[type_](transaction['related_model'], currency)
+        tax = self._order.tax_address
+        customer_profile = self._order.customer.userprofile
 
-            tax = self._order.tax_address
-            customer_profile = self._order.customer.userprofile
+        if contract.last_charge is None:
+            # If last charge is None means that it is the invoice generation
+            # associated with a free offering
+            date = unicode(datetime.utcnow()).split(' ')[0]
+        else:
+            date = unicode(contract.last_charge).split(' ')[0]
 
-            # Search item contract
-            contract = self._order.get_item_contract(transaction['item'])
-            offering = contract.offering
+        # Calculate total taxes applied
+        tax_value = Decimal(transaction['price']) - Decimal(transaction['duty_free'])
 
-            last_charge = contract.last_charge
+        # Load pricing info into the context
+        context = {
+            'basedir': settings.BASEDIR,
+            'offering_name': contract.offering.name,
+            'off_organization': contract.offering.owner_organization.name,
+            'off_version': contract.offering.version,
+            'ref': self._order.pk,
+            'date': date,
+            'organization': customer_profile.current_organization.name,
+            'customer': customer_profile.complete_name,
+            'address': tax.get('street'),
+            'postal': tax.get('postal'),
+            'city': tax.get('city'),
+            'province': tax.get('province'),
+            'country': tax.get('country'),
+            'subtotal': transaction['duty_free'],
+            'tax': unicode(tax_value),
+            'total': transaction['price'],
+            'cur': transaction['currency']  # General currency of the invoice
+        }
 
-            if last_charge is None:
-                # If last charge is None means that it is the invoice generation
-                # associated with a free offering
-                date = str(datetime.utcnow()).split(' ')[0]
-            else:
-                date = str(last_charge).split(' ')[0]
+        # Include the corresponding parts in the context
+        # depending on the type of applied parts
+        self._context_processors[type_](context, parts)
 
-            # Calculate total taxes applied
-            tax_value = Decimal(transaction['price']) - Decimal(transaction['duty_free'])
+        # Render the invoice template
+        bill_code = bill_template.render(Context(context))
 
-            # Load pricing info into the context
-            context = {
-                'basedir': settings.BASEDIR,
-                'offering_name': offering.name,
-                'off_organization': offering.owner_organization.name,
-                'off_version': offering.version,
-                'ref': self._order.pk,
-                'date': date,
-                'organization': customer_profile.current_organization.name,
-                'customer': customer_profile.complete_name,
-                'address': tax.get('street'),
-                'postal': tax.get('postal'),
-                'city': tax.get('city'),
-                'province': tax.get('province'),
-                'country': tax.get('country'),
-                'subtotal': transaction['duty_free'],
-                'tax': unicode(tax_value),
-                'total': transaction['price'],
-                'cur': currency  # General currency of the invoice
-            }
+        # Create the bill code file
+        invoice_id = self._order.pk + '_' + contract.item_id + '_' + date
+        raw_invoice_path = os.path.join(settings.BILL_ROOT, invoice_id + '.html')
 
-            # Include the corresponding parts in the context
-            # depending on the type of applied parts
-            self._context_processors[type_](context, parts)
+        f = codecs.open(raw_invoice_path, 'wb', 'utf-8')
+        f.write(bill_code)
+        f.close()
 
-            # Render the invoice template
-            bill_code = bill_template.render(Context(context))
+        invoice_path, invoice_name = self._avoid_existing_name(invoice_id, 0)
 
-            # Create the bill code file
-            invoice_name = self._order.pk + '_' + contract.item_id + date
-            bill_path = os.path.join(settings.BILL_ROOT, invoice_name + '.html')
-            f = codecs.open(bill_path, 'wb', 'utf-8')
-            f.write(bill_code)
-            f.close()
-
-            in_name = bill_path[:-4] + 'pdf'
-
-            if os.path.exists(in_name):
-                in_name = bill_path[:-5] + '_1.pdf'
-                invoice_name += '_1'
-
-            # Compile the bill file
-            try:
-                subprocess.call([settings.BASEDIR + '/create_invoice.sh', bill_path, in_name])
-            except:
-                raise Exception('Invoice generation problem')
-
-            # Load bill path into the order
-            self._order.bills.append(os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name + '.pdf'))
-            self._order.save()
+        # Compile the bill file
+        subprocess.call([settings.BASEDIR + '/create_invoice.sh', raw_invoice_path, invoice_path])
 
         # Remove temporal files
         for file_ in os.listdir(settings.BILL_ROOT):
 
             if not file_.endswith('.pdf'):
                 os.remove(os.path.join(settings.BILL_ROOT, file_))
+
+        return os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name)

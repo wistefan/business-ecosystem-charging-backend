@@ -25,12 +25,13 @@ from django.http import HttpResponse
 
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
+from wstore.charging_engine.charging.billing_client import BillingClient
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
-from wstore.ordering.models import Order, Contract
+from wstore.ordering.models import Order
 from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 
 
@@ -136,6 +137,16 @@ class InventoryCollection(Resource):
         inventory_client = InventoryClient()
         inventory_client.activate_product(product['id'])
 
+        # Create the initial charge in the billing API
+        if len(contract.charges) == 1:
+            billing_client = BillingClient()
+            valid_to = None
+            # If the initial charge was a subscription is needed to determine the expiration date
+            if 'subscription' in contract.pricing_model:
+                valid_to = contract.pricing_model['subscription'][0]['renovation_date']
+
+            billing_client.create_charge(contract.charges[0], contract.product_id, start_date=None, end_date=valid_to)
+
         return build_response(request, 200, 'OK')
 
 
@@ -173,16 +184,12 @@ class RenovationCollection(Resource):
 
         # Build charging engine
         charging_engine = ChargingEngine(order)
-        concepts = {
-            'recurring': 'renovation',
-            'usage': 'use'
-        }
 
-        if task['priceType'].lower() not in concepts:
+        if task['priceType'].lower() not in ['recurring', 'usage']:
             return build_response(request, 400, 'Invalid priceType only recurring and usage types can be renovated')
 
         try:
-            redirect_url = charging_engine.resolve_charging(type_=concepts[task['priceType']].lower(), related_contracts=[contract])
+            redirect_url = charging_engine.resolve_charging(type_=task['priceType'].lower(), related_contracts=[contract])
         except ValueError as e:
             return build_response(request, 400, unicode(e))
         except OrderingError as e:
