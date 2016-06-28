@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 import json
+from datetime import datetime
 from mock import MagicMock, call
 from nose_parameterized import parameterized
 
@@ -157,6 +158,22 @@ class InventoryCollectionTestCase(TestCase):
 
     tags = ('inventory', 'inventory-view')
 
+    _ren_date = datetime(2016, 06, 01)
+
+    def _initial_charge(self):
+        self.contract.charges = [MagicMock()]
+        self.contract.pricing_model = {
+            'single_payment': []
+        }
+
+    def _subscription_charge(self):
+        self.contract.charges = [MagicMock()]
+        self.contract.pricing_model = {
+            'subscription': [{
+                'renovation_date': self._ren_date
+            }]
+        }
+
     def _missing_contract(self):
         self.contract.offering.off_id = 26
 
@@ -165,6 +182,8 @@ class InventoryCollectionTestCase(TestCase):
 
     @parameterized.expand([
         ('basic', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP),
+        ('initial_charge', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP, True, _initial_charge, True),
+        ('subscription_charge', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP, True, _subscription_charge, True, _ren_date),
         ('no_creation', {
             'eventType': 'ProductUpdateNotification'
         }, 200, CORRECT_RESP, False),
@@ -181,12 +200,15 @@ class InventoryCollectionTestCase(TestCase):
             'error': 'The asset has failed to be activated'
         }, False, _activation_error)
     ])
-    def test_activate_product(self, name, data, exp_code, exp_response, called=True, side_effect=None):
+    def test_activate_product(self, name, data, exp_code, exp_response, called=True, side_effect=None, billing_exp=False, exp_date=None):
         views.InventoryClient = MagicMock()
         views.on_product_acquired = MagicMock()
 
+        views.BillingClient = MagicMock()
+
         self.contract = MagicMock()
         self.contract.offering.off_id = 10
+
         order = MagicMock()
         order.contracts = [MagicMock(), self.contract]
 
@@ -206,6 +228,12 @@ class InventoryCollectionTestCase(TestCase):
             views.InventoryClient().activate_product.assert_called_once_with(1)
             self.assertEquals(1, self.contract.product_id)
 
+        if billing_exp:
+            views.BillingClient.assert_called_once_with()
+            views.BillingClient().create_charge.assert_called_once_with(
+                self.contract.charges[0], data['event']['product']['id'], start_date=None, end_date=exp_date)
+        else:
+            self.assertEquals(0, views.BillingClient.call_count)
 
 RENOVATION_DATA = {
     'name': 'oid=1',

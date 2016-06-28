@@ -207,7 +207,7 @@ class ChargingEngine:
         self._order.pending_payment = {}
 
         invoice_builder = InvoiceBuilder(self._order)
-        billing_client = BillingClient()
+        billing_client = BillingClient() if concept != 'initial' else None
 
         for transaction in transactions:
             contract = self._order.get_item_contract(transaction['item'])
@@ -238,7 +238,9 @@ class ChargingEngine:
             contract.charges.append(charge)
 
             # Send the charge to the billing API to allow user accesses
-            billing_client.create_charge(charge, concept, contract.product_id, start_date=valid_from, end_date=valid_to)
+            if concept != 'initial':
+                # When the change concept is initial, the product has not been yet created in the inventory
+                billing_client.create_charge(charge, concept, contract.product_id, start_date=valid_from, end_date=valid_to)
 
         self._order.save()
 

@@ -259,8 +259,9 @@ class BillingClientTestCase(TestCase):
         charge.date = TIMESTAMP
         charge.cost = '10'
         charge.duty_free = '8'
-        charge.invoice_path = 'charging/media/bills/bill1.pdf'
+        charge.invoice = 'charging/media/bills/bill1.pdf'
         charge.currency = 'EUR'
+        charge.concept = name
 
         billing_client.Context = MagicMock()
         context = MagicMock()
@@ -278,7 +279,7 @@ class BillingClientTestCase(TestCase):
 
         # Call the method to test
         client = billing_client.BillingClient()
-        client.create_charge(charge, name, '1', start_date=start_date, end_date=end_date)
+        client.create_charge(charge, '1', start_date=start_date, end_date=end_date)
 
         # Validate calls
         billing_client.Request.assert_called_once_with(

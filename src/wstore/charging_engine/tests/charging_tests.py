@@ -583,10 +583,7 @@ class ChargingEngineTestCase(TestCase):
         self.assertEquals([self._charge], self._order.contracts[0].charges)
         self.assertEquals([self._charge], self._order.contracts[1].charges)
 
-        self.assertEquals([
-            call(self._charge, 'initial', self._order.contracts[0].product_id, start_date=None, end_date=None),
-            call(self._charge, 'initial', self._order.contracts[1].product_id, start_date=None, end_date=datetime(2016, 2, 19, 13, 12, 39)),
-        ], charging_engine.BillingClient().create_charge.call_args_list)
+        self.assertEquals(0, charging_engine.BillingClient.call_count)
 
         self._validate_subscription_calls()
 
@@ -621,6 +618,7 @@ class ChargingEngineTestCase(TestCase):
 
         self.assertEquals([], self._order.contracts[2].charges)
 
+        charging_engine.BillingClient.assert_called_once_with()
         charging_engine.BillingClient().create_charge.assert_called_once_with(
             self._charge, 'recurring', self._order.contracts[1].product_id, start_date=None, end_date=datetime(2016, 2, 19, 13, 12, 39))
 
@@ -634,6 +632,7 @@ class ChargingEngineTestCase(TestCase):
             charging_engine.UsageClient().rate_usage.call_args_list
         )
 
+        charging_engine.BillingClient.assert_called_once_with()
         charging_engine.BillingClient().create_charge.assert_called_once_with(
             self._charge, 'usage', self._order.contracts[0].product_id, start_date=datetime(2016, 1, 20, 13, 12, 39), end_date=None)
 
@@ -650,7 +649,6 @@ class ChargingEngineTestCase(TestCase):
         charging.end_charging(transactions, name)
 
         charging_engine.NotificationsHandler.assert_called_once_with()
-        charging_engine.BillingClient.assert_called_once_with()
         validator(self, transactions)
 
         # Validate calls
