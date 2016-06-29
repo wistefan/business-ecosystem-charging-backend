@@ -110,7 +110,7 @@ def on_product_offering_validation(func):
     return wrapper
 
 
-def on_product_acquired(order, contract):
+def process_product_notification(order, contract, type_):
     # Get digital asset from the contract
     if contract.offering.is_digital:
         asset = contract.offering.asset
@@ -119,5 +119,15 @@ def on_product_acquired(order, contract):
         plugin_module = load_plugin_module(asset.resource_type)
 
         # Execute event
-        plugin_module.on_product_acquisition(asset, contract, order)
+        if type_ == 'activate':
+            plugin_module.on_product_acquisition(asset, contract, order)
+        else:
+            plugin_module.on_product_suspension(asset, contract, order)
 
+
+def on_product_acquired(order, contract):
+    process_product_notification(order, contract, 'activate')
+
+
+def on_product_suspended(order, contract):
+    process_product_notification(order, contract, 'suspend')

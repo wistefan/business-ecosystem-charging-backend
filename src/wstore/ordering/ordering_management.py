@@ -32,6 +32,7 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
 from wstore.ordering.models import Order, Contract, Offering
 from wstore.asset_manager.product_validator import ProductValidator
+from wstore.asset_manager.resource_plugins.decorators import on_product_suspended
 
 
 class OrderingManager:
@@ -366,8 +367,11 @@ class OrderingManager:
             # Set the contract as terminated
             client = InventoryClient()
             order, contract = self._get_existing_contract(client, product['id'])
-            contract.terminated = True
 
+            # Suspend the access to the service
+            on_product_suspended(order, contract)
+
+            contract.terminated = True
             order.save()
 
             # Terminate product in the inventory

@@ -47,6 +47,8 @@ class ChargesDaemonTestCase(TestCase):
         # Mock orders
         pending_charges_daemon.Order = MagicMock()
 
+        pending_charges_daemon.on_product_suspended = MagicMock()
+
     def _build_contract(self, pricing, id_):
         contract = MagicMock()
         contract.terminated = False
@@ -99,6 +101,8 @@ class ChargesDaemonTestCase(TestCase):
         pending_charges_daemon.InventoryClient().suspend_product.assert_called_once_with('3')
 
         pending_charges_daemon.NotificationsHandler().send_near_expiration_notification.assert_called_once_with(order, contracts[1], 2)
+
+        pending_charges_daemon.on_product_suspended.assert_called_once_with(order, contracts[2])
 
     def test_subscription_renovation(self):
 

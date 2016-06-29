@@ -39,6 +39,7 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
 from wstore.store_commons.database import get_database_connection
 from wstore.charging_engine.accounting.usage_client import UsageClient
+from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 
 
 class ServiceRecordCollection(Resource):
@@ -89,10 +90,8 @@ class PayPalConfirmation(Resource):
         # Set order items of digital products as completed
         involved_items = [t['item'] for t in transactions]
 
-        digital_items = []
-        for item in raw_order['orderItem']:
-            if item['id'] in involved_items and order.get_item_contract(item['id']).offering.is_digital:
-                digital_items.append(item)
+        digital_items = [item for item in raw_order['orderItem'] if item['id'] in involved_items and
+                         order.get_item_contract(item['id']).offering.is_digital]
 
         # Oder Items state is not checked
         # self.ordering_client.update_items_state(raw_order, 'InProgress', digital_items)
@@ -105,6 +104,9 @@ class PayPalConfirmation(Resource):
             try:
                 contract = order.get_item_contract(transaction['item'])
                 inventory_client.activate_product(contract.product_id)
+
+                # Activate the product
+                on_product_acquired(order, contract)
             except:
                 pass
 

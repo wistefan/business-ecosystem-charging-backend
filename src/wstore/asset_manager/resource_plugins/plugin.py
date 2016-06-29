@@ -44,3 +44,6 @@ class Plugin:
 
     def on_product_acquisition(self, asset, contract, order):
         pass
+
+    def on_product_suspension(self, asset, contract, order):
+        pass

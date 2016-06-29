@@ -27,6 +27,7 @@ from django.core.management.base import BaseCommand
 from wstore.ordering.models import Order
 from wstore.admin.users.notification_handler import NotificationsHandler
 from wstore.ordering.inventory_client import InventoryClient
+from wstore.asset_manager.resource_plugins.decorators import on_product_suspended
 
 
 class Command(BaseCommand):
@@ -40,12 +41,16 @@ class Command(BaseCommand):
             handler = NotificationsHandler()
 
             if timed.days < 0:
+                # Suspend the access to the service
+                on_product_suspended(order, contract)
+
                 # Notify that the subscription has finished
                 handler.send_payment_required_notification(order, contract)
 
                 # Set the product as suspended
                 client = InventoryClient()
                 client.suspend_product(contract.product_id)
+
             else:
                 # There is less than a week remaining
                 handler.send_near_expiration_notification(order, contract, timed.days)
