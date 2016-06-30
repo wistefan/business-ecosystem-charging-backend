@@ -21,7 +21,7 @@
 from __future__ import unicode_literals
 from copy import deepcopy
 
-from mock import MagicMock
+from mock import MagicMock, call
 from nose_parameterized import parameterized
 
 from django.core.exceptions import PermissionDenied
@@ -103,7 +103,7 @@ class ValidatorTestCase(TestCase):
         ('file_url_allowed', BASIC_PRODUCT, True, _support_url),
         ('url_asset', BASIC_PRODUCT, False, _only_url),
         ('url_file_allowed', BASIC_PRODUCT, False, _support_file),
-        ('invalid_action', INVALID_ACTION, True, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, update, upgrade, and delete'),
+        ('invalid_action', INVALID_ACTION, True, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, attach, update, upgrade, and delete'),
         ('missing_media', MISSING_MEDIA, True, None, ProductError, 'ProductError: Digital product specifications must contain a media type characteristic'),
         ('missing_type', MISSING_TYPE, True, None, ProductError, 'ProductError: Digital product specifications must contain a asset type characteristic'),
         ('missing_location', MISSING_LOCATION, True, None, ProductError, 'ProductError: Digital product specifications must contain a location characteristic'),
@@ -146,14 +146,82 @@ class ValidatorTestCase(TestCase):
                     content_type='application/x-widget'
                 )
 
-            # Check asset values
-            self.assertEquals("2.0", self._asset_instance.version)
-            self.assertEquals('Widget', self._asset_instance.resource_type)
-            self.assertEquals("Active", self._asset_instance.state)
-            self._asset_instance.save.assert_called_once_with()
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(err_msg, unicode(e))
+
+    def _non_digital(self):
+        return [[], []]
+
+    def _mixed_assets(self):
+        digital_asset = MagicMock()
+        return [[], [digital_asset]]
+
+    def _all_digital(self):
+        digital_asset = MagicMock()
+        digital_asset1 = MagicMock()
+        return [[digital_asset], [digital_asset1]]
+
+    @parameterized.expand([
+        ('non_digital', _non_digital, False),
+        ('mixed', _mixed_assets),
+        ('all_digital', _all_digital)
+    ])
+    def test_bundle_creation(self, name, asset_mocker, created=True):
+        self._mock_validator_imports(product_validator)
+
+        assets = asset_mocker(self)
+        expected_assets = [asset[0] for asset in assets if len(asset)]
+
+        product_validator.Resource.objects.filter.side_effect = assets
+
+        validator = product_validator.ProductValidator()
+        validator.validate(BASIC_BUNDLE_CREATION['action'], self._provider, BASIC_BUNDLE_CREATION['product'])
+
+        # Validate filter calls
+        self.assertEquals([
+            call(product_id=BASIC_BUNDLE_CREATION['product']['bundledProductSpecification'][0]['id']),
+            call(product_id=BASIC_BUNDLE_CREATION['product']['bundledProductSpecification'][1]['id'])
+        ], product_validator.Resource.objects.filter.call_args_list)
+
+        # Check resource creation
+        if created:
+            product_validator.Resource.objects.create.assert_called_once_with(
+                resource_path='',
+                download_link='',
+                provider=self._provider,
+                content_type='bundle',
+                bundled_assets=expected_assets
+            )
+        else:
+            self.assertEquals(0, product_validator.Resource.objects.call_count)
+
+    def _validate_bundle_creation_error(self, product_request, msg):
+        self._mock_validator_imports(product_validator)
+
+        try:
+            validator = product_validator.ProductValidator()
+            validator.validate(product_request['action'], self._provider, product_request['product'])
+        except ProductError as e:
+            error = e
+
+        self.assertEquals(msg, unicode(error))
+
+    def test_bundle_creation_missing_products(self):
+        self._validate_bundle_creation_error({
+            'action': 'create',
+            'product': {
+                'isBundle': True
+            }
+        }, 'ProductError: A product spec bundle must contain at least two bundled product specs')
+
+    def test_bundle_assets_included(self):
+        product_request = deepcopy(BASIC_PRODUCT)
+        product_request['product']['isBundle'] = True
+
+        self._validate_bundle_creation_error(
+            product_request, 'ProductError: Product spec bundles cannot define digital assets')
+
 
     @parameterized.expand([
         ('no_chars', NO_CHARS_PRODUCT),
@@ -179,7 +247,7 @@ class ValidatorTestCase(TestCase):
         ('missing_currency', MISSING_CURRENCY, 'Missing required field currencyCode in price'),
         ('invalid_currency', INVALID_CURRENCY, 'Unrecognized currency: invalid')
     ])
-    def test_create_validation(self, name, offering, msg=None):
+    def test_create_offering_validation(self, name, offering, msg=None):
         self._mock_validator_imports(offering_validator)
 
         offering_validator.requests = MagicMock()
@@ -195,15 +263,6 @@ class ValidatorTestCase(TestCase):
             validator.validate('create', self._provider, offering)
         except Exception as e:
             error = e
-
-        # Validate calls
-        offering_validator.requests.get.assert_called_once_with('http://catalog.com/products/20')
-        offering_validator.requests.get().json.assert_called_once_with()
-
-        offering_validator.Resource.objects.get.assert_called_once_with(download_link='http://testlocation.org/media/resources/test_user/widget.wgt')
-
-        self.assertEquals('20', self._asset_instance.product_id)
-        self._asset_instance.save.assert_called_once_with()
 
         if msg is not None:
             self.assertTrue(isinstance(error, ValueError))

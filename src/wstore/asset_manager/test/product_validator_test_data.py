@@ -535,6 +535,7 @@ MULTIPLE_VALUES = {
 INVALID_LOCATION = {
     'action': 'create',
     'product': {
+        "isBundle": False,
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -612,6 +613,19 @@ INVALID_LOCATION = {
         ]
     }
 }
+
+BASIC_BUNDLE_CREATION = {
+    'action': 'create',
+    'product': {
+        "isBundle": True,
+        "bundledProductSpecification": [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }]
+    }
+}
+
 
 NO_CHARS_PRODUCT = {
     "productNumber": "I42-340-DX",

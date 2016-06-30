@@ -135,10 +135,9 @@ class ProductValidator(CatalogValidator):
 
                     if asset is not None:
                         break
-            else:
-                raise ProductError('The product specs included in the bundle are not registered')
 
         if asset is not None:
+            # The asset is a digital product or a bundle containing a digital product
             self._attach_product_info(asset, asset_t, product_spec)
 
     def validate_creation(self, provider, product_spec):
