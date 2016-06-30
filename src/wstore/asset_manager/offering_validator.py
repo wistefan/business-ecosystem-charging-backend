@@ -30,18 +30,6 @@ from wstore.asset_manager.resource_plugins.decorators import on_product_offering
 
 class OfferingValidator(CatalogValidator):
 
-    def _update_product_id(self, product_url):
-        # Complete asset info with product spec id
-        r = requests.get(product_url)
-        product_info = r.json()
-
-        asset_t, media_type, url = self.parse_characteristics(product_info)
-
-        if asset_t is not None and media_type is not None and url is not None:
-            asset = Resource.objects.get(download_link=url)
-            asset.product_id = product_info['id']
-            asset.save()
-
     @on_product_offering_validation
     def _validate_offering_pricing(self, provider, product_offering):
         # Validate offering pricing fields
@@ -72,6 +60,5 @@ class OfferingValidator(CatalogValidator):
                     raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
 
     def validate_creation(self, provider, product_offering):
-        self._update_product_id(product_offering['productSpecification']['href'])
         self._validate_offering_pricing(provider, product_offering)
 
