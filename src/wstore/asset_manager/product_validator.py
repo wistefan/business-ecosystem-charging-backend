@@ -47,18 +47,12 @@ class ProductValidator(CatalogValidator):
         if not is_valid_url(url):
             raise ProductError('The location characteristic included in the product specification is not a valid URL')
 
-        # Check if format is FILE
-        is_file = False
-        if 'FILE' in asset_type.formats:
-            if 'URL' in asset_type.formats:
-                site = Context.objects.all()[0].site
-                if url.startswith(site.domain):
-                    is_file = True
-            else:
-                is_file = True
+        site = Context.objects.all()[0].site
 
         # If the asset is a file it must have been uploaded
-        if is_file:
+        if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
+                ('URL' in asset_type.formats and url.startswith(site.domain))):
+
             try:
                 asset = Resource.objects.get(download_link=url)
             except:
@@ -93,11 +87,39 @@ class ProductValidator(CatalogValidator):
         asset.state = product_spec['lifecycleStatus']
         asset.save()
 
+    def _build_bundle(self, provider, product_spec):
+        if 'bundledProductSpecification' not in product_spec or not len(product_spec['bundledProductSpecification']) > 1:
+            raise ProductError('A product spec bundle must contain at least two bundled product specs')
+
+        assets = []
+        for bundled_info in product_spec['bundledProductSpecification']:
+            digital_asset = Resource.objects.filter(product_id=bundled_info['id'])
+            if len(digital_asset):
+                assets.append(digital_asset[0])
+
+        if len(assets):
+            Resource.objects.create(
+                resource_path='',
+                download_link='',
+                provider=provider,
+                content_type='bundle',
+                bundled_assets=assets
+            )
+
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
         asset_t, media_type, url = self.parse_characteristics(product_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
 
-        # If none of the digital assets characteristics have been included means that is a physical product
-        if asset_t is not None and media_type is not None and url is not None:
+        # Product spec bundles are intended for create composed products, it cannot contain its own asset
+        if product_spec['isBundle'] and is_digital:
+            raise ProductError('Product spec bundles cannot define digital assets')
+
+        if not product_spec['isBundle'] and is_digital:
+            # Process the new digital product
             asset = self._validate_product(provider, asset_t, media_type, url)
             self._attach_product_info(asset, asset_t, product_spec)
+
+        elif product_spec['isBundle'] and not is_digital:
+            # The product bundle may contain digital products already registered
+            self._build_bundle(provider, product_spec)
