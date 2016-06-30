@@ -82,17 +82,21 @@ class CatalogValidator:
     def validate_deletion(self, provider, catalog_element):
         pass
 
+    def attach_info(self, provider, catalog_element):
+        pass
+
     def validate(self, action, provider, catalog_element):
         validators = {
             'create': self.validate_creation,
             'update': self.validate_update,
             'upgrade': self.validate_upgrade,
-            'delete': self.validate_deletion
+            'delete': self.validate_deletion,
+            'attach': self.attach_info
         }
 
         if action not in validators:
             msg = 'The provided action (' + action
-            msg += ') is not valid. Allowed values are create, update, upgrade, and delete'
+            msg += ') is not valid. Allowed values are create, attach, update, upgrade, and delete'
             raise ValueError(msg)
 
         validators[action](provider, catalog_element)

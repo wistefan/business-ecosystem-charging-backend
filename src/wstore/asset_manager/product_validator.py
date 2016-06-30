@@ -82,6 +82,7 @@ class ProductValidator(CatalogValidator):
     @on_product_spec_attachment
     def _attach_product_info(self, asset, asset_t, product_spec):
         # Complete asset information
+        asset.product_id = product_spec['id']
         asset.version = product_spec['version']
         asset.resource_type = asset_t
         asset.state = product_spec['lifecycleStatus']
@@ -106,6 +107,40 @@ class ProductValidator(CatalogValidator):
                 bundled_assets=assets
             )
 
+    def attach_info(self, provider, product_spec):
+        # Get the digital asset
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
+
+        if is_digital:
+            asset = Resource.objects.get(download_link=url)
+
+        elif product_spec['isBundle']:
+            # Get the list of bundles pending to be attached of the given provider
+            pending_bundles = Resource.objects.filter(
+                product_id=None, provider=provider, content_type='bundle', resource_path='', download_link='')
+
+            expected_ids = [bundle_info['id'] for bundle_info in product_spec['bundledProductSpecification']]
+
+            asset = None
+            for bundle in pending_bundles:
+                if len(bundle.bundled_assets) == len(expected_ids):
+
+                    for bundled_asset in bundle.bundled_assets:
+                        if bundled_asset.product_id not in expected_ids:
+                            break
+                    else:
+                        # All the assets are the expected ones, so the bundle is correct
+                        asset = bundle
+
+                    if asset is not None:
+                        break
+            else:
+                raise ProductError('The product specs included in the bundle are not registered')
+
+        if asset is not None:
+            self._attach_product_info(asset, asset_t, product_spec)
+
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
         asset_t, media_type, url = self.parse_characteristics(product_spec)
@@ -117,8 +152,7 @@ class ProductValidator(CatalogValidator):
 
         if not product_spec['isBundle'] and is_digital:
             # Process the new digital product
-            asset = self._validate_product(provider, asset_t, media_type, url)
-            self._attach_product_info(asset, asset_t, product_spec)
+            self._validate_product(provider, asset_t, media_type, url)
 
         elif product_spec['isBundle'] and not is_digital:
             # The product bundle may contain digital products already registered
