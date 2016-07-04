@@ -371,7 +371,7 @@ class ChargingEngine:
                 related_model['unmodified'] = unmodified
 
             if 'alteration' in contract.pricing_model and \
-               contract.pricing_model['alteration']['period'] == 'recurring':
+               contract.pricing_model['alteration'].get('period') == 'recurring':
                 related_model['alteration'] = contract.pricing_model['alteration']
 
             # Calculate the price to be charged if required
@@ -412,7 +412,7 @@ class ChargingEngine:
                 self._order.owner_organization.name, contract.product_id, state='Guided'))
 
             if 'alteration' in contract.pricing_model and \
-               contract.pricing_model['alteration']['period'] == 'recurring':
+               contract.pricing_model['alteration'].get('period') == 'recurring':
                 related_model['alteration'] = contract.pricing_model['alteration']
 
             if len(accounting) > 0:
