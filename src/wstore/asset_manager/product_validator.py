@@ -112,6 +112,7 @@ class ProductValidator(CatalogValidator):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
+        asset = None
         if is_digital:
             asset = Resource.objects.get(download_link=url)
 

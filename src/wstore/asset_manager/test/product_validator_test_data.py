@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 BASIC_PRODUCT = {
     'action': 'create',
     'product': {
+        "id": "2",
         "productNumber": "I42-340-DX",
         "version": "2.0",
         "lastUpdate": "2013-04-19T16:42:23-04:00",
@@ -617,7 +618,10 @@ INVALID_LOCATION = {
 BASIC_BUNDLE_CREATION = {
     'action': 'create',
     'product': {
+        "id": "1",
         "isBundle": True,
+        "version": "1.0",
+        "lifecycleStatus": "Active",
         "bundledProductSpecification": [{
             'id': '1'
         }, {

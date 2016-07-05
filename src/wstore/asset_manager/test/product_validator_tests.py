@@ -222,6 +222,60 @@ class ValidatorTestCase(TestCase):
         self._validate_bundle_creation_error(
             product_request, 'ProductError: Product spec bundles cannot define digital assets')
 
+    def _non_pending_bundles(self):
+        product_validator.Resource.objects.filter.return_value = []
+
+    def _pending_bundles(self):
+        bundle1 = MagicMock()
+        bundle1.bundled_assets = [{}]
+
+        bundle2 = MagicMock()
+        bundle2.bundled_assets = [MagicMock(product_id='2'), MagicMock(product_id='4')]
+
+        self._asset_instance.bundled_assets = [MagicMock(product_id='1'), MagicMock(product_id='2')]
+
+        product_validator.Resource.objects.filter.return_value = [bundle1, bundle2, self._asset_instance]
+
+    @parameterized.expand([
+        ('digital_asset', BASIC_PRODUCT['product'], True, True),
+        ('non_digital', {'isBundle': False}),
+        ('bundle_non_pending', BASIC_BUNDLE_CREATION['product'], False, False, True, _non_pending_bundles),
+        ('bundle_multiple_pending', BASIC_BUNDLE_CREATION['product'], False, True, True, _pending_bundles)
+    ])
+    def test_attach_info(self, name, product_spec, is_digital=False, is_attached=False, is_bundle=False, filter_mock=None):
+        self._mock_validator_imports(product_validator)
+
+        if filter_mock is not None:
+            filter_mock(self)
+
+        validator = product_validator.ProductValidator()
+
+        digital_chars = ('type', 'media', 'http://location') if is_digital else (None, None, None)
+        validator.parse_characteristics = MagicMock(return_value=digital_chars)
+
+        validator.validate('attach', self._provider, product_spec)
+
+        # Check calls
+        validator.parse_characteristics.assert_called_once_with(product_spec)
+        if is_digital:
+            product_validator.Resource.objects.get.assert_called_once_with(download_link=digital_chars[2])
+            self.assertEquals(0, product_validator.Resource.objects.filter.call_count)
+
+        if is_bundle:
+            product_validator.Resource.objects.filter.assert_called_once_with(
+                product_id=None, provider=self._provider, content_type='bundle', resource_path='', download_link=''
+            )
+            self.assertEquals(0, product_validator.Resource.objects.get.call_count)
+
+        if is_attached:
+            self.assertEquals(product_spec['id'], self._asset_instance.product_id)
+            self.assertEquals(product_spec['version'], self._asset_instance.version)
+            self.assertEquals(digital_chars[0], self._asset_instance.resource_type)
+            self.assertEquals(product_spec['lifecycleStatus'], self._asset_instance.state)
+
+            self._asset_instance.save.assert_called_once_with()
+        else:
+            self.assertEquals(0, self._asset_instance.save.call_count)
 
     @parameterized.expand([
         ('no_chars', NO_CHARS_PRODUCT),
