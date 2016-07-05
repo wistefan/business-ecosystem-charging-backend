@@ -328,6 +328,198 @@ class ChargingEngineTestCase(TestCase):
             }]
         }]
 
+    def _set_usage_alteration_contracts(self):
+        contract1 = self._mock_contract({
+            'description': 'Offering description',
+            'offering_pk': '11111',
+            'item_id': '1',
+            'pricing': self._get_pay_use(),
+            'product_id': 'product1'})
+
+        contract2 = self._mock_contract({
+            'description': 'Offering description',
+            'offering_pk': '22222',
+            'item_id': '2',
+            'pricing': {
+                'general_currency': 'EUR',
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }],
+                'alteration': {
+                    'type': 'fee',
+                    'period': 'recurring',
+                    'value': {
+                        'value': '20.00',
+                        'duty_free': '20.00'
+                    },
+                    'condition': {
+                        'operation': 'lt',
+                        'value': '20.00'
+                    }
+                }
+            },
+            'product_id': 'product2'})
+
+        # Mock usage client
+        charging_engine.UsageClient = MagicMock()
+        charging_engine.UsageClient().get_customer_usage.return_value = [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }, {
+            'id': '3'
+        }, {
+            'id': '4'
+        }]
+
+        charging_engine.SDRManager = MagicMock()
+        charging_engine.SDRManager().get_sdr_values.side_effect = [{
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'callmin',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'callmin',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }]
+        contract1.applied_sdrs = []
+        contract2.applied_sdrs = []
+        self._order.contracts = [contract1, contract2]
+        self._order.date = datetime(2016, 1, 20, 13, 12, 39)
+        self._order.get_item_contract.side_effect = [contract1, contract2]
+
+        return [{
+            'price': '200.00',
+            'duty_free': '166.60',
+            'description': 'Offering description',
+            'currency': 'EUR',
+            'related_model': {
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }]
+            },
+            'item': '1',
+            'applied_accounting': [{
+                'model': {
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }, {
+                    'usage_id': '4',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }],
+                'price': '200.00',
+                'duty_free': '166.60'
+            }, {
+                'model': {
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'price': '10.00',
+                    'value': '1',
+                    'usage_id': '3',
+                    'duty_free': '8.33'
+                }],
+                'price': '10.00',
+                'duty_free': '8.33'
+            }]
+        }, {
+            'price': '30.00',
+            'duty_free': '28.33',
+            'description': 'Offering description',
+            'currency': 'EUR',
+            'related_model': {
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }],
+                'alteration': {
+                    'type': 'fee',
+                    'period': 'recurring',
+                    'value': {
+                        'value': '20.00',
+                        'duty_free': '20.00'
+                    },
+                    'condition': {
+                        'operation': 'lt',
+                        'value': '20.00'
+                    }
+                }
+            },
+            'item': '2',
+            'applied_accounting': [{
+                'model': {
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }, {
+                    'usage_id': '4',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }],
+                'price': '200.00',
+                'duty_free': '166.60'
+            }, {
+                'model': {
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'price': '10.00',
+                    'value': '1',
+                    'usage_id': '3',
+                    'duty_free': '8.33'
+                }],
+                'price': '10.00',
+                'duty_free': '8.33'
+            }]}]
+
     def _set_alterations(self, name, unit="one time", renovation_date=None):
         component = {
             'value': '10.00',
@@ -468,16 +660,13 @@ class ChargingEngineTestCase(TestCase):
     def _set_renovation_alteration_contracts(self):
         return self._set_alterations('subscription', 'monthly', datetime(2015, 10, 01, 10, 10))
 
-    def _set_usage_alteration_contracts(self):
-        # fix?
-        return self._set_alterations('pay_per_use', 'call')
-
     @parameterized.expand([
         ('initial', _set_initial_contracts),
         ('initial', _set_initial_alteration_contracts),
         ('recurring', _set_renovation_contracts),
         ('recurring', _set_renovation_alteration_contracts),
-        ('usage', _set_usage_contracts)
+        ('usage', _set_usage_contracts),
+        ('usage', _set_usage_alteration_contracts)
     ])
     def test_payment(self, name, contract_gen):
 
