@@ -370,6 +370,10 @@ class ChargingEngine:
             if len(unmodified):
                 related_model['unmodified'] = unmodified
 
+            if 'alteration' in contract.pricing_model and \
+               contract.pricing_model['alteration'].get('period') == 'recurring':
+                related_model['alteration'] = contract.pricing_model['alteration']
+
             # Calculate the price to be charged if required
             if len(related_model['subscription']):
                 self._append_transaction(transactions, contract, related_model)
@@ -405,7 +409,11 @@ class ChargingEngine:
             }
 
             accounting = self._parse_raw_accounting(usage_client.get_customer_usage(
-                    self._order.owner_organization.name, contract.product_id, state='Guided'))
+                self._order.owner_organization.name, contract.product_id, state='Guided'))
+
+            if 'alteration' in contract.pricing_model and \
+               contract.pricing_model['alteration'].get('period') == 'recurring':
+                related_model['alteration'] = contract.pricing_model['alteration']
 
             if len(accounting) > 0:
                 self._append_transaction(
