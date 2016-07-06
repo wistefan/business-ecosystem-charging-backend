@@ -73,6 +73,23 @@ SINGLE_PAYMENT_TRANS = {
     'duty_free': '10'
 }
 
+SINGLE_PAYMENT_ALT_TRANS = {
+    'currency': 'EUR',
+    'related_model': {
+        'single_payment': SINGLE_MODEL,
+        'alteration': {
+            'type': 'discount',
+            'period': 'one time',
+            'value': {
+                'value': '2.00',
+                'duty_free': '2.00'
+            }
+        }
+    },
+    'price': '10.00',
+    'duty_free': '8'
+}
+
 SUBSCRIPTION_TRANS = {
     'currency': 'EUR',
     'related_model': {
@@ -80,6 +97,24 @@ SUBSCRIPTION_TRANS = {
     },
     'price': '12.00',
     'duty_free': '10'
+}
+
+SUBSCRIPTION_ALT_TRANS = {
+    'currency': 'EUR',
+    'related_model': {
+        'subscription': SUBS_MODEL,
+        'alteration': {
+            'type': 'fee',
+            'period': 'recurring',
+            'value': '50.00',
+            'condition': {
+                'operation': 'lt',
+                'value': '30.00'
+            }
+        }
+    },
+    'price': '18.00',
+    'duty_free': '15'
 }
 
 MERGED_TRANS = {
@@ -143,6 +178,13 @@ COMMON_CONTEXT = {
     'country': TAX['country']
 }
 
+NON_ALTERATIONS = {
+    'exists_fees': False,
+    'fees': [],
+    'exists_discounts': False,
+    'discounts': []
+}
+
 BASIC_PRICES = {
     'subtotal': '10',
     'tax': '2.00',
@@ -157,6 +199,30 @@ SINGLE_PAYMENT_CONTEXT = {
 }
 SINGLE_PAYMENT_CONTEXT.update(COMMON_CONTEXT)
 SINGLE_PAYMENT_CONTEXT.update(BASIC_PRICES)
+SINGLE_PAYMENT_CONTEXT.update(NON_ALTERATIONS)
+
+BASIC_ALTERATIONS = {
+    'exists_fees': False,
+    'fees': [],
+    'exists_discounts': True,
+    'discounts': [('discount', 'Value: 2.00 EUR. Duty free: 2.00 EUR', 'one time', "")]
+}
+
+BASIC_ALT_PRICES = {
+    'subtotal': '8',
+    'tax': '2.00',
+    'total': '10.00',
+    'cur': 'EUR'
+}
+
+SINGLE_PAYMENT_ALT_CONTEXT = {
+    'exists_single': True,
+    'exists_subs': False,
+    'single_parts': [('10.00', '20', '12.00')]
+}
+SINGLE_PAYMENT_ALT_CONTEXT.update(COMMON_CONTEXT)
+SINGLE_PAYMENT_ALT_CONTEXT.update(BASIC_ALT_PRICES)
+SINGLE_PAYMENT_ALT_CONTEXT.update(BASIC_ALTERATIONS)
 
 SUBSCRIPTION_CONTEXT = {
     'exists_single': False,
@@ -165,6 +231,31 @@ SUBSCRIPTION_CONTEXT = {
 }
 SUBSCRIPTION_CONTEXT.update(COMMON_CONTEXT)
 SUBSCRIPTION_CONTEXT.update(BASIC_PRICES)
+SUBSCRIPTION_CONTEXT.update(NON_ALTERATIONS)
+
+SUBSCRIPTION_ALT_PRICES = {
+    'subtotal': '15',
+    'tax': '3.00',
+    'total': '18.00',
+    'cur': 'EUR'
+}
+
+SUBSCRIPTION_ALTERATIONS = {
+    'exists_fees': True,
+    'fees': [('fee', '50.00 %', 'recurring', '< 30.00')],
+    'exists_discounts': False,
+    'discounts': []
+}
+
+SUBSCRIPTION_ALT_CONTEXT = {
+    # 'exists_single': False,
+    # 'exists_subs': True,
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
+}
+
+SUBSCRIPTION_ALT_CONTEXT.update(COMMON_CONTEXT)
+SUBSCRIPTION_ALT_CONTEXT.update(SUBSCRIPTION_ALT_PRICES)
+SUBSCRIPTION_ALT_CONTEXT.update(SUBSCRIPTION_ALTERATIONS)
 
 MERGED_CONTEXT = {
     'exists_single': True,
@@ -174,12 +265,14 @@ MERGED_CONTEXT = {
 }
 MERGED_CONTEXT.update(COMMON_CONTEXT)
 MERGED_CONTEXT.update(BASIC_PRICES)
+MERGED_CONTEXT.update(NON_ALTERATIONS)
 
 RENEW_CONTEXT = {
     'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
 }
 RENEW_CONTEXT.update(COMMON_CONTEXT)
 RENEW_CONTEXT.update(BASIC_PRICES)
+RENEW_CONTEXT.update(NON_ALTERATIONS)
 
 USAGE_CONTEXT = {
     'subtotal': '166.60',
@@ -191,6 +284,29 @@ USAGE_CONTEXT = {
     'deduction': False
 }
 USAGE_CONTEXT.update(COMMON_CONTEXT)
+USAGE_CONTEXT.update(NON_ALTERATIONS)
+
+
+# class JustATest(TestCase):
+#     def setUp(self):
+#         self._order = MagicMock()
+#         self._order.pk = '1111'
+#         self._order.tax_address = TAX
+
+#         self._order.customer.userprofile.current_organization.name = USERNAME
+#         self._order.customer.userprofile.complete_name = COMPLETE_NAME
+
+#         self._contract = MagicMock()
+#         self._contract.item_id = '2'
+#         self._contract.last_charge = TIMESTAMP
+#         self._contract.offering.name = OFFERING_NAME
+#         self._contract.offering.version = OFFERING_VERSION
+#         self._contract.offering.owner_organization.name = OWNER_NAME
+
+#     def single_test(self):
+#         builder = invoice_builder.InvoiceBuilder(self._order)
+#         invoice_path = builder.generate_invoice(self._contract, SUBSCRIPTION_ALT_TRANS, 'initial')
+#         print(invoice_path)
 
 
 class InvoiceBuilderTestCase(TestCase):
@@ -236,9 +352,11 @@ class InvoiceBuilderTestCase(TestCase):
 
     @parameterized.expand([
         ('initial_one_time', 'initial', SINGLE_PAYMENT_TRANS, SINGLE_PAYMENT_CONTEXT),
+        ('initial_one_time_trans', 'initial', SINGLE_PAYMENT_ALT_TRANS, SINGLE_PAYMENT_ALT_CONTEXT),
         ('initial_recurring', 'initial', SUBSCRIPTION_TRANS, SUBSCRIPTION_CONTEXT),
         ('initial_merged', 'initial', MERGED_TRANS, MERGED_CONTEXT),
         ('renew_subs', 'recurring', SUBSCRIPTION_TRANS, RENEW_CONTEXT),
+        ('renew_subs_alt', 'recurring', SUBSCRIPTION_ALT_TRANS, SUBSCRIPTION_ALT_CONTEXT),
         ('use_no_deducted', 'usage', USAGE_TRANS, USAGE_CONTEXT)
     ])
     def test_invoice_generation(self, name, concept, transaction, exp_context):
@@ -254,8 +372,7 @@ class InvoiceBuilderTestCase(TestCase):
         invoice_path = builder.generate_invoice(self._contract, transaction, concept)
 
         # Validate Path
-        invoice_name = self._order.pk + '_' + self._contract.item_id + \
-                   '_' + TIMESTAMP.split(' ')[0] + '_2.pdf'
+        invoice_name = "{}_{}_{}_2.pdf".format(self._order.pk, self._contract.item_id, TIMESTAMP.split()[0])
 
         exp_path = MEDIA_URL + 'bills/' + invoice_name
         html_path = BILL_ROOT + '/' + invoice_name.replace('_2.pdf', '.html')
