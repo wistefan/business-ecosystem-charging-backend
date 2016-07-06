@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import os
 import codecs
 import subprocess
+from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
 
@@ -51,6 +52,12 @@ class InvoiceBuilder(object):
                 parts['subs_parts'].append(
                     (part['duty_free'], part['tax_rate'], part['value'], part['unit'], unicode(part['renovation_date'])))
 
+    def _process_alteration_parts(self, applied_parts, parts):
+        if 'alteration' in applied_parts:
+            part = applied_parts['alteration']
+            parts['alt_parts'].append(
+                (part['type'], deepcopy(part['value']), part.get('period'), deepcopy(part.get('condition'))))
+
     def _get_initial_parts(self, transaction):
         applied_parts = transaction['related_model']
 
@@ -58,12 +65,14 @@ class InvoiceBuilder(object):
         parts = {
             'single_parts': [],
             'subs_parts': [],
+            'alt_parts': []
         }
         if 'single_payment' in applied_parts:
             for part in applied_parts['single_payment']:
                 parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value']))
 
         self._process_subscription_parts(applied_parts, parts)
+        self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_initial.html')
@@ -96,10 +105,12 @@ class InvoiceBuilder(object):
         applied_parts = transaction['related_model']
 
         parts = {
-            'subs_parts': []
+            'subs_parts': [],
+            'alt_parts': []
         }
         # If renovation, It contains subscriptions
         self._process_subscription_parts(applied_parts, parts)
+        self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_renovation.html')
@@ -111,31 +122,64 @@ class InvoiceBuilder(object):
         # If use, can only contain pay per use parts or deductions
         parts = {
             'use_parts': [],
+            'alt_parts': [],
             'use_subtotal': 0
         }
         self._process_usage_parts(applied_parts, parts)
+        self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
         bill_template = loader.get_template('contracting/bill_template_use.html')
         return parts, bill_template
 
+    def _fill_alts_context(self, context, parts):
+        compare_table = {'eq': '=', 'lt': '<', 'gt': '>', 'le': '<=', 'ge': '>='}
+
+        def cond_to_str(cond):
+            if cond is not None:
+                cond['operation'] = compare_table.get(cond['operation'])
+                return "{op} {val}".format(op=cond['operation'], val=cond['value'])
+            else:
+                return ""
+
+        def value_to_str(val):
+            if isinstance(val, dict):
+                val = 'Value: {v} {cur}. Duty free: {d} {cur}'.format(v=val['value'], d=val['duty_free'], cur=context['cur'])
+            else:
+                val = '{} %'.format(val)
+            return val
+
+        alts = parts.get('alt_parts', [])
+        alts = [(x[0], value_to_str(x[1]), x[2], cond_to_str(x[3])) for x in alts]
+
+        context['fees'] = [x for x in alts if x[0] == 'fee']
+        context['discounts'] = [x for x in alts if x[0] == 'discount']
+
+        context['exists_fees'] = len(context['fees']) > 0
+        context['exists_discounts'] = len(context['discounts']) > 0
+
     def _fill_initial_context(self, context, parts):
         context['exists_single'] = False
         context['exists_subs'] = False
 
-        if len(parts['single_parts']) > 0:
-            context['single_parts'] = parts['single_parts']
-            context['exists_single'] = True
+        def assign_if_exists(name):
+            partsname = '{}_parts'.format(name)
+            if len(parts[partsname]) > 0:
+                context[partsname] = parts[partsname]
+                context['exists_{}'.format(name)] = True
 
-        if len(parts['subs_parts']) > 0:
-            context['subs_parts'] = parts['subs_parts']
-            context['exists_subs'] = True
+        assign_if_exists('single')
+        assign_if_exists('subs')
+        self._fill_alts_context(context, parts)
 
     def _fill_renovation_context(self, context, parts):
         context['subs_parts'] = parts['subs_parts']
+        self._fill_alts_context(context, parts)
 
     def _fill_use_context(self, context, parts):
         context['use_parts'] = parts['use_parts']
+        self._fill_alts_context(context, parts)
+
         context['use_subtotal'] = unicode(parts['use_subtotal'])
 
         if 'deduct_parts' in parts:
