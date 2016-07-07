@@ -104,7 +104,7 @@ class PayPalClient(PaymentClient):
                     }])
                     return
 
-            raise PaymentError("The payment cannot be created: " + payment.error.message)
+            raise PaymentError("The payment cannot be created: " + details[0]["issue"])
 
         # Extract URL where redirecting the customer
         response = payment.to_dict()
