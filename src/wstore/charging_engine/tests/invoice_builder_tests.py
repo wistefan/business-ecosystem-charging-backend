@@ -287,28 +287,6 @@ USAGE_CONTEXT.update(COMMON_CONTEXT)
 USAGE_CONTEXT.update(NON_ALTERATIONS)
 
 
-# class JustATest(TestCase):
-#     def setUp(self):
-#         self._order = MagicMock()
-#         self._order.pk = '1111'
-#         self._order.tax_address = TAX
-
-#         self._order.customer.userprofile.current_organization.name = USERNAME
-#         self._order.customer.userprofile.complete_name = COMPLETE_NAME
-
-#         self._contract = MagicMock()
-#         self._contract.item_id = '2'
-#         self._contract.last_charge = TIMESTAMP
-#         self._contract.offering.name = OFFERING_NAME
-#         self._contract.offering.version = OFFERING_VERSION
-#         self._contract.offering.owner_organization.name = OWNER_NAME
-
-#     def single_test(self):
-#         builder = invoice_builder.InvoiceBuilder(self._order)
-#         invoice_path = builder.generate_invoice(self._contract, SUBSCRIPTION_ALT_TRANS, 'initial')
-#         print(invoice_path)
-
-
 class InvoiceBuilderTestCase(TestCase):
 
     tags = ('invoices',)
