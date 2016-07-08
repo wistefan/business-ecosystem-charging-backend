@@ -31,7 +31,7 @@ from wstore.rss_adaptor.rss_manager import ProviderManager
 
 testing = sys.argv[1:2] == ['test']
 
-if not testing and Context.objects.all():
+if not testing and Context.objects.all() and Context.objects.all()[0].local_site is not None:
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
 
