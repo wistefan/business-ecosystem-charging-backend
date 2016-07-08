@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 from django.db import models
 from django.contrib.auth.models import User
 from djangotoolbox.fields import DictField, EmbeddedModelField, ListField
@@ -35,6 +37,7 @@ class Offering(models.Model):
     description = models.CharField(max_length=1500)
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, null=True, blank=True)
+    bundled_offerings = ListField(models.ForeignKey('self'))
 
 
 class Charge(models.Model):

@@ -49,65 +49,23 @@ class OrderingManager:
 
         return r.json()
 
-    def _download_models(self, item):
-        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
-        product_info = self._download(offering_info['productSpecification']['href'], 'product specification', item['id'])
-
-        return offering_info, product_info
-
     def _get_offering(self, item):
 
         # Download related product offering and product specification
-        offering_info, product_info = self._download_models(item)
-
-        # Check if the product is a digital one
-        asset_type, media_type, location = self._validator.parse_characteristics(product_info)
-
-        asset = None
-        if asset_type is not None and media_type is not None and location is not None:
-            asset = Resource.objects.get(download_link=location)
+        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
 
         offering_id = offering_info['id']
-
-        # Check if the offering contains a description
-        description = ''
-        if 'description' in offering_info:
-            description = offering_info['description']
 
         # Check if the offering has been already loaded in the system
         if len(Offering.objects.filter(off_id=offering_id)) > 0:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            if asset is not None and offering.pk in self._customer.userprofile.current_organization.acquired_offerings:
+            if offering.is_digital and offering.pk in self._customer.userprofile.current_organization.acquired_offerings:
                 raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
 
-            offering.description = description
-
-            offering.version = offering_info['version']
-            offering.href = offering_info['href']
-            offering.save()
         else:
-            # Get offering provider (Owner role)
-            for party in product_info['relatedParty']:
-                if party['role'].lower() == 'owner':
-                    provider = Organization.objects.get(name=party['id'])
-                    break
-            else:
-                raise OrderingError('The product specification included in the order item ' + item['id'] + ' does not contain a valid provider')
-
-            offering = Offering.objects.create(
-                off_id=offering_id,
-                href=offering_info['href'],
-                owner_organization=provider,
-                name=offering_info['name'],
-                description=description,
-                version=offering_info['version'],
-                is_digital=asset is not None,
-                asset=asset
-            )
-
-            self.rollback_logger['models'].append(offering)
+            raise OrderingError('The offering ' + offering_id + ' has not been previously registered')
 
         return offering, offering_info
 

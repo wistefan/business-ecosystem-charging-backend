@@ -26,6 +26,7 @@ from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.models import Resource
 from wstore.store_commons.utils.units import recurring_periods, supported_currencies
 from wstore.asset_manager.resource_plugins.decorators import on_product_offering_validation
+from wstore.ordering.models import Offering
 
 
 class OfferingValidator(CatalogValidator):
@@ -59,6 +60,73 @@ class OfferingValidator(CatalogValidator):
                 if price_model['price']['currencyCode'] not in supported_currencies:
                     raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
 
+    def _download(self, url):
+        r = requests.get(url)
+
+        if r.status_code != 200:
+            raise ValueError('There has been a problem accessing the product spec included in the offering')
+
+        return r.json()
+
+    def _build_offering_model(self, provider, product_offering):
+
+        asset = None
+        bundled_offerings = []
+
+        # Check if the offering is a bundle
+        if product_offering['isBundle']:
+            if 'bundledProductOffering' not in product_offering:
+                raise ValueError('Offering bundles must contain a bundledProductOffering field')
+
+            if len(product_offering['bundledProductOffering'] < 2):
+                raise ValueError('Offering bundles must contain at least two bundled offerings')
+
+            for bundle in product_offering['bundledProductOffering']:
+                # Check if the specified offerings have been already registered
+                offerings = Offering.objects.filter(off_id=bundle['id'])
+                if not len(offerings):
+                    raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
+
+                bundled_offerings.append(offerings[0])
+
+        else:
+            product_info = self._download(product_offering['productSpecification']['href'])
+
+            # Check if the product is a digital one
+            asset_type, media_type, location = self.parse_characteristics(product_info)
+
+            if asset_type is not None and media_type is not None and location is not None:
+                asset = Resource.objects.get(download_link=location)
+
+        # Check if the offering contains a description
+        description = ''
+        if 'description' in product_offering:
+            description = product_offering['description']
+
+        Offering.objects.create(
+            owner_organization=provider,
+            name=product_offering['name'],
+            description=description,
+            version=product_offering['version'],
+            is_digital=asset is not None,
+            asset=asset,
+            bundled_offerings=bundled_offerings
+        )
+
+    def attach_info(self, provider, product_offering):
+        # Find the offering model to attach the info
+        offerings = Offering.objects.filter(
+            off_id=None, owner_organization=provider, name=product_offering['name'], version=product_offering['version'])
+
+        if not len(offerings):
+            raise ValueError('The specified offering has not been registered')
+
+        offering = offerings[0]
+        offering.off_id = product_offering['id']
+        offering.href = product_offering['href']
+        offering.save()
+
     def validate_creation(self, provider, product_offering):
         self._validate_offering_pricing(provider, product_offering)
+        self._build_offering_model(provider, product_offering)
 
