@@ -95,17 +95,21 @@ def on_product_offering_validation(func):
     def wrapper(self, provider, product_offering):
 
         # Get the related asset (the existence of the product has been already validated)
-        assets = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+        asset = None
+        try:
+            asset = Resource.objects.get(product_id=product_offering['productSpecification']['id'])
+        except:
+            pass
 
-        if len(assets):
-            plugin_module = load_plugin_module(assets[0].resource_type)
+        if asset is not None:
+            plugin_module = load_plugin_module(asset.resource_type)
 
-            plugin_module.on_pre_product_offering_validation(assets[0], product_offering)
+            plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
         func(self, provider, product_offering)
 
-        if len(assets):
-            plugin_module.on_post_product_offering_validation(assets[0], product_offering)
+        if asset is not None:
+            plugin_module.on_post_product_offering_validation(asset, product_offering)
 
     return wrapper
 

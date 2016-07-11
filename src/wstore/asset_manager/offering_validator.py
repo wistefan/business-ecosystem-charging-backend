@@ -78,7 +78,7 @@ class OfferingValidator(CatalogValidator):
             if 'bundledProductOffering' not in product_offering:
                 raise ValueError('Offering bundles must contain a bundledProductOffering field')
 
-            if len(product_offering['bundledProductOffering'] < 2):
+            if len(product_offering['bundledProductOffering']) < 2:
                 raise ValueError('Offering bundles must contain at least two bundled offerings')
 
             for bundle in product_offering['bundledProductOffering']:

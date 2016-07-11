@@ -67,6 +67,9 @@ class ValidatorTestCase(TestCase):
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin = MagicMock()
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.return_value = self._plugin_instance
 
+    def tearDown(self):
+        reload(offering_validator)
+
     def _support_url(self):
         self._plugin_instance.formats = ["FILE", "URL"]
 
@@ -137,11 +140,11 @@ class ValidatorTestCase(TestCase):
             product_validator.ResourcePlugin.objects.get.assert_called_once_with(name='Widget')
 
             if is_file:
-                product_validator.Resource.objects.get.assert_called_once_with(download_link="http://testlocation.org/media/resources/test_user/widget.wgt")
+                product_validator.Resource.objects.get.assert_called_once_with(download_link=PRODUCT_LOCATION)
             else:
                 product_validator.Resource.objects.create.assert_called_once_with(
                     resource_path='',
-                    download_link="http://testlocation.org/media/resources/test_user/widget.wgt",
+                    download_link=PRODUCT_LOCATION,
                     provider=self._provider,
                     content_type='application/x-widget'
                 )
@@ -289,27 +292,109 @@ class ValidatorTestCase(TestCase):
         self.assertEquals(0, product_validator.Resource.objects.get.call_count)
         self.assertEquals(0, product_validator.Resource.objects.create.call_count)
 
+    def _validate_single_offering_calls(self, offering):
+        # Check download product call
+        offering_validator.requests.get.assert_called_once_with(offering['productSpecification']['href'])
+        offering_validator.requests.get().json.assert_called_once_with()
 
-    @parameterized.expand([
-        ('valid_pricing', BASIC_OFFERING),
-        ('free_offering', FREE_OFFERING),
-        ('missing_type', MISSING_PRICETYPE, 'Missing required field priceType in productOfferingPrice'),
-        ('invalid_type', INVALID_PRICETYPE, 'Invalid priceType, it must be one time, recurring, or usage'),
-        ('missing_charge_period', MISSING_PERIOD, 'Missing required field recurringChargePeriod for recurring priceType'),
-        ('invalid_period', INVALID_PERIOD, 'Unrecognized recurringChargePeriod: invalid'),
-        ('missing_price', MISSING_PRICE, 'Missing required field price in productOfferingPrice'),
-        ('missing_currency', MISSING_CURRENCY, 'Missing required field currencyCode in price'),
-        ('invalid_currency', INVALID_CURRENCY, 'Unrecognized currency: invalid')
-    ])
-    def test_create_offering_validation(self, name, offering, msg=None):
-        self._mock_validator_imports(offering_validator)
+        # Check resource retrieving if needed
+        offering_validator.Resource.objects.get.assert_called_once_with(download_link=PRODUCT_LOCATION)
 
+        # Check offering creation
+        offering_validator.Offering.objects.create.assert_called_once_with(
+            owner_organization=self._provider,
+            name=offering['name'],
+            description='',
+            version=offering['version'],
+            is_digital=True,
+            asset=self._asset_instance,
+            bundled_offerings=[]
+        )
+
+    def _validate_physical_offering_calls(self, offering):
+        # Check download product call
+        offering_validator.requests.get.assert_called_once_with(offering['productSpecification']['href'])
+        offering_validator.requests.get().json.assert_called_once_with()
+
+        # Check resource retrieving if needed
+        self.assertEquals(0, offering_validator.Resource.objects.get.call_count)
+
+        # Check offering creation
+        offering_validator.Offering.objects.create.assert_called_once_with(
+            owner_organization=self._provider,
+            name=offering['name'],
+            description='',
+            version=offering['version'],
+            is_digital=False,
+            asset=None,
+            bundled_offerings=[]
+        )
+
+    def _validate_bundle_offering_calls(self, offering):
+        self.assertEquals(
+            [call(off_id=off['id']) for off in offering['bundledProductOffering']],
+            offering_validator.Offering.objects.filter.call_args_list)
+
+        # Validate offering creation
+        offering_validator.Offering.objects.create.assert_called_once_with(
+            owner_organization=self._provider,
+            name=offering['name'],
+            description='',
+            version=offering['version'],
+            is_digital=False,
+            asset=None,
+            bundled_offerings=[off[0] for off in self._bundles]
+        )
+
+    def _mock_product_request(self):
         offering_validator.requests = MagicMock()
         product = deepcopy(BASIC_PRODUCT['product'])
         product['id'] = '20'
         resp = MagicMock()
         offering_validator.requests.get.return_value = resp
         resp.json.return_value = product
+        resp.status_code = 200
+
+    def _mock_offering_bundle(self, offering):
+        offering_validator.Offering = MagicMock()
+
+        self._bundles = [] if 'bundledProductOffering' not in offering else [[MagicMock(id=off['id'])] for off in offering['bundledProductOffering']]
+        offering_validator.Offering.objects.filter.side_effect = self._bundles
+
+    def _non_digital_offering(self):
+        offering_validator.OfferingValidator.parse_characteristics = MagicMock(return_value=(None, None, None))
+
+    def _invalid_bundled(self):
+        offering_validator.Offering.objects.filter.side_effect = None
+        offering_validator.Offering.objects.filter.return_value = []
+
+    def _catalog_api_error(self):
+        offering_validator.requests.get().status_code = 500
+
+    @parameterized.expand([
+        ('valid_pricing', BASIC_OFFERING, _validate_single_offering_calls, None),
+        ('free_offering', FREE_OFFERING, _validate_physical_offering_calls, _non_digital_offering),
+        ('bundle_offering', BUNDLE_OFFERING, _validate_bundle_offering_calls, None),
+        ('missing_type', MISSING_PRICETYPE, None, None, 'Missing required field priceType in productOfferingPrice'),
+        ('invalid_type', INVALID_PRICETYPE, None, None, 'Invalid priceType, it must be one time, recurring, or usage'),
+        ('missing_charge_period', MISSING_PERIOD, None, None, 'Missing required field recurringChargePeriod for recurring priceType'),
+        ('invalid_period', INVALID_PERIOD, None, None, 'Unrecognized recurringChargePeriod: invalid'),
+        ('missing_price', MISSING_PRICE, None, None, 'Missing required field price in productOfferingPrice'),
+        ('missing_currency', MISSING_CURRENCY, None, None, 'Missing required field currencyCode in price'),
+        ('invalid_currency', INVALID_CURRENCY, None, None, 'Unrecognized currency: invalid'),
+        ('bundle_missing', BUNDLE_MISSING_FIELD, None, None, 'Offering bundles must contain a bundledProductOffering field'),
+        ('bundle_invalid_number', BUNDLE_MISSING_ELEMS, None, None, 'Offering bundles must contain at least two bundled offerings'),
+        ('bundle_inv_bundled', BUNDLE_OFFERING, None, _invalid_bundled, 'The bundled offering 6 is not registered'),
+        ('product_access_error', BASIC_OFFERING, None, _catalog_api_error, 'There has been a problem accessing the product spec included in the offering')
+    ])
+    def test_create_offering_validation(self, name, offering, checker, side_effect, msg=None):
+
+        self._mock_validator_imports(offering_validator)
+        self._mock_product_request()
+        self._mock_offering_bundle(offering)
+
+        if side_effect is not None:
+            side_effect(self)
 
         error = None
         try:
@@ -321,3 +406,34 @@ class ValidatorTestCase(TestCase):
         if msg is not None:
             self.assertTrue(isinstance(error, ValueError))
             self.assertEquals(msg, unicode(error))
+        else:
+            self.assertEquals(error, None)
+
+            # Validate calls
+            checker(self, offering)
+
+    def test_offering_attachment(self):
+        offering = MagicMock()
+        offering_validator.Offering = MagicMock()
+        offering_validator.Offering.objects.filter.return_value = [offering]
+
+        validator = offering_validator.OfferingValidator()
+        validator.validate('attach', self._provider, BASIC_OFFERING)
+
+        self.assertEquals(BASIC_OFFERING['href'], offering.href)
+        self.assertEquals(BASIC_OFFERING['id'], offering.off_id)
+
+        offering.save.assert_called_once_with()
+
+    def test_offering_attachment_missing(self):
+        offering_validator.Offering = MagicMock()
+        offering_validator.Offering.objects.filter.return_value = []
+
+        error = None
+        try:
+            validator = offering_validator.OfferingValidator()
+            validator.validate('attach', self._provider, BASIC_OFFERING)
+        except ValueError as e:
+            error = e
+
+        self.assertEquals('The specified offering has not been registered', unicode(error))
