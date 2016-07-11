@@ -25,7 +25,6 @@ import requests
 from decimal import Decimal
 from datetime import datetime
 
-from wstore.models import Organization, Resource
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.rollback import rollback
 from wstore.charging_engine.charging_engine import ChargingEngine

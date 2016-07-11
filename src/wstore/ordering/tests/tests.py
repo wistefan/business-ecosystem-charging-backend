@@ -71,7 +71,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.requests = MagicMock()
         self._response = MagicMock()
         self._response.status_code = 200
-        self._response.json.side_effect = [OFFERING, PRODUCT, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
+        self._response.json.side_effect = [OFFERING, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
         ordering_management.requests.get.return_value = self._response
 
         # Mock organization model
@@ -99,18 +99,9 @@ class OrderingManagementTestCase(TestCase):
         self._now = datetime(2016, 12, 03)
         ordering_management.datetime.utcnow.return_value = self._now
 
-    def _check_offering_call(self, asset, description="Example offering description", is_digital=True):
-        ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
-        ordering_management.Offering.objects.create.assert_called_once_with(
-            off_id="5",
-            href="http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)",
-            owner_organization=self._org_inst,
-            name="Example offering",
-            description=description,
-            version="1.0",
-            is_digital=is_digital,
-            asset=asset
-        )
+        # Mock offering
+        ordering_management.Offering.objects.filter.return_value = [self._offering_inst]
+        ordering_management.Offering.objects.get.return_value = self._offering_inst
 
     def _check_contract_call(self, pricing):
         ordering_management.Contract.assert_called_once_with(
@@ -123,14 +114,10 @@ class OrderingManagementTestCase(TestCase):
     def _check_offering_retrieving_call(self):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
         ordering_management.Offering.objects.get.assert_called_once_with(off_id="5")
-        self.assertEquals('Example offering description', self._offering_inst.description)
-        self.assertEquals('1.0', self._offering_inst.version)
-        self.assertEquals('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)', self._offering_inst.href)
-        self._offering_inst.save.assert_called_once_with()
 
     def _basic_add_checker(self):
         # Check offering creation
-        self._check_offering_call(self._asset_instance)
+        self._check_offering_retrieving_call()
 
         # Check contract creation
         self._check_contract_call({
@@ -142,10 +129,9 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         })
-        ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _non_digital_add_checker(self):
-        self._check_offering_call(None, is_digital=False)
+        self._check_offering_retrieving_call()
 
     def _recurring_add_checker(self):
         # Check offering creation
@@ -162,7 +148,7 @@ class OrderingManagementTestCase(TestCase):
         })
 
     def _usage_add_checker(self):
-        self._check_offering_call(self._asset_instance, description="")
+        self._check_offering_retrieving_call()
 
         self._check_contract_call({
             'general_currency': 'EUR',
@@ -173,15 +159,13 @@ class OrderingManagementTestCase(TestCase):
                 'duty_free': '10.00'
             }]
         })
-        ordering_management.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _free_add_checker(self):
-        self._check_offering_call(self._asset_instance)
-
+        self._check_offering_retrieving_call()
         self._check_contract_call({})
 
     def _basic_discount_checker(self):
-        self._check_offering_call(self._asset_instance)
+        self._check_offering_retrieving_call()
         self._check_contract_call({
             'general_currency': 'EUR',
             'pay_per_use': [{
@@ -198,7 +182,7 @@ class OrderingManagementTestCase(TestCase):
         })
 
     def _recurring_fee_checker(self):
-        self._check_offering_call(self._asset_instance)
+        self._check_offering_retrieving_call()
         self._check_contract_call({
             'general_currency': 'EUR',
             'pay_per_use': [{
@@ -222,7 +206,7 @@ class OrderingManagementTestCase(TestCase):
         })
 
     def _double_price_checker(self):
-        self._check_offering_call(self._asset_instance)
+        self._check_offering_retrieving_call()
         self._check_contract_call({
             'general_currency': 'EUR',
             'pay_per_use': [{
@@ -240,7 +224,7 @@ class OrderingManagementTestCase(TestCase):
         })
 
     def _double_usage_checker(self):
-        self._check_offering_call(self._asset_instance)
+        self._check_offering_retrieving_call()
         self._check_contract_call({
             'general_currency': 'EUR',
             'pay_per_use': [{
@@ -259,22 +243,18 @@ class OrderingManagementTestCase(TestCase):
     def _invalid_billing(self):
         valid_response = MagicMock()
         valid_response.status_code = 200
-        valid_response.json.side_effect = [OFFERING, PRODUCT]
+        valid_response.json.side_effect = [OFFERING]
         invalid_response = MagicMock()
         invalid_response.status_code = 400
-        ordering_management.requests.get.side_effect = [valid_response, valid_response, invalid_response]
+        ordering_management.requests.get.side_effect = [valid_response, invalid_response]
 
     def _non_digital_offering(self):
         self._validator_inst.parse_characteristics.return_value = (None, None, None)
 
-    def _existing_offering(self):
-        ordering_management.Offering.objects.filter.return_value = [self._offering_inst]
-        ordering_management.Offering.objects.get.return_value = self._offering_inst
-
     def _no_offering_description(self):
         new_off = deepcopy(OFFERING)
         del(new_off['description'])
-        self._response.json.side_effect = [new_off, PRODUCT, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
+        self._response.json.side_effect = [new_off, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, CUSTOMER]
 
     def _missing_offering(self):
         self._response.status_code = 404
@@ -289,32 +269,26 @@ class OrderingManagementTestCase(TestCase):
 
         ordering_management.requests.get = get
 
-    def _no_parties(self):
-        new_prod = deepcopy(PRODUCT)
-        new_prod["relatedParty"] = []
-        self._response.json.side_effect = [OFFERING, new_prod]
-
-    def _inv_parties(self):
-        new_prod = deepcopy(PRODUCT)
-        new_prod["relatedParty"] = [{
-            "id": "test_user2",
-            "role": "Partner"
-        }]
-        self._response.json.side_effect = [OFFERING, new_prod]
-
     def _already_owned(self):
-        self._existing_offering()
         self._offering_inst.pk = '11111'
         self._customer.userprofile.current_organization.acquired_offerings = ['11111']
 
     def _multiple_pricing(self):
         OFFERING['productOfferingPrice'].append(BASIC_PRICING)
 
+    def _missing_offering_local(self):
+        ordering_management.Offering.objects.filter.return_value = []
+
+    def _missing_postal(self):
+        new_cust = deepcopy(CUSTOMER)
+        new_cust['contactMedium'] = []
+        self._response.json.side_effect = [OFFERING, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, new_cust]
+
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
         ('basic_add_invalid_billing', BASIC_ORDER, BASIC_PRICING, None, _invalid_billing, 'OrderingError: There was an error at the time of retrieving the Billing Address'),
         ('non_digital_add', BASIC_ORDER, BASIC_PRICING, _non_digital_add_checker, _non_digital_offering),
-        ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker, _existing_offering),
+        ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker),
         ('usage_add', USAGE_ORDER, USAGE_PRICING, _usage_add_checker, _no_offering_description),
         ('free_add', FREE_ORDER, {}, _free_add_checker),
         ('no_product_add', NOPRODUCT_ORDER, {}, _free_add_checker),
@@ -330,10 +304,9 @@ class OrderingManagementTestCase(TestCase):
         ('invalid_initial_state', INVALID_STATE_ORDER, BASIC_PRICING,  None, None, 'OrderingError: Only acknowledged orders can be initially processed'),
         ('invalid_model', INVALID_MODEL_ORDER, INVALID_MODEL_PRICING,  None, None, 'OrderingError: Invalid price model Invalid'),
         ('invalid_offering', BASIC_ORDER, {}, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),
-        ('invalid_product', BASIC_ORDER, {}, None, _missing_product, 'OrderingError: The product specification specified in order item 1 does not exists'),
-        ('no_parties', BASIC_ORDER, {}, None, _no_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
-        ('invalid_party', BASIC_ORDER, {}, None, _inv_parties, 'OrderingError: The product specification included in the order item 1 does not contain a valid provider'),
-        ('already_owned', BASIC_ORDER, {}, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5')
+        ('already_owned', BASIC_ORDER, {}, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5'),
+        ('offering_not_registered', BASIC_ORDER, {}, None, _missing_offering_local, 'OrderingError: The offering 5 has not been previously registered'),
+        ('missing_postal_address', BASIC_ORDER, BASIC_PRICING, None, _missing_postal, 'OrderingError: Provided Billing Account does not contain a Postal Address')
     ])
     def test_process_order(self, name, order, pricing, checker, side_effect=None, err_msg=None):
 
@@ -359,12 +332,11 @@ class OrderingManagementTestCase(TestCase):
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
 
             # Check offering and product downloads
-            self.assertEquals(5, ordering_management.requests.get.call_count)
+            self.assertEquals(4, ordering_management.requests.get.call_count)
 
             headers = {'Authorization': 'Bearer ' + self._customer.userprofile.access_token}
             self.assertEquals([
                 call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-                call('http://producturl.com/'),
                 call(BILLING_ACCOUNT_HREF, headers=headers),
                 call(BILLING_ACCOUNT['customerAccount']['href'], headers=headers),
                 call(CUSTOMER_ACCOUNT['customer']['href'], headers=headers)
