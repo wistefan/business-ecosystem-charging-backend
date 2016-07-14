@@ -343,7 +343,7 @@ class ValidatorTestCase(TestCase):
             version=offering['version'],
             is_digital=False,
             asset=None,
-            bundled_offerings=[off[0] for off in self._bundles]
+            bundled_offerings=[off[0].pk for off in self._bundles]
         )
 
     def _mock_product_request(self):

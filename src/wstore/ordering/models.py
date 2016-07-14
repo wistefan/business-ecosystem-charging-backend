@@ -29,7 +29,7 @@ from wstore.ordering.errors import OrderingError
 
 
 class Offering(models.Model):
-    off_id = models.CharField(max_length=50)
+    off_id = models.CharField(max_length=50, blank=True, null=True)
     href = models.URLField()
     owner_organization = models.ForeignKey(Organization)
     name = models.CharField(max_length=200)
@@ -37,7 +37,7 @@ class Offering(models.Model):
     description = models.CharField(max_length=1500)
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, null=True, blank=True)
-    bundled_offerings = ListField(models.ForeignKey('self'))
+    bundled_offerings = ListField()
 
 
 class Charge(models.Model):

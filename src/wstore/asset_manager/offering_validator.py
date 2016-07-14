@@ -87,7 +87,7 @@ class OfferingValidator(CatalogValidator):
                 if not len(offerings):
                     raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
 
-                bundled_offerings.append(offerings[0])
+                bundled_offerings.append(offerings[0].pk)
 
         else:
             product_info = self._download(product_offering['productSpecification']['href'])
