@@ -27,7 +27,7 @@ from bson import ObjectId
 from django.conf import settings
 
 from wstore.store_commons.database import get_database_connection
-from wstore.models import Organization
+from wstore.models import Context, Organization
 
 
 class RSSAdaptorThread(threading.Thread):
@@ -90,3 +90,7 @@ class RSSAdaptor:
                     query={'_id': ObjectId(org.pk)},
                     update={'$inc': {'correlation_number': -1}}
                 )['correlation_number']
+
+            context = Context.objects.all()[0]
+            context.failed_cdrs.extend(cdr_info)
+            context.save()

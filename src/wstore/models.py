@@ -39,6 +39,7 @@ class Context(models.Model):
     top_rated = ListField()
     newest = ListField()
     user_refs = DictField()
+    failed_cdrs = ListField()
 
     def is_valid_currency(self, currency):
         """
