@@ -53,6 +53,7 @@ class OrderingManagementTestCase(TestCase):
         # Mock Offering model
         ordering_management.Offering = MagicMock()
         self._offering_inst = MagicMock()
+        self._order_inst.bundled_offerings = []
         ordering_management.Offering.objects.filter.return_value = []
         ordering_management.Offering.objects.create.return_value = self._offering_inst
 
@@ -271,7 +272,19 @@ class OrderingManagementTestCase(TestCase):
 
     def _already_owned(self):
         self._offering_inst.pk = '11111'
+        self._offering_inst.name = 'Example offering'
+        self._offering_inst.off_id = '5'
         self._customer.userprofile.current_organization.acquired_offerings = ['11111']
+
+    def _already_owned_bundle(self):
+        bundle_offering = MagicMock()
+        bundle_offering.pk = '111111'
+        bundle_offering.name = 'Bundle'
+        bundle_offering.off_id = '6'
+        self._offering_inst.bundled_offerings = ['111111']
+        self._customer.userprofile.current_organization.acquired_offerings = ['111111']
+
+        ordering_management.Offering.objects.get.side_effect = [self._offering_inst, bundle_offering]
 
     def _multiple_pricing(self):
         OFFERING['productOfferingPrice'].append(BASIC_PRICING)
@@ -305,6 +318,7 @@ class OrderingManagementTestCase(TestCase):
         ('invalid_model', INVALID_MODEL_ORDER, INVALID_MODEL_PRICING,  None, None, 'OrderingError: Invalid price model Invalid'),
         ('invalid_offering', BASIC_ORDER, {}, None, _missing_offering, 'OrderingError: The product offering specified in order item 1 does not exists'),
         ('already_owned', BASIC_ORDER, {}, None, _already_owned, 'OrderingError: The customer already owns the digital product offering Example offering with id 5'),
+        ('already_owned_bundle', BASIC_ORDER, {}, None, _already_owned_bundle, 'OrderingError: The customer already owns the digital product offering Bundle with id 6'),
         ('offering_not_registered', BASIC_ORDER, {}, None, _missing_offering_local, 'OrderingError: The offering 5 has not been previously registered'),
         ('missing_postal_address', BASIC_ORDER, BASIC_PRICING, None, _missing_postal, 'OrderingError: Provided Billing Account does not contain a Postal Address')
     ])

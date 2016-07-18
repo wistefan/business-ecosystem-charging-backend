@@ -60,8 +60,16 @@ class OrderingManager:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            if offering.is_digital and offering.pk in self._customer.userprofile.current_organization.acquired_offerings:
-                raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
+            included_offerings = [Offering.objects.get(pk=off_pk) for off_pk in offering.bundled_offerings]
+            included_offerings.append(offering)
+
+            def owned_digital(off):
+                if off.is_digital and off.pk in self._customer.userprofile.current_organization.acquired_offerings:
+                    raise OrderingError('The customer already owns the digital product offering ' + off.name + ' with id ' + off.off_id)
+
+                return off
+
+            map(owned_digital, included_offerings)
 
         else:
             raise OrderingError('The offering ' + offering_id + ' has not been previously registered')
@@ -240,9 +248,7 @@ class OrderingManager:
 
     def _process_add_items(self, items, order_id, description):
 
-        new_contracts = []
-        for item in items:
-            new_contracts.append(self._build_contract(item))
+        new_contracts = [self._build_contract(item) for item in items]
 
         current_org = self._customer.userprofile.current_organization
         order = Order.objects.create(
@@ -333,7 +339,6 @@ class OrderingManager:
 
             # Terminate product in the inventory
             client.terminate_product(product['id'])
-
 
     @rollback()
     def process_order(self, customer, order):
