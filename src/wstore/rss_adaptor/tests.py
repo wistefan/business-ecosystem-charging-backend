@@ -221,11 +221,11 @@ class ModelManagerTestCase(TestCase):
 
         if err_type is None:
             self.assertTrue(error is None)
-            self.manager._make_request.assert_called_once('POST', 'http://testhost.com/rssHost/rss/models', exp_data)
+            self.manager._make_request.assert_called_once_with('POST', 'http://testhost.com/rssHost/rss/models', exp_data)
         else:
             self.assertTrue(isinstance(e, err_type))
             self.assertEquals(err_msg, unicode(e))
 
     def test_update_model(self):
         self.manager.update_revenue_model(deepcopy(BASIC_MODEL))
-        self.manager._make_request.assert_called_once('PUT', 'http://testhost.com/rssHost/rss/models', EXP_BASIC_MODEL)
+        self.manager._make_request.assert_called_once_with('PUT', 'http://testhost.com/rssHost/rss/models', EXP_BASIC_MODEL)

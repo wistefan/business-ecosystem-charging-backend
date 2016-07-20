@@ -328,16 +328,212 @@ class ChargingEngineTestCase(TestCase):
             }]
         }]
 
-    def _set_initial_alteration_contracts(self):
+    def _set_usage_alteration_contracts(self):
+        contract1 = self._mock_contract({
+            'description': 'Offering description',
+            'offering_pk': '11111',
+            'item_id': '1',
+            'pricing': self._get_pay_use(),
+            'product_id': 'product1'})
+
+        contract2 = self._mock_contract({
+            'description': 'Offering description',
+            'offering_pk': '22222',
+            'item_id': '2',
+            'pricing': {
+                'general_currency': 'EUR',
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }],
+                'alteration': {
+                    'type': 'fee',
+                    'period': 'recurring',
+                    'value': {
+                        'value': '20.00',
+                        'duty_free': '20.00'
+                    },
+                    'condition': {
+                        'operation': 'lt',
+                        'value': '20.00'
+                    }
+                }
+            },
+            'product_id': 'product2'})
+
+        # Mock usage client
+        charging_engine.UsageClient = MagicMock()
+        charging_engine.UsageClient().get_customer_usage.return_value = [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }, {
+            'id': '3'
+        }, {
+            'id': '4'
+        }]
+
+        charging_engine.SDRManager = MagicMock()
+        charging_engine.SDRManager().get_sdr_values.side_effect = [{
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'callmin',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }, {
+            'unit': 'invocation',
+            'value': '1'
+        }, {
+            'unit': 'callmin',
+            'value': '1'
+        }, {
+            'unit': 'call',
+            'value': '10'
+        }]
+        contract1.applied_sdrs = []
+        contract2.applied_sdrs = []
+        self._order.contracts = [contract1, contract2]
+        self._order.date = datetime(2016, 1, 20, 13, 12, 39)
+        self._order.get_item_contract.side_effect = [contract1, contract2]
+
+        return [{
+            'price': '200.00',
+            'duty_free': '166.60',
+            'description': 'Offering description',
+            'currency': 'EUR',
+            'related_model': {
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }]
+            },
+            'item': '1',
+            'applied_accounting': [{
+                'model': {
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }, {
+                    'usage_id': '4',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }],
+                'price': '200.00',
+                'duty_free': '166.60'
+            }, {
+                'model': {
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'price': '10.00',
+                    'value': '1',
+                    'usage_id': '3',
+                    'duty_free': '8.33'
+                }],
+                'price': '10.00',
+                'duty_free': '8.33'
+            }]
+        }, {
+            'price': '30.00',
+            'duty_free': '28.33',
+            'description': 'Offering description',
+            'currency': 'EUR',
+            'related_model': {
+                'pay_per_use': [{
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                }],
+                'alteration': {
+                    'type': 'fee',
+                    'period': 'recurring',
+                    'value': {
+                        'value': '20.00',
+                        'duty_free': '20.00'
+                    },
+                    'condition': {
+                        'operation': 'lt',
+                        'value': '20.00'
+                    }
+                }
+            },
+            'item': '2',
+            'applied_accounting': [{
+                'model': {
+                    'value': '10.00',
+                    'unit': 'call',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'usage_id': '1',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }, {
+                    'usage_id': '4',
+                    'price': '100.00',
+                    'duty_free': '83.30',
+                    'value': '10'
+                }],
+                'price': '200.00',
+                'duty_free': '166.60'
+            }, {
+                'model': {
+                    'value': '10.00',
+                    'unit': 'callmin',
+                    'tax_rate': '20.00',
+                    'duty_free': '8.33'
+                },
+                'accounting': [{
+                    'price': '10.00',
+                    'value': '1',
+                    'usage_id': '3',
+                    'duty_free': '8.33'
+                }],
+                'price': '10.00',
+                'duty_free': '8.33'
+            }]}]
+
+    def _set_alterations(self, name, unit="one time", renovation_date=None):
         component = {
             'value': '10.00',
-            'unit': 'one time',
+            'unit': unit,
             'tax_rate': '0.00',
             'duty_free': '10.00'
         }
 
+        if renovation_date is not None:
+            component['renovation_date'] = renovation_date
+
         alteration_fee = {
             'type': 'fee',
+            'period': 'recurring',
             'value': {
                 'value': '5.00',
                 'duty_free': '5.00'
@@ -350,18 +546,27 @@ class ChargingEngineTestCase(TestCase):
 
         alteration_fixed_discount = {
             'type': 'discount',
+            'period': 'recurring',
             'value': '10.00'
         }
 
+        alteration_only_once = {
+            'type': 'discount',
+            'period': 'one time',
+            'value': {
+                'value': '1.00',
+                'duty_free': '1.00'
+            }
+        }
+
         # Create contracts
-        # Two price components
         contract1 = self._mock_contract({
             'description': 'Offering 1 description',
             'offering_pk': '111111',
             'item_id': '1',
             'pricing': {
                 'general_currency': 'EUR',
-                'single_payment': [deepcopy(component), deepcopy(component)]
+                name: [deepcopy(component), deepcopy(component)]
             },
             'product_id': 'product1'
         })
@@ -373,7 +578,7 @@ class ChargingEngineTestCase(TestCase):
             'item_id': '2',
             'pricing': {
                 'general_currency': 'EUR',
-                'single_payment': [deepcopy(component)],
+                name: [deepcopy(component)],
                 'alteration': deepcopy(alteration_fee)
             },
             'product_id': 'product2'
@@ -386,7 +591,7 @@ class ChargingEngineTestCase(TestCase):
             'item_id': '3',
             'pricing': {
                 'general_currency': 'EUR',
-                'single_payment': [deepcopy(component)],
+                name: [deepcopy(component)],
                 'alteration': deepcopy(alteration_fixed_discount)
             },
             'product_id': 'product3'
@@ -399,10 +604,11 @@ class ChargingEngineTestCase(TestCase):
             'item_id': '4',
             'pricing': {
                 'general_currency': 'EUR',
-                'single_payment': [deepcopy(component)],
+                name: [deepcopy(component)],
                 'alteration': {
                     'type': 'discount',
                     'value': '10.00',
+                    'period': 'recurring',
                     'condition': {
                         'operation': 'gt',
                         'value': '50.00'
@@ -412,10 +618,40 @@ class ChargingEngineTestCase(TestCase):
             'product_id': 'product4'
         })
 
-        self._order.contracts = [contract1, contract2, contract3, contract4]
+        contract5 = self._mock_contract({
+            'description': 'Offering 5 description',
+            'offering_pk': '555555',
+            'item_id': '5',
+            'pricing': {
+                'general_currency': 'EUR',
+                name: [deepcopy(component)],
+                'alteration': alteration_only_once
+            },
+            'product_id': 'product4'
+        })
+
+        self._order.contracts = [contract1, contract2, contract3, contract4, contract5]
 
         # Mock get contracts
         self._order.get_item_contract.side_effect = self._order.contracts
+
+        item_only_once = {
+            'price': '9.00',
+            'duty_free': '9.00',
+            'description': 'Offering 5 description',
+            'currency': 'EUR',
+            'related_model': {
+                name: [deepcopy(component)],
+                'alteration': deepcopy(alteration_only_once)
+            },
+            'item': '5'
+        }
+
+        # The alteration will have effect only in single payment
+        if name != 'single_payment':
+            item_only_once['price'] = '10.00'
+            item_only_once['duty_free'] = '10.00'
+            del item_only_once['related_model']['alteration']
 
         return [{
             'price': '20.00',
@@ -423,7 +659,7 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 1 description',
             'currency': 'EUR',
             'related_model': {
-                'single_payment': [deepcopy(component), deepcopy(component)]
+                name: [deepcopy(component), deepcopy(component)]
             },
             'item': '1'
         }, {
@@ -432,7 +668,7 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 2 description',
             'currency': 'EUR',
             'related_model': {
-                'single_payment': [deepcopy(component)],
+                name: [deepcopy(component)],
                 'alteration': deepcopy(alteration_fee)
             },
             'item': '2'
@@ -442,7 +678,7 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 3 description',
             'currency': 'EUR',
             'related_model': {
-                'single_payment': [deepcopy(component)],
+                name: [deepcopy(component)],
                 'alteration': deepcopy(alteration_fixed_discount)
             },
             'item': '3'
@@ -452,16 +688,24 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 4 description',
             'currency': 'EUR',
             'related_model': {
-                'single_payment': [deepcopy(component)]
+                name: [deepcopy(component)]
             },
             'item': '4'
-        }]
+        }, item_only_once]
+
+    def _set_initial_alteration_contracts(self):
+        return self._set_alterations('single_payment', 'one time')
+
+    def _set_renovation_alteration_contracts(self):
+        return self._set_alterations('subscription', 'monthly', datetime(2015, 10, 01, 10, 10))
 
     @parameterized.expand([
         ('initial', _set_initial_contracts),
         ('initial', _set_initial_alteration_contracts),
         ('recurring', _set_renovation_contracts),
-        ('usage', _set_usage_contracts)
+        ('recurring', _set_renovation_alteration_contracts),
+        ('usage', _set_usage_contracts),
+        ('usage', _set_usage_alteration_contracts)
     ])
     def test_payment(self, name, contract_gen):
 
@@ -587,6 +831,38 @@ class ChargingEngineTestCase(TestCase):
 
         self._validate_subscription_calls()
 
+    def _validate_end_initial_alteration_payment(self, transactions):
+        self.assertEquals([
+            call('1'), call('2'), call('3'), call('4'), call('5')
+        ], self._order.get_item_contract.call_args_list)
+
+        self.assertEquals(['111111', '222222', '333333', '444444', '555555'], self._order.owner_organization.acquired_offerings)
+        self.assertEquals([
+            call(), call(), call(), call(), call()
+        ], self._order.owner_organization.save.call_args_list)
+
+        self.assertEquals([call(self._order, contract) for contract in self._order.contracts],
+                          charging_engine.CDRManager.call_args_list)
+
+        self.assertEquals([call(trans['related_model'], '2016-01-20T13:12:39Z') for trans in transactions],
+                          charging_engine.CDRManager().generate_cdr.call_args_list)
+
+        def charge_call(c, d):
+            return call(date=datetime(2016, 1, 20, 13, 12, 39),
+                        cost=c,
+                        currency='EUR',
+                        concept='initial',
+                        duty_free=d,
+                        invoice=INVOICE_PATH)
+
+        self.assertEquals([
+            charge_call('20.00', '20.00'), charge_call('15.00', '15.00'), charge_call('9.00', '9.00'), charge_call('10.00', '10.00'), charge_call('9.00', '9.00')
+        ], charging_engine.Charge.call_args_list)
+
+        self.assertEquals([[self._charge] for x in range(len(self._order.contracts))], map(lambda x: x.charges, self._order.contracts))
+
+        self.assertEquals(0, charging_engine.BillingClient.call_count)
+
     def _validate_end_renovation_payment(self, transactions):
         self.assertEquals([
             call('2')
@@ -624,6 +900,54 @@ class ChargingEngineTestCase(TestCase):
 
         self._validate_subscription_calls()
 
+    def _validate_end_renovation_alteration_payment(self, transactions):
+        self.assertEquals([call(str(x + 1)) for x in range(5)], self._order.get_item_contract.call_args_list)
+
+        self.assertEquals([], self._order.owner_organization.acquired_offerings)
+        self.assertEquals([], self._order.owner_organization.save.call_args_list)
+
+        self.assertEquals([call(self._order, contract) for contract in self._order.contracts],
+                          charging_engine.CDRManager.call_args_list)
+
+        self.assertEquals([call(trans['related_model'], '2016-01-20T13:12:39Z') for trans in transactions],
+                          charging_engine.CDRManager().generate_cdr.call_args_list)
+
+        def charge_call(c, d):
+            return call(date=datetime(2016, 1, 20, 13, 12, 39),
+                        cost=c,
+                        currency='EUR',
+                        concept='recurring',
+                        duty_free=d,
+                        invoice=INVOICE_PATH)
+
+        self.assertEquals([
+            charge_call('20.00', '20.00'), charge_call('15.00', '15.00'), charge_call('9.00', '9.00'), charge_call('10.00', '10.00'), charge_call('10.00', '10.00')
+        ], charging_engine.Charge.call_args_list)
+
+        self.assertEquals([[self._charge] for x in range(len(self._order.contracts))], map(lambda x: x.charges, self._order.contracts))
+
+        self.assertEquals(1, charging_engine.BillingClient.call_count)
+
+        def validate_sub(c, d, n=1, alt=None):
+            temp = {
+                "general_currency": 'EUR',
+                "subscription": [{
+                    'value': c,
+                    'unit': 'monthly',
+                    'tax_rate': '0.00',
+                    'duty_free': d,
+                    'renovation_date': datetime(2016, 2, 19, 13, 12, 39)} for _ in range(n)]}
+            if alt is not None:
+                temp["alteration"] = alt
+            return temp
+
+        self.assertEquals(
+            [validate_sub('10.00', '10.00', 2),
+             validate_sub('10.00', '10.00', 1, {'value': {'duty_free': '5.00', 'value': '5.00'}, 'type': 'fee', 'period': 'recurring', 'condition': {'operation': 'gt', 'value': '5.00'}}),
+             validate_sub('10.00', '10.00', 1, {'type': 'discount', 'period': 'recurring', 'value': '10.00'}),
+             validate_sub('10.00', '10.00', 1, {'condition': {'operation': 'gt', 'value': '50.00'}, 'type': 'discount', 'period': 'recurring', 'value': '10.00'}),
+             validate_sub('10.00', '10.00', 1, {'type': 'discount', 'period': 'one time', 'value': {'value': '1.00', 'duty_free': '1.00'}})], map(lambda x: x.pricing_model, self._order.contracts))
+
     def _validate_end_usage_payment(self, transactions):
         self.assertEquals([
             call('1', unicode(datetime(2016, 1, 20, 13, 12, 39)), '83.30', '100.00', '20.00', 'EUR', self._order.contracts[0].product_id),
@@ -638,7 +962,9 @@ class ChargingEngineTestCase(TestCase):
 
     @parameterized.expand([
         ('initial', _set_initial_contracts, _validate_end_initial_payment),
+        ('initial', _set_initial_alteration_contracts, _validate_end_initial_alteration_payment),
         ('recurring', _set_renovation_contracts, _validate_end_renovation_payment),
+        ('recurring', _set_renovation_alteration_contracts, _validate_end_renovation_alteration_payment),
         ('usage', _set_usage_contracts, _validate_end_usage_payment)
     ])
     def test_end_payment(self, name, contract_gen, validator):
@@ -1102,4 +1428,3 @@ class PayPalRefundTestCase(TestCase):
                 self._payment_inst.refund.assert_any_call(sale_id)
         else:
             self.assertEquals(resp, {'error': 'Sales cannot be refunded', 'result': 'error'})
-

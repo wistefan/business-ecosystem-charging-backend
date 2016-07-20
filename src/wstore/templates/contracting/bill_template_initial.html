@@ -105,6 +105,71 @@
                 </table>
                 {% endif %}
             </div>
+
+            <div class="row">
+              {% if exists_fees %}
+                <h3>Fees</h3>
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Value</th>
+                      <th>Period</th>
+                      <th>Condition (if any)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for t, v, p, c in fees %}
+                    <tr>
+                      <td>
+                        {{ v  }}
+                      </td>
+                      <td>
+                        {{ p  }}
+                      </td>
+                      <td>
+                        {{ c }}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+              {% endif %}
+            </div>
+
+            <div class="row">
+              {% if exists_discounts %}
+                <h3>Discounts</h3>
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Value</th>
+                      <th>Period</th>
+                      <th>Condition (if any)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for t, v, p, c in discounts %}
+                      <tr>
+                        <td>
+                          {{ v  }}
+                        </td>
+                        <td>
+                          {{ p  }}
+                        </td>
+                        <td>
+                          {{ c }}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+              {% endif %}
+            </div>
+
             <div class="row">
                 <h3>Total</h3>
                 <table class="table table-bordered" id="price">
