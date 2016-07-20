@@ -229,15 +229,19 @@ class ValidatorTestCase(TestCase):
         product_validator.Resource.objects.filter.return_value = []
 
     def _pending_bundles(self):
+        product1 = MagicMock(product_id='1')
+        product2 = MagicMock(product_id='2')
+        product3 = MagicMock(product_id='3')
+
         bundle1 = MagicMock()
         bundle1.bundled_assets = [{}]
 
         bundle2 = MagicMock()
-        bundle2.bundled_assets = [MagicMock(product_id='2'), MagicMock(product_id='4')]
+        bundle2.bundled_assets = [product2, product3]
 
-        self._asset_instance.bundled_assets = [MagicMock(product_id='1'), MagicMock(product_id='2')]
+        self._asset_instance.bundled_assets = [product1, product2]
 
-        product_validator.Resource.objects.filter.return_value = [bundle1, bundle2, self._asset_instance]
+        product_validator.Resource.objects.filter.side_effect = [[bundle1, bundle2, self._asset_instance], [product1], [product2]]
 
     @parameterized.expand([
         ('digital_asset', BASIC_PRODUCT['product'], True, True),
@@ -265,9 +269,11 @@ class ValidatorTestCase(TestCase):
             self.assertEquals(0, product_validator.Resource.objects.filter.call_count)
 
         if is_bundle:
-            product_validator.Resource.objects.filter.assert_called_once_with(
-                product_id=None, provider=self._provider, content_type='bundle', resource_path='', download_link=''
-            )
+            self.assertEquals([
+                call(product_id=None, provider=self._provider, content_type='bundle', resource_path='', download_link=''),
+                call(product_id='1'),
+                call(product_id='2')
+            ], product_validator.Resource.objects.filter.call_args_list)
             self.assertEquals(0, product_validator.Resource.objects.get.call_count)
 
         if is_attached:

@@ -88,15 +88,20 @@ class ProductValidator(CatalogValidator):
         asset.state = product_spec['lifecycleStatus']
         asset.save()
 
+    def _extract_digital_assets(self, bundled_specs):
+        assets = []
+        for bundled_info in bundled_specs:
+            digital_asset = Resource.objects.filter(product_id=bundled_info['id'])
+            if len(digital_asset):
+                assets.append(digital_asset[0])
+
+        return assets
+
     def _build_bundle(self, provider, product_spec):
         if 'bundledProductSpecification' not in product_spec or not len(product_spec['bundledProductSpecification']) > 1:
             raise ProductError('A product spec bundle must contain at least two bundled product specs')
 
-        assets = []
-        for bundled_info in product_spec['bundledProductSpecification']:
-            digital_asset = Resource.objects.filter(product_id=bundled_info['id'])
-            if len(digital_asset):
-                assets.append(digital_asset[0])
+        assets = self._extract_digital_assets(product_spec['bundledProductSpecification'])
 
         if len(assets):
             Resource.objects.create(
@@ -121,14 +126,15 @@ class ProductValidator(CatalogValidator):
             pending_bundles = Resource.objects.filter(
                 product_id=None, provider=provider, content_type='bundle', resource_path='', download_link='')
 
-            expected_ids = [bundle_info['id'] for bundle_info in product_spec['bundledProductSpecification']]
+            # Get the digital assets included in the bundle product spec
+            assets = self._extract_digital_assets(product_spec['bundledProductSpecification'])
 
             asset = None
             for bundle in pending_bundles:
-                if len(bundle.bundled_assets) == len(expected_ids):
+                if len(bundle.bundled_assets) == len(assets):
 
                     for bundled_asset in bundle.bundled_assets:
-                        if bundled_asset.product_id not in expected_ids:
+                        if bundled_asset not in assets:
                             break
                     else:
                         # All the assets are the expected ones, so the bundle is correct
