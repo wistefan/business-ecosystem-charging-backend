@@ -25,6 +25,7 @@ from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
 from wstore.ordering import views as ordering_views
 from wstore.charging_engine import views as charging_views
+from wstore.reports import views as reports_views
 
 urlpatterns = patterns('',
     # API
@@ -43,5 +44,6 @@ urlpatterns = patterns('',
     url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/refund/?$', charging_views.PayPalRefund(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/accounting/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST',)))
+    url(r'^charging/api/orderManagement/accounting/?$', charging_views.ServiceRecordCollection(permitted_methods=('POST',))),
+    url(r'^charging/api/reportManagement/created/?$', reports_views.ReportReceiver(permitted_methods=('POST',)))
 )

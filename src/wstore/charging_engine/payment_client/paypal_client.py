@@ -19,6 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from decimal import Decimal
+import random
+import string
 
 import paypalrestsdk
 
@@ -138,3 +140,16 @@ class PayPalClient(PaymentClient):
 
     def get_checkout_url(self):
         return self._checkout_url
+
+    def batch_payout(self, payouts):
+        sender_batch_id = ''.join(random.choice(string.ascii_uppercase) for i in range(12))
+        payout = paypalrestsdk.Payout({
+            "sender_batch_header": {
+                "sender_batch_id": sender_batch_id,
+                "email_subject": "You have a payment"
+            },
+            "items": payouts
+        })
+
+        return payout, payout.create()
+

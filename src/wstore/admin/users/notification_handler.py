@@ -166,3 +166,13 @@ class NotificationsHandler:
         text += 'and your acquired products at: \n' + product_url + '\n'
 
         self._send_multipart_email(text, recipients, 'Product order accepted', order.bills[-len(transactions):])
+
+    def send_payout_error(self, recipient, error_msg):
+        recipients = [recipient]
+        subject = "Automatic payout error."
+
+        text = """We had some problem processing a payout of to {}.
+
+The error was: {}""".format(recipient, error_msg)
+
+        self._send_text_email(text, recipients, subject)

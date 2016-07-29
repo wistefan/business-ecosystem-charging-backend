@@ -17,3 +17,21 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from __future__ import unicode_literals
+
+from djangotoolbox.fields import ListField, DictField
+from django.db import models
+
+
+class ReportsPayout(models.Model):
+    reports = ListField()
+    payout_id = models.CharField(max_length=15)
+    status = models.CharField(max_length=15)
+
+
+class ReportSemiPaid(models.Model):
+    report = models.IntegerField()
+    failed = ListField()
+    success = ListField()
+    errors = DictField()
