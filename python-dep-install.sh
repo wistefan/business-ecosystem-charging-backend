@@ -14,3 +14,4 @@ pip install "Stemming==1.0.1"
 pip install requests
 pip install requests[security]
 pip install regex
+pip install six
