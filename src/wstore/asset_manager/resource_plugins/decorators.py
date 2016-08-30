@@ -74,17 +74,19 @@ def on_product_spec_attachment(func):
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
 
-        # Load plugin module
-        plugin_module = load_plugin_module(asset_t)
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module = load_plugin_module(asset_t)
 
-        # Call on pre create event handler
-        plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
+            # Call on pre create event handler
+            plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
 
         # Call method
         func(self, asset, asset_t, product_spec)
 
-        # Call on post create event handler
-        plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
 
     return wrapper
 
