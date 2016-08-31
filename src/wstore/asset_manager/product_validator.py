@@ -93,7 +93,7 @@ class ProductValidator(CatalogValidator):
         for bundled_info in bundled_specs:
             digital_asset = Resource.objects.filter(product_id=bundled_info['id'])
             if len(digital_asset):
-                assets.append(digital_asset[0])
+                assets.append(digital_asset[0].pk)
 
         return assets
 
@@ -138,7 +138,7 @@ class ProductValidator(CatalogValidator):
                             break
                     else:
                         # All the assets are the expected ones, so the bundle is correct
-                        asset = bundle
+                        asset = Resource.objects.get(pk=bundle)
 
                     if asset is not None:
                         break

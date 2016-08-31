@@ -95,8 +95,8 @@ def _expand_bundled_assets(offering_assets):
     assets = []
     for off_asset in offering_assets:
         if len(off_asset.bundled_assets) > 0:
-            for bundled_asset in off_asset.bundled_assets:
-                assets.append(bundled_asset)
+            for bundled_asset_pk in off_asset.bundled_assets:
+                assets.append(Resource.objects.get(pk=bundled_asset_pk))
         else:
             assets.append(off_asset)
 

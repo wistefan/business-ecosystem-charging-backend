@@ -48,7 +48,7 @@ class Resource(models.Model):
     resource_type = models.CharField(max_length=100)
     is_public = models.BooleanField(default=False)
     meta_info = DictField()
-    bundled_assets = ListField(models.ForeignKey('self'))
+    bundled_assets = ListField()
 
     def get_url(self):
         return self.download_link

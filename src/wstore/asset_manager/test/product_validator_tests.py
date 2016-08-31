@@ -157,12 +157,12 @@ class ValidatorTestCase(TestCase):
         return [[], []]
 
     def _mixed_assets(self):
-        digital_asset = MagicMock()
+        digital_asset = MagicMock(pk='1')
         return [[], [digital_asset]]
 
     def _all_digital(self):
-        digital_asset = MagicMock()
-        digital_asset1 = MagicMock()
+        digital_asset = MagicMock(pk='1')
+        digital_asset1 = MagicMock(pk='2')
         return [[digital_asset], [digital_asset1]]
 
     @parameterized.expand([
@@ -174,7 +174,7 @@ class ValidatorTestCase(TestCase):
         self._mock_validator_imports(product_validator)
 
         assets = asset_mocker(self)
-        expected_assets = [asset[0] for asset in assets if len(asset)]
+        expected_assets = [asset[0].pk for asset in assets if len(asset)]
 
         product_validator.Resource.objects.filter.side_effect = assets
 
@@ -229,17 +229,17 @@ class ValidatorTestCase(TestCase):
         product_validator.Resource.objects.filter.return_value = []
 
     def _pending_bundles(self):
-        product1 = MagicMock(product_id='1')
-        product2 = MagicMock(product_id='2')
-        product3 = MagicMock(product_id='3')
+        product1 = MagicMock(product_id='1', pk='1a')
+        product2 = MagicMock(product_id='2', pk='2a')
+        # product3 = MagicMock(product_id='3', pk='3a')
 
         bundle1 = MagicMock()
         bundle1.bundled_assets = [{}]
 
         bundle2 = MagicMock()
-        bundle2.bundled_assets = [product2, product3]
+        bundle2.bundled_assets = ['2a', '3a']
 
-        self._asset_instance.bundled_assets = [product1, product2]
+        self._asset_instance.bundled_assets = ['1a', '2a']
 
         product_validator.Resource.objects.filter.side_effect = [[bundle1, bundle2, self._asset_instance], [product1], [product2]]
 
@@ -274,7 +274,8 @@ class ValidatorTestCase(TestCase):
                 call(product_id='1'),
                 call(product_id='2')
             ], product_validator.Resource.objects.filter.call_args_list)
-            self.assertEquals(0, product_validator.Resource.objects.get.call_count)
+            exp_get_calls = 1 if is_attached else 0
+            self.assertEquals(exp_get_calls, product_validator.Resource.objects.get.call_count)
 
         if is_attached:
             self.assertEquals(product_spec['id'], self._asset_instance.product_id)
