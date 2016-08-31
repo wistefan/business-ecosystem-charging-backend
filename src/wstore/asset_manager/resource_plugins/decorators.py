@@ -91,6 +91,18 @@ def on_product_spec_attachment(func):
     return wrapper
 
 
+def _expand_bundled_assets(offering_assets):
+    assets = []
+    for off_asset in offering_assets:
+        if len(off_asset.bundled_assets) > 0:
+            for bundled_asset in off_asset.bundled_assets:
+                assets.append(bundled_asset)
+        else:
+            assets.append(off_asset)
+
+    return assets
+
+
 def on_product_offering_validation(func):
 
     @wraps(func)
@@ -106,13 +118,7 @@ def on_product_offering_validation(func):
             offering_assets.extend(asset)
 
         # Get the effective assets
-        assets = []
-        for off_asset in offering_assets:
-            if len(off_asset.bundled_assets) > 0:
-                for bundled_asset in off_asset.bundled_assets:
-                    assets.append(bundled_asset)
-            else:
-                assets.append(off_asset)
+        assets = _expand_bundled_assets(offering_assets)
 
         for asset in assets:
             plugin_module = load_plugin_module(asset.resource_type)
@@ -139,12 +145,17 @@ def _execute_asset_event(asset, order, contract, type_):
 
 def process_product_notification(order, contract, type_):
     # Get digital asset from the contract
-    if contract.offering.is_digital:
-        asset = contract.offering.asset
-        assets = asset.bundled_assets if len(asset.bundled_assets) > 0 else [asset]
+    offering_assets = []
+    if len(contract.offering.bundled_offerings) > 0:
+        offering_assets = [offering.asset for offering in contract.offering.bundled_offerings if offering.is_digital]
 
-        for event_asset in assets:
-            _execute_asset_event(event_asset, order, contract, type_)
+    elif contract.offering.is_digital:
+        offering_assets = [contract.offering.asset]
+
+    assets = _expand_bundled_assets(offering_assets)
+
+    for event_asset in assets:
+        _execute_asset_event(event_asset, order, contract, type_)
 
 
 def on_product_acquired(order, contract):
