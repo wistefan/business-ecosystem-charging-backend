@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 from functools import wraps
 
 from wstore.models import ResourcePlugin
+from wstore.ordering.models import Offering
 from wstore.asset_manager.models import Resource
 from wstore.asset_manager.errors import ProductError
 
@@ -147,7 +148,8 @@ def process_product_notification(order, contract, type_):
     # Get digital asset from the contract
     offering_assets = []
     if len(contract.offering.bundled_offerings) > 0:
-        offering_assets = [offering.asset for offering in contract.offering.bundled_offerings if offering.is_digital]
+        offering_assets = [Offering.objects.get(pk=key).asset
+                           for key in contract.offering.bundled_offerings if Offering.objects.get(pk=key).is_digital]
 
     elif contract.offering.is_digital:
         offering_assets = [contract.offering.asset]

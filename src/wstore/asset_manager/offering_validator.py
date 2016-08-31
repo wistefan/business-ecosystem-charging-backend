@@ -48,7 +48,7 @@ class OfferingValidator(CatalogValidator):
                 if not len(offerings):
                     raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
 
-                bundled_offerings.append(offerings[0].pk)
+                bundled_offerings.append(offerings[0])
 
         return bundled_offerings
 
@@ -114,7 +114,7 @@ class OfferingValidator(CatalogValidator):
             version=product_offering['version'],
             is_digital=asset is not None,
             asset=asset,
-            bundled_offerings=bundled_offerings
+            bundled_offerings=[offering.pk for offering in bundled_offerings]
         )
 
     def attach_info(self, provider, product_offering):
