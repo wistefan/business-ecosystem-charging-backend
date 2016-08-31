@@ -94,23 +94,33 @@ def on_product_spec_attachment(func):
 def on_product_offering_validation(func):
 
     @wraps(func)
-    def wrapper(self, provider, product_offering):
+    def wrapper(self, provider, product_offering, bundled_offerings):
 
-        # Get the related asset (the existence of the product has been already validated)
-        asset = None
-        try:
-            asset = Resource.objects.get(product_id=product_offering['productSpecification']['id'])
-        except:
-            pass
+        offering_assets = []
+        if len(bundled_offerings) > 0:
+            # Get bundled offerings assets
+            offering_assets = [offering.asset for offering in bundled_offerings if offering.is_digital]
+        else:
+            # Get offering asset
+            asset = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+            offering_assets.extend(asset)
 
-        if asset is not None:
+        # Get the effective assets
+        assets = []
+        for off_asset in offering_assets:
+            if len(off_asset.bundled_assets) > 0:
+                for bundled_asset in off_asset.bundled_assets:
+                    assets.append(bundled_asset)
+            else:
+                assets.append(off_asset)
+
+        for asset in assets:
             plugin_module = load_plugin_module(asset.resource_type)
-
             plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
-        func(self, provider, product_offering)
+        func(self, provider, product_offering, bundled_offerings)
 
-        if asset is not None:
+        for asset in assets:
             plugin_module.on_post_product_offering_validation(asset, product_offering)
 
     return wrapper

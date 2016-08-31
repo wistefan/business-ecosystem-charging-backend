@@ -31,8 +31,29 @@ from wstore.ordering.models import Offering
 
 class OfferingValidator(CatalogValidator):
 
+    def _get_bundled_offerings(self, product_offering):
+        bundled_offerings = []
+
+        # Validate Bundle fields
+        if 'isBundle' in product_offering and product_offering['isBundle']:
+            if 'bundledProductOffering' not in product_offering:
+                raise ValueError('Offering bundles must contain a bundledProductOffering field')
+
+            if len(product_offering['bundledProductOffering']) < 2:
+                raise ValueError('Offering bundles must contain at least two bundled offerings')
+
+            for bundle in product_offering['bundledProductOffering']:
+                # Check if the specified offerings have been already registered
+                offerings = Offering.objects.filter(off_id=bundle['id'])
+                if not len(offerings):
+                    raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
+
+                bundled_offerings.append(offerings[0].pk)
+
+        return bundled_offerings
+
     @on_product_offering_validation
-    def _validate_offering_pricing(self, provider, product_offering):
+    def _validate_offering_pricing(self, provider, product_offering, bundled_offerings):
         # Validate offering pricing fields
         if 'productOfferingPrice' in product_offering:
             for price_model in product_offering['productOfferingPrice']:
@@ -68,28 +89,11 @@ class OfferingValidator(CatalogValidator):
 
         return r.json()
 
-    def _build_offering_model(self, provider, product_offering):
+    def _build_offering_model(self, provider, product_offering, bundled_offerings):
 
         asset = None
-        bundled_offerings = []
-
         # Check if the offering is a bundle
-        if product_offering['isBundle']:
-            if 'bundledProductOffering' not in product_offering:
-                raise ValueError('Offering bundles must contain a bundledProductOffering field')
-
-            if len(product_offering['bundledProductOffering']) < 2:
-                raise ValueError('Offering bundles must contain at least two bundled offerings')
-
-            for bundle in product_offering['bundledProductOffering']:
-                # Check if the specified offerings have been already registered
-                offerings = Offering.objects.filter(off_id=bundle['id'])
-                if not len(offerings):
-                    raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
-
-                bundled_offerings.append(offerings[0].pk)
-
-        else:
+        if not len(bundled_offerings):
             product_info = self._download(product_offering['productSpecification']['href'])
 
             # Check if the product is a digital one
@@ -127,6 +131,7 @@ class OfferingValidator(CatalogValidator):
         offering.save()
 
     def validate_creation(self, provider, product_offering):
-        self._validate_offering_pricing(provider, product_offering)
-        self._build_offering_model(provider, product_offering)
+        bundled_offerings = self._get_bundled_offerings(product_offering)
+        self._validate_offering_pricing(provider, product_offering, bundled_offerings)
+        self._build_offering_model(provider, product_offering, bundled_offerings)
 
