@@ -95,27 +95,6 @@ class PayoutWatcher(threading.Thread):
         report_id = sender_id.split('_')[0]
         return self._safe_get_semi_paid(report_id)
 
-    def _check_reports_payout(self, payout):
-        reports_id = {item['payout_item']['sender_item_id'].split('_')[0] for item in payout['items']}
-        for report_id in reports_id:
-            filtered = list(filter(lambda x: x.get('id') == int(report_id), self.reports))
-            if len(filtered) == 0:
-                continue
-
-            report = filtered[0]
-            reportmails = [User.objects.get(username=report['ownerProviderId']).email]
-            reportmails.extend([User.objects.get(username=stake['stakeholderId']).email for stake in report['stakeholders']])
-
-            semipaid = self._safe_get_semi_paid(report_id)
-            semipaid.failed = [x for x in semipaid.failed if x in reportmails]  # Clean mails not in report
-            if len(semipaid.failed) == 0 and all([mail in semipaid.success for mail in reportmails]):
-                # Mark as paid in remote
-                self._mark_as_paid(report_id)
-                # Remove semipaid
-                semipaid.delete()
-            else:
-                semipaid.save()
-
     def _analyze_item(self, item):
         status = item['transaction_status']
         semipaid = self._safe_get_semi_paid_from_item(item)
@@ -150,7 +129,7 @@ class PayoutWatcher(threading.Thread):
             return False
 
         if mail in semipaid.failed:
-            semipaid.remove(mail)
+            semipaid.failed.remove(mail)
         if semipaid.errors.get(mail.replace(".", "(dot)")) is not None:
             del semipaid.errors[mail.replace(".", "(dot)")]
         if mail not in semipaid.success:
@@ -158,6 +137,27 @@ class PayoutWatcher(threading.Thread):
         semipaid.save()
 
         return True
+
+    def _check_reports_payout(self, payout):
+        reports_id = {item['payout_item']['sender_item_id'].split('_')[0] for item in payout['items']}
+        for report_id in reports_id:
+            filtered = list(filter(lambda x: x.get('id') == int(report_id), self.reports))
+            if len(filtered) == 0:
+                continue
+
+            report = filtered[0]
+            reportmails = [User.objects.get(username=report['ownerProviderId']).email]
+            reportmails.extend([User.objects.get(username=stake['stakeholderId']).email for stake in report.get('stakeholders', [])])
+
+            semipaid = self._safe_get_semi_paid(report_id)
+            semipaid.failed = [x for x in semipaid.failed if x in reportmails]  # Clean mails not in report
+            if len(semipaid.failed) == 0 and all([mail in semipaid.success for mail in reportmails]):
+                # Mark as paid in remote
+                self._mark_as_paid(report_id)
+                # Remove semipaid
+                semipaid.delete()
+            else:
+                semipaid.save()
 
     def _payout_success(self, payout):
         for item in payout['items']:
@@ -168,7 +168,7 @@ class PayoutWatcher(threading.Thread):
         try:
             pay = Payout.find(payout['batch_header']['payout_batch_id'])
             status = pay['batch_header']['batch_status']
-            self._update_status(payout)
+            self._update_status(pay)
             if status == 'DENIED':
                 return False
             if status == 'SUCCESS':

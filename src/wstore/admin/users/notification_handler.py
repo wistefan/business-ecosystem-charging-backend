@@ -111,7 +111,7 @@ class NotificationsHandler:
 
         url = urljoin(domain, '/#/inventory/order')
 
-        text = 'Your product offering with name ' + contract.offering.name + ' and id ' + contract.offering.off_id +'\n'
+        text = 'Your product offering with name ' + contract.offering.name + ' and id ' + contract.offering.off_id + '\n'
         text += 'has been acquired by the user ' + order.owner_organization.name + '\n'
         text += 'Please review you pending orders at: \n\n' + url
 
@@ -171,7 +171,7 @@ class NotificationsHandler:
         recipients = [recipient]
         subject = "Automatic payout error."
 
-        text = """We had some problem processing a payout of to {}.
+        text = """We had some problem processing a payout to {}.
 
 The error was: {}""".format(recipient, error_msg)
 

@@ -375,13 +375,15 @@ class NotificationsTestCase(TestCase):
             call('To', 'user1@email.com,user2@email.com')
         ], notification_handler.MIMEText().__setitem__.call_args_list)
 
-    def _validate_email_call(self, mime):
+    def _validate_email_call(self, mime, emails=None):
+        if emails is None:
+            emails = ['user1@email.com', 'user2@email.com']
         notification_handler.smtplib.SMTP.assert_called_once_with('smtp.gmail.com')
         notification_handler.smtplib.SMTP().starttls.assert_called_once_with()
         notification_handler.smtplib.SMTP().login.assert_called_once_with('wstore', 'passwd')
         notification_handler.smtplib.SMTP().sendmail.assert_called_once_with(
             'wstore@email.com',
-            ['user1@email.com', 'user2@email.com'],
+            emails,
             mime().as_string()
         )
 
@@ -455,6 +457,16 @@ class NotificationsTestCase(TestCase):
         self._validate_multipart_call()
         self._validate_email_call(notification_handler.MIMEMultipart)
 
+    def test_payout_error(self):
+        handler = notification_handler.NotificationsHandler()
+
+        handler.send_payout_error("user1@email.com", "Some error!")
+
+        text = "We had some problem processing a payout to {user1@email.com}.\n\n"
+        text += "The error was: Some error!"
+
+        self._validate_email_call(notification_handler.MIMEText, ["user1@email.com"])
+
     def test_provider_notification(self):
         handler = notification_handler.NotificationsHandler()
         handler.send_provider_notification(self._order, self._order.contracts[0])
@@ -475,8 +487,6 @@ class NotificationsTestCase(TestCase):
     def test_payment_required_notification(self):
         handler = notification_handler.NotificationsHandler()
         handler.send_payment_required_notification(self._order, self._order.contracts[0])
-
-        self._validate_user_call()
 
         text = 'Your subscription belonging to the product offering Offering1 has expired.\n'
         text += 'You can renovate all your pending subscriptions of the order with reference orderid\n'
