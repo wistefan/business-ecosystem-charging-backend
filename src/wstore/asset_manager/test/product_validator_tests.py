@@ -282,8 +282,7 @@ class ValidatorTestCase(TestCase):
                 call(product_id='1'),
                 call(product_id='2')
             ], product_validator.Resource.objects.filter.call_args_list)
-            exp_get_calls = 1 if is_attached else 0
-            self.assertEquals(exp_get_calls, product_validator.Resource.objects.get.call_count)
+            self.assertEquals(0, product_validator.Resource.objects.get.call_count)
 
         if is_attached:
             self.assertEquals(product_spec['id'], self._asset_instance.product_id)
