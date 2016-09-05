@@ -31,6 +31,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
 from wstore.charging_engine import payout_engine
+from wstore.ordering.errors import PayoutError
 
 
 class ReportSemiPaid:
@@ -124,7 +125,7 @@ def setUp():
 
 class PayoutWatcherTestCase(TestCase):
 
-    tags = ('payout-engine', )
+    tags = ('payout', 'payout-watcher')
 
     def setUp(self):
         setUp()
@@ -442,7 +443,360 @@ class PayoutWatcherTestCase(TestCase):
 
 class PayoutEngineTestCase(TestCase):
 
-    tags = ('payout-engine', )
+    tags = ('payout', 'payout-engine')
 
     def setUp(self):
         setUp()
+        self.oldPayoutWatcher = payout_engine.PayoutWatcher
+        payout_engine.PayoutWatcher = MagicMock()
+        self.reference = '__payout__engine__context__lock__'
+
+    def tearDown(self):
+        payout_engine.PayoutWatcher = self.oldPayoutWatcher  # Recover the original implementation
+
+    def test_get_reports_not_paid(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.requests.get().status_code = 200
+        payout_engine.requests.get().json.return_value = [{'test': 'case'}]
+
+        payout_engine.requests.get.reset_mock()
+
+        result = engine._get_reports()
+
+        url = "{}/rss/settlement/reports".format(RSSUrl())
+
+        payout_engine.requests.get.assert_called_once_with(
+            url,
+            params={'aggregatorId': None, 'providerId': None, 'productClass': None, 'onlyPaid': "true"},
+            headers={
+                'content-type': 'application/json',
+                'X-Nick-Name': settings.STORE_NAME,
+                'X-Roles': 'provider',
+                'X-Email': settings.WSTOREMAIL})
+
+        payout_engine.requests.get().json.assert_called_once_with()
+
+        assert result == [{'test': 'case'}]
+
+    def test_process_reports_all_paid(self):
+        engine = payout_engine.PayoutEngine()
+        reports = [{
+            'paid': True,
+            'id': 1,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(1),
+            'stakeholders': []
+        }, {
+            'paid': True,
+            'id': 2,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(2),
+            'stakeholders': []
+        }]
+
+        new_reports = engine._process_reports(reports)
+
+        assert new_reports == {}
+
+        payout_engine.ReportSemiPaid.objets.get.assert_not_called()
+        payout_engine.User.objets.get.assert_not_called()
+
+    def test_process_reports_simple(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.ReportSemiPaid.objects.get.side_effect = ObjectDoesNotExist()
+        payout_engine.User.objects.get.side_effect = createUsers(1)
+
+        reports = [{
+            'paid': False,
+            'id': 1,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(1),
+            'ownerValue': 10,
+            'stakeholders': []
+        }]
+        new_reports = engine._process_reports(reports)
+
+        # Just one report
+        assert new_reports == {'EUR': {'user1@email.com': [(10, 1)]}}
+        payout_engine.ReportSemiPaid.objects.get.assert_called_once_with(report=1)
+        payout_engine.User.objects.get.assert_called_once_with(username=createMail(1))
+
+    @parameterized.expand([
+        (('EUR', 'EUR'), {'EUR': {'user1@email.com': [(10, 1), (20, 2)]}}),
+        (('EUR', 'USD'), {'EUR': {'user1@email.com': [(10, 1)]}, 'USD': {'user1@email.com': [(20, 2)]}})
+    ])
+    def test_process_reports_multiple_pays_user(self, currencies, result):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.ReportSemiPaid.objects.get.side_effect = ObjectDoesNotExist()
+        payout_engine.User.objects.get.side_effect = createUsers(1, 1)
+
+        reports = [{
+            'paid': False,
+            'id': 1,
+            'currency': currencies[0],
+            'ownerProviderId': createMail(1),
+            'ownerValue': 10,
+            'stakeholders': []
+        }, {
+            'paid': False,
+            'id': 2,
+            'currency': currencies[1],
+            'ownerProviderId': createMail(1),
+            'ownerValue': 20,
+            'stakeholders': []
+        }]
+        new_reports = engine._process_reports(reports)
+
+        assert new_reports == result
+        payout_engine.ReportSemiPaid.objects.get.assert_has_calls([call(report=1), call(report=2)])
+        payout_engine.User.objects.get.assert_has_calls([call(username=createMail(1)), call(username=createMail(1))])
+
+    def test_process_reports_with_stakeholders(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.ReportSemiPaid.objects.get.side_effect = ObjectDoesNotExist()
+        payout_engine.User.objects.get.side_effect = createUsers(1, 2, 3, 2, 1)
+
+        reports = [{
+            'paid': False,
+            'id': 1,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(1),
+            'ownerValue': 10,
+            'stakeholders': [{
+                'stakeholderId': createMail(2),
+                'modelValue': 2
+            }, {
+                'stakeholderId': createMail(3),
+                'modelValue': 4
+            }]
+        }, {
+            'paid': False,
+            'id': 2,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(2),
+            'ownerValue': 20,
+            'stakeholders': [{
+                'stakeholderId': createMail(1),
+                'modelValue': 10
+            }]
+        }]
+
+        new_reports = engine._process_reports(reports)
+
+        assert new_reports == {'EUR': {'user1@email.com': [(10, 1), (10, 2)], 'user2@email.com': [(2, 1), (20, 2)], 'user3@email.com': [(4, 1)]}}
+        payout_engine.ReportSemiPaid.objects.get.assert_has_calls([call(report=1), call(report=2)])
+        payout_engine.User.objects.get.assert_has_calls([call(username=createMail(1)), call(username=createMail(2)), call(username=createMail(3)), call(username=createMail(2)), call(username=createMail(1))])
+
+    def test_process_reports_user_in_semipaid(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.ReportSemiPaid.objects.get.return_value = ReportSemiPaid(1, None, [createMail(1)])
+        payout_engine.User.objects.get.side_effect = createUsers(1)
+
+        reports = [{
+            'paid': False,
+            'id': 1,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(1),
+            'ownerValue': 10,
+            'stakeholders': []
+        }]
+
+        new_reports = engine._process_reports(reports)
+
+        assert new_reports == {}
+        payout_engine.ReportSemiPaid.objects.get.assert_has_calls([call(report=1)])
+        payout_engine.User.objects.get.assert_has_calls([call(username=createMail(1))])
+
+    def test_process_reports_user_in_semipaid_and_stakeholders(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.ReportSemiPaid.objects.get.return_value = ReportSemiPaid(1, None, [createMail(1), createMail(3)])
+        payout_engine.User.objects.get.side_effect = createUsers(1, 2, 3)
+
+        reports = [{
+            'paid': False,
+            'id': 1,
+            'currency': 'EUR',
+            'ownerProviderId': createMail(1),
+            'ownerValue': 10,
+            'stakeholders': [{
+                'stakeholderId': createMail(2),
+                'modelValue': 5
+            }, {
+                'stakeholderId': createMail(3),
+                'modelValue': 5
+            }]
+        }]
+
+        new_reports = engine._process_reports(reports)
+
+        assert new_reports == {'EUR': {'user2@email.com': [(5, 1)]}}
+        payout_engine.ReportSemiPaid.objects.get.assert_has_calls([call(report=1)])
+        payout_engine.User.objects.get.assert_has_calls([call(username=createMail(1)), call(username=createMail(2))])
+
+    def test_process_payouts_create_lock(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.get_database_connection().wstore_payout.find_one_and_update.side_effect = [None, MagicMock(), None]
+        payout_engine.Context.objects.all()[0].payouts_n = 10
+
+        data = {}
+        engine._process_payouts(data)
+
+        assert payout_engine.Context.objects.all()[0].payouts_n == 10
+
+        payout_engine.get_database_connection().wstore_payout.insert_one.assert_called_once_with({'_id': self.reference, '_lock': False})
+
+        payout_engine.get_database_connection().wstore_payout.find_one_and_update.assert_has_calls([
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}}),
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}}),
+            call({'_id': self.reference},
+                 {'$set': {'_lock': False}})])
+
+    def test_process_payouts_raise_in_lock(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.get_database_connection().wstore_payout.find_one_and_update.return_value = {'_lock': True}
+        payout_engine.Context.objects.all()[0].payouts_n = 10
+
+        data = {}
+
+        with self.assertRaisesMessage(PayoutError, 'There is a payout running.'):
+            engine._process_payouts(data)
+
+        assert payout_engine.Context.objects.all()[0].payouts_n == 10
+
+        payout_engine.get_database_connection().wstore_payout.insert_one.assert_not_called()
+
+        payout_engine.get_database_connection().wstore_payout.find_one_and_update.assert_has_calls([
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}})])
+
+    def test_process_payouts_single_payout(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.Context.objects.all()[0].payouts_n = 10
+
+        data = {'EUR': {'user1@email.com': [(10, 1)]}}
+
+        result = engine._process_payouts(data)
+
+        assert len(result) == 1
+        engine.paypal.batch_payout.assert_called_once_with([{'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}])
+
+        assert payout_engine.Context.objects.all()[0].payouts_n == 11
+
+        payout_engine.get_database_connection().wstore_payout.insert_one.assert_not_called()
+        assert payout_engine.get_database_connection().wstore_payout.find_one_and_update.call_args_list == [
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}}),
+            call({'_id': self.reference},
+                 {'$set': {'_lock': False}})]
+
+    def test_process_payouts_multiple_currencies_payouts(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.Context.objects.all()[0].payouts_n = 10
+
+        data = {'EUR': {'user1@email.com': [(10, 1)]}, 'USD': {'user2@email.com': [(20, 2)]}}
+
+        result = engine._process_payouts(data)
+
+        assert len(result) == 2
+        expected_usd = [{'amount': {'currency': 'USD', 'value': 20}, 'sender_item_id': '2_10', 'recipient_type': 'EMAIL', 'receiver': createMail(2)}]
+        expected_eur = [{'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}]
+        engine.paypal.batch_payout.assert_has_calls([call(expected_usd), call(expected_eur)])
+
+        assert payout_engine.Context.objects.all()[0].payouts_n == 12
+
+        payout_engine.get_database_connection().wstore_payout.insert_one.assert_not_called()
+        assert payout_engine.get_database_connection().wstore_payout.find_one_and_update.call_args_list == [
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}}),
+            call({'_id': self.reference},
+                 {'$set': {'_lock': False}})]
+
+    def test_process_payouts_multiple_payouts(self):
+        engine = payout_engine.PayoutEngine()
+        payout_engine.Context.objects.all()[0].payouts_n = 10
+
+        data = {'EUR': {'user1@email.com': [(10, 1), (4, 2)], 'user2@email.com': [(2, 1), (20, 2)], 'user3@email.com': [(4, 1)]}}
+
+        result = engine._process_payouts(data)
+
+        assert len(result) == 1
+
+        expected = [
+            {'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
+            {'amount': {'currency': 'EUR', 'value': 4}, 'sender_item_id': '2_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
+            {'amount': {'currency': 'EUR', 'value': 2}, 'sender_item_id': '1_12', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
+            {'amount': {'currency': 'EUR', 'value': 20}, 'sender_item_id': '2_13', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
+            {'amount': {'currency': 'EUR', 'value': 4}, 'sender_item_id': '1_14', 'recipient_type': 'EMAIL', 'receiver': createMail(3)}
+        ]
+        engine.paypal.batch_payout.assert_called_once_with(expected)
+
+        assert payout_engine.Context.objects.all()[0].payouts_n == 15
+
+        payout_engine.get_database_connection().wstore_payout.insert_one.assert_not_called()
+        assert payout_engine.get_database_connection().wstore_payout.find_one_and_update.call_args_list == [
+            call({'_id': self.reference},
+                 {'$set': {'_lock': True}}),
+            call({'_id': self.reference},
+                 {'$set': {'_lock': False}})]
+
+    def test_process_reports_empty(self):
+        engine = payout_engine.PayoutEngine()
+        engine._process_reports = MagicMock(return_value="returned")
+        engine._process_payouts = MagicMock(return_value=[])
+        engine.process_reports([])
+
+        engine._process_reports.assert_called_once_with([])
+        engine._process_payouts.assert_called_once_with('returned')
+        payout_engine.ReportsPayout.assert_not_called()
+        payout_engine.PayoutWatcher.assert_not_called()
+
+    def test_process_reports_single_payout(self):
+        engine = payout_engine.PayoutEngine()
+        engine._process_reports = MagicMock()
+        payout1 = {
+            'batch_header': {
+                'payout_batch_id': 'payoutId',
+                'batch_status': 'SUCCESS'
+            }
+        }
+        payouts = [(payout1, True)]
+        engine._process_payouts = MagicMock(return_value=payouts)
+        rpayout = ReportsPayout(['report1'], 'payoutId', 'SUCCESS', MagicMock())
+        payout_engine.ReportsPayout.return_value = rpayout
+        engine.process_reports(['report1'])
+
+        payout_engine.ReportsPayout.assert_called_once_with(reports=['report1'], payout_id='payoutId', status='SUCCESS')
+        rpayout.save.assert_called_once_with()
+        payout_engine.PayoutWatcher.assert_called_once_with([payout1], ['report1'])
+
+    def test_process_reports_complex(self):
+        engine = payout_engine.PayoutEngine()
+        engine._process_reports = MagicMock()
+        payout = {
+            'batch_header': {
+                'payout_batch_id': 'payoutId',
+                'batch_status': 'SUCCESS'
+            }
+        }
+        payouts = [(payout.copy(), True), (payout.copy(), False), (payout.copy(), True)]
+        engine._process_payouts = MagicMock(return_value=payouts)
+        rpayout = ReportsPayout(['report1'], 'payoutId', 'SUCCESS', MagicMock())
+        payout_engine.ReportsPayout.return_value = rpayout
+        engine.process_reports(['report1'])
+
+        payout_engine.ReportsPayout.assert_has_calls([call(reports=['report1'], payout_id='payoutId', status='SUCCESS'), call(reports=['report1'], payout_id='payoutId', status='SUCCESS'), call(reports=['report1'], payout_id='payoutId', status='SUCCESS')])
+        rpayout.save.assert_has_calls([call(), call(), call()])
+        payout_engine.PayoutWatcher.assert_called_once_with([payout.copy(), payout.copy()], ['report1'])
+
+    def test_process_unpaid(self):
+        # Process unpaid just ask for unpaids and process them
+        engine = payout_engine.PayoutEngine()
+        engine._get_reports = MagicMock(return_value=[1, 2, 3])
+        engine.process_reports = MagicMock()
+
+        engine.process_unpaid()
+
+        engine._get_reports.assert_called_once_with()
+        engine.process_reports.assert_called_once_with([1, 2, 3])

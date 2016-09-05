@@ -239,21 +239,19 @@ class PayoutEngine(object):
             semipaid = None
             try:
                 semipaid = ReportSemiPaid.objects.get(report=report['id'])
-
             except ObjectDoesNotExist:
                 pass
 
             currency = report['currency']
             usermail = User.objects.get(username=report['ownerProviderId']).email
 
-            if semipaid is None or (usermail not in semipaid.success and usermail in semipaid.failed):
+            if semipaid is None or usermail not in semipaid.success:
                 new_reports[currency][usermail].append((report['ownerValue'], report['id']))
 
-            # TODO: check this
             for stake in report['stakeholders']:
                 stakemail = User.objects.get(username=stake['stakeholderId']).email
 
-                if semipaid is None or (stakemail not in semipaid.success and stakemail in semipaid.failed):
+                if semipaid is None or stakemail not in semipaid.success:
                     new_reports[currency][stakemail].append((stake['modelValue'], report['id']))
 
         return new_reports
@@ -279,7 +277,7 @@ class PayoutEngine(object):
         # If the value of _lock before setting it to true was true, means
         # that the time out function has acquired it previously so the
         # view ends
-        if '_lock' in pre_value and pre_value['lock']:
+        if '_lock' in pre_value and pre_value['_lock']:
             raise PayoutError('There is a payout running.')
 
         payments = []
@@ -330,8 +328,9 @@ class PayoutEngine(object):
                 continue
             to_watch.append(payout)
 
-        watcher = PayoutWatcher(to_watch, reports)
-        watcher.start()
+        if len(to_watch) > 0:
+            watcher = PayoutWatcher(to_watch, reports)
+            watcher.start()
 
     def process_unpaid(self):
         reports = self._get_reports()
