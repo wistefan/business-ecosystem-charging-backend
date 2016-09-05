@@ -102,6 +102,16 @@ class OfferingValidator(CatalogValidator):
             if asset_type is not None and media_type is not None and location is not None:
                 asset = Resource.objects.get(download_link=location)
 
+            is_digital = asset is not None
+        else:
+            # Check if the bundle is digital
+            digital = len([offering for offering in bundled_offerings if offering.is_digital])
+
+            if digital > 0 and digital != len(bundled_offerings):
+                raise ValueError('Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical')
+
+            is_digital = digital > 0
+
         # Check if the offering contains a description
         description = ''
         if 'description' in product_offering:
@@ -112,7 +122,7 @@ class OfferingValidator(CatalogValidator):
             name=product_offering['name'],
             description=description,
             version=product_offering['version'],
-            is_digital=asset is not None,
+            is_digital=is_digital,
             asset=asset,
             bundled_offerings=[offering.pk for offering in bundled_offerings]
         )

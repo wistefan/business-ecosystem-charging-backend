@@ -345,7 +345,7 @@ class ValidatorTestCase(TestCase):
             bundled_offerings=[]
         )
 
-    def _validate_bundle_offering_calls(self, offering):
+    def _validate_bundle_offering_calls(self, offering, is_digital):
         self.assertEquals(
             [call(off_id=off['id']) for off in offering['bundledProductOffering']],
             offering_validator.Offering.objects.filter.call_args_list)
@@ -356,10 +356,16 @@ class ValidatorTestCase(TestCase):
             name=offering['name'],
             description='',
             version=offering['version'],
-            is_digital=False,
+            is_digital=is_digital,
             asset=None,
             bundled_offerings=[off[0].pk for off in self._bundles]
         )
+
+    def _validate_bundle_digital_offering_calls(self, offering):
+        self._validate_bundle_offering_calls(offering, True)
+
+    def _validate_bundle_physical_offering_calls(self, offering):
+        self._validate_bundle_offering_calls(offering, False)
 
     def _mock_product_request(self):
         offering_validator.requests = MagicMock()
@@ -370,18 +376,26 @@ class ValidatorTestCase(TestCase):
         resp.json.return_value = product
         resp.status_code = 200
 
-    def _mock_offering_bundle(self, offering):
+    def _mock_offering_bundle(self, offering, is_digital=True):
         offering_validator.Offering = MagicMock()
 
-        self._bundles = [] if 'bundledProductOffering' not in offering else [[MagicMock(id=off['id'])] for off in offering['bundledProductOffering']]
+        self._bundles = [] if 'bundledProductOffering' not in offering else [[MagicMock(id=off['id'], is_digital=is_digital)]
+                                                                             for off in offering['bundledProductOffering']]
         offering_validator.Offering.objects.filter.side_effect = self._bundles
 
     def _non_digital_offering(self):
         offering_validator.OfferingValidator.parse_characteristics = MagicMock(return_value=(None, None, None))
 
+    def _non_digital_bundle(self):
+        self._mock_offering_bundle(BUNDLE_OFFERING, is_digital=False)
+
     def _invalid_bundled(self):
         offering_validator.Offering.objects.filter.side_effect = None
         offering_validator.Offering.objects.filter.return_value = []
+
+    def _mixed_bundled_offerings(self):
+        offering_validator.Offering.objects.filter.side_effect = [[MagicMock(id='6', is_digital=True)],
+                                                                  [MagicMock(id='7', is_digital=False)]]
 
     def _catalog_api_error(self):
         offering_validator.requests.get().status_code = 500
@@ -389,7 +403,8 @@ class ValidatorTestCase(TestCase):
     @parameterized.expand([
         ('valid_pricing', BASIC_OFFERING, _validate_single_offering_calls, None),
         ('free_offering', FREE_OFFERING, _validate_physical_offering_calls, _non_digital_offering),
-        ('bundle_offering', BUNDLE_OFFERING, _validate_bundle_offering_calls, None),
+        ('bundle_offering', BUNDLE_OFFERING, _validate_bundle_digital_offering_calls, None),
+        ('bundle_offering_non_digital', BUNDLE_OFFERING, _validate_bundle_physical_offering_calls, _non_digital_bundle),
         ('missing_type', MISSING_PRICETYPE, None, None, 'Missing required field priceType in productOfferingPrice'),
         ('invalid_type', INVALID_PRICETYPE, None, None, 'Invalid priceType, it must be one time, recurring, or usage'),
         ('missing_charge_period', MISSING_PERIOD, None, None, 'Missing required field recurringChargePeriod for recurring priceType'),
@@ -400,6 +415,7 @@ class ValidatorTestCase(TestCase):
         ('bundle_missing', BUNDLE_MISSING_FIELD, None, None, 'Offering bundles must contain a bundledProductOffering field'),
         ('bundle_invalid_number', BUNDLE_MISSING_ELEMS, None, None, 'Offering bundles must contain at least two bundled offerings'),
         ('bundle_inv_bundled', BUNDLE_OFFERING, None, _invalid_bundled, 'The bundled offering 6 is not registered'),
+        ('bundle_mixed', BUNDLE_OFFERING, None, _mixed_bundled_offerings, 'Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical'),
         ('product_access_error', BASIC_OFFERING, None, _catalog_api_error, 'There has been a problem accessing the product spec included in the offering')
     ])
     def test_create_offering_validation(self, name, offering, checker, side_effect, msg=None):
