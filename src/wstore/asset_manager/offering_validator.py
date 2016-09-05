@@ -94,13 +94,10 @@ class OfferingValidator(CatalogValidator):
         asset = None
         # Check if the offering is a bundle
         if not len(bundled_offerings):
-            product_info = self._download(product_offering['productSpecification']['href'])
+            assets = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
 
-            # Check if the product is a digital one
-            asset_type, media_type, location = self.parse_characteristics(product_info)
-
-            if asset_type is not None and media_type is not None and location is not None:
-                asset = Resource.objects.get(download_link=location)
+            if len(assets):
+                asset = assets[0]
 
             is_digital = asset is not None
         else:

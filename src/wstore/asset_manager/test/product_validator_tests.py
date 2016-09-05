@@ -307,13 +307,9 @@ class ValidatorTestCase(TestCase):
         self.assertEquals(0, product_validator.Resource.objects.get.call_count)
         self.assertEquals(0, product_validator.Resource.objects.create.call_count)
 
-    def _validate_single_offering_calls(self, offering):
-        # Check download product call
-        offering_validator.requests.get.assert_called_once_with(offering['productSpecification']['href'])
-        offering_validator.requests.get().json.assert_called_once_with()
-
+    def _validate_offering_calls(self, offering, asset, is_digital):
         # Check resource retrieving if needed
-        offering_validator.Resource.objects.get.assert_called_once_with(download_link=PRODUCT_LOCATION)
+        offering_validator.Resource.objects.filter.assert_called_once_with(product_id=offering['productSpecification']['id'])
 
         # Check offering creation
         offering_validator.Offering.objects.create.assert_called_once_with(
@@ -321,29 +317,16 @@ class ValidatorTestCase(TestCase):
             name=offering['name'],
             description='',
             version=offering['version'],
-            is_digital=True,
-            asset=self._asset_instance,
+            is_digital=is_digital,
+            asset=asset,
             bundled_offerings=[]
         )
+
+    def _validate_single_offering_calls(self, offering):
+        self._validate_offering_calls(offering, self._asset_instance, True)
 
     def _validate_physical_offering_calls(self, offering):
-        # Check download product call
-        offering_validator.requests.get.assert_called_once_with(offering['productSpecification']['href'])
-        offering_validator.requests.get().json.assert_called_once_with()
-
-        # Check resource retrieving if needed
-        self.assertEquals(0, offering_validator.Resource.objects.get.call_count)
-
-        # Check offering creation
-        offering_validator.Offering.objects.create.assert_called_once_with(
-            owner_organization=self._provider,
-            name=offering['name'],
-            description='',
-            version=offering['version'],
-            is_digital=False,
-            asset=None,
-            bundled_offerings=[]
-        )
+        self._validate_offering_calls(offering, None, False)
 
     def _validate_bundle_offering_calls(self, offering, is_digital):
         self.assertEquals(
@@ -384,7 +367,7 @@ class ValidatorTestCase(TestCase):
         offering_validator.Offering.objects.filter.side_effect = self._bundles
 
     def _non_digital_offering(self):
-        offering_validator.OfferingValidator.parse_characteristics = MagicMock(return_value=(None, None, None))
+        offering_validator.Resource.objects.filter.return_value = []
 
     def _non_digital_bundle(self):
         self._mock_offering_bundle(BUNDLE_OFFERING, is_digital=False)
@@ -415,12 +398,13 @@ class ValidatorTestCase(TestCase):
         ('bundle_missing', BUNDLE_MISSING_FIELD, None, None, 'Offering bundles must contain a bundledProductOffering field'),
         ('bundle_invalid_number', BUNDLE_MISSING_ELEMS, None, None, 'Offering bundles must contain at least two bundled offerings'),
         ('bundle_inv_bundled', BUNDLE_OFFERING, None, _invalid_bundled, 'The bundled offering 6 is not registered'),
-        ('bundle_mixed', BUNDLE_OFFERING, None, _mixed_bundled_offerings, 'Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical'),
-        ('product_access_error', BASIC_OFFERING, None, _catalog_api_error, 'There has been a problem accessing the product spec included in the offering')
+        ('bundle_mixed', BUNDLE_OFFERING, None, _mixed_bundled_offerings, 'Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical')
     ])
     def test_create_offering_validation(self, name, offering, checker, side_effect, msg=None):
 
         self._mock_validator_imports(offering_validator)
+        offering_validator.Resource.objects.filter.return_value = [self._asset_instance]
+
         self._mock_product_request()
         self._mock_offering_bundle(offering)
 
