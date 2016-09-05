@@ -25,7 +25,6 @@ import requests
 from decimal import Decimal
 from datetime import datetime
 
-from wstore.models import Organization, Resource
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.rollback import rollback
 from wstore.charging_engine.charging_engine import ChargingEngine
@@ -49,65 +48,31 @@ class OrderingManager:
 
         return r.json()
 
-    def _download_models(self, item):
-        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
-        product_info = self._download(offering_info['productSpecification']['href'], 'product specification', item['id'])
-
-        return offering_info, product_info
-
     def _get_offering(self, item):
 
         # Download related product offering and product specification
-        offering_info, product_info = self._download_models(item)
-
-        # Check if the product is a digital one
-        asset_type, media_type, location = self._validator.parse_characteristics(product_info)
-
-        asset = None
-        if asset_type is not None and media_type is not None and location is not None:
-            asset = Resource.objects.get(download_link=location)
+        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
 
         offering_id = offering_info['id']
-
-        # Check if the offering contains a description
-        description = ''
-        if 'description' in offering_info:
-            description = offering_info['description']
 
         # Check if the offering has been already loaded in the system
         if len(Offering.objects.filter(off_id=offering_id)) > 0:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            if asset is not None and offering.pk in self._customer.userprofile.current_organization.acquired_offerings:
-                raise OrderingError('The customer already owns the digital product offering ' + offering_info['name'] + ' with id ' + offering_id)
+            included_offerings = [Offering.objects.get(pk=off_pk) for off_pk in offering.bundled_offerings]
+            included_offerings.append(offering)
 
-            offering.description = description
+            def owned_digital(off):
+                if off.is_digital and off.pk in self._customer.userprofile.current_organization.acquired_offerings:
+                    raise OrderingError('The customer already owns the digital product offering ' + off.name + ' with id ' + off.off_id)
 
-            offering.version = offering_info['version']
-            offering.href = offering_info['href']
-            offering.save()
+                return off
+
+            map(owned_digital, included_offerings)
+
         else:
-            # Get offering provider (Owner role)
-            for party in product_info['relatedParty']:
-                if party['role'].lower() == 'owner':
-                    provider = Organization.objects.get(name=party['id'])
-                    break
-            else:
-                raise OrderingError('The product specification included in the order item ' + item['id'] + ' does not contain a valid provider')
-
-            offering = Offering.objects.create(
-                off_id=offering_id,
-                href=offering_info['href'],
-                owner_organization=provider,
-                name=offering_info['name'],
-                description=description,
-                version=offering_info['version'],
-                is_digital=asset is not None,
-                asset=asset
-            )
-
-            self.rollback_logger['models'].append(offering)
+            raise OrderingError('The offering ' + offering_id + ' has not been previously registered')
 
         return offering, offering_info
 
@@ -283,9 +248,7 @@ class OrderingManager:
 
     def _process_add_items(self, items, order_id, description):
 
-        new_contracts = []
-        for item in items:
-            new_contracts.append(self._build_contract(item))
+        new_contracts = [self._build_contract(item) for item in items]
 
         current_org = self._customer.userprofile.current_organization
         order = Order.objects.create(
@@ -376,7 +339,6 @@ class OrderingManager:
 
             # Terminate product in the inventory
             client.terminate_product(product['id'])
-
 
     @rollback()
     def process_order(self, customer, order):

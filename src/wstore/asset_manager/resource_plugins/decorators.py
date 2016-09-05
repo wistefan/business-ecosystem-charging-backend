@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 from functools import wraps
 
 from wstore.models import ResourcePlugin
+from wstore.ordering.models import Offering
 from wstore.asset_manager.models import Resource
 from wstore.asset_manager.errors import ProductError
 
@@ -74,55 +75,89 @@ def on_product_spec_attachment(func):
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
 
-        # Load plugin module
-        plugin_module = load_plugin_module(asset_t)
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module = load_plugin_module(asset_t)
 
-        # Call on pre create event handler
-        plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
+            # Call on pre create event handler
+            plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
 
         # Call method
         func(self, asset, asset_t, product_spec)
 
-        # Call on post create event handler
-        plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
 
     return wrapper
+
+
+def _expand_bundled_assets(offering_assets):
+    assets = []
+    for off_asset in offering_assets:
+        if len(off_asset.bundled_assets) > 0:
+            for bundled_asset_pk in off_asset.bundled_assets:
+                assets.append(Resource.objects.get(pk=bundled_asset_pk))
+        else:
+            assets.append(off_asset)
+
+    return assets
 
 
 def on_product_offering_validation(func):
 
     @wraps(func)
-    def wrapper(self, provider, product_offering):
+    def wrapper(self, provider, product_offering, bundled_offerings):
 
-        # Get the related asset (the existence of the product has been already validated)
-        assets = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+        offering_assets = []
+        if len(bundled_offerings) > 0:
+            # Get bundled offerings assets
+            offering_assets = [offering.asset for offering in bundled_offerings if offering.is_digital]
+        else:
+            # Get offering asset
+            asset = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+            offering_assets.extend(asset)
 
-        if len(assets):
-            plugin_module = load_plugin_module(assets[0].resource_type)
+        # Get the effective assets
+        assets = _expand_bundled_assets(offering_assets)
 
-            plugin_module.on_pre_product_offering_validation(assets[0], product_offering)
+        for asset in assets:
+            plugin_module = load_plugin_module(asset.resource_type)
+            plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
-        func(self, provider, product_offering)
+        func(self, provider, product_offering, bundled_offerings)
 
-        if len(assets):
-            plugin_module.on_post_product_offering_validation(assets[0], product_offering)
+        for asset in assets:
+            plugin_module.on_post_product_offering_validation(asset, product_offering)
 
     return wrapper
 
 
+def _execute_asset_event(asset, order, contract, type_):
+    # Load plugin module
+    plugin_module = load_plugin_module(asset.resource_type)
+
+    # Execute event
+    if type_ == 'activate':
+        plugin_module.on_product_acquisition(asset, contract, order)
+    else:
+        plugin_module.on_product_suspension(asset, contract, order)
+
+
 def process_product_notification(order, contract, type_):
     # Get digital asset from the contract
-    if contract.offering.is_digital:
-        asset = contract.offering.asset
+    offering_assets = []
+    if len(contract.offering.bundled_offerings) > 0:
+        offering_assets = [Offering.objects.get(pk=key).asset
+                           for key in contract.offering.bundled_offerings if Offering.objects.get(pk=key).is_digital]
 
-        # Load plugin module
-        plugin_module = load_plugin_module(asset.resource_type)
+    elif contract.offering.is_digital:
+        offering_assets = [contract.offering.asset]
 
-        # Execute event
-        if type_ == 'activate':
-            plugin_module.on_product_acquisition(asset, contract, order)
-        else:
-            plugin_module.on_product_suspension(asset, contract, order)
+    assets = _expand_bundled_assets(offering_assets)
+
+    for event_asset in assets:
+        _execute_asset_event(event_asset, order, contract, type_)
 
 
 def on_product_acquired(order, contract):

@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 from django.db import models
 from django.contrib.auth.models import User
 from djangotoolbox.fields import DictField, EmbeddedModelField, ListField
@@ -27,7 +29,7 @@ from wstore.ordering.errors import OrderingError
 
 
 class Offering(models.Model):
-    off_id = models.CharField(max_length=50)
+    off_id = models.CharField(max_length=50, blank=True, null=True)
     href = models.URLField()
     owner_organization = models.ForeignKey(Organization)
     name = models.CharField(max_length=200)
@@ -35,6 +37,7 @@ class Offering(models.Model):
     description = models.CharField(max_length=1500)
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, null=True, blank=True)
+    bundled_offerings = ListField()
 
 
 class Charge(models.Model):

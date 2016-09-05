@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import urllib2
+from __future__ import unicode_literals
+
 from urlparse import urljoin
 
 from django.db import models
@@ -44,9 +45,10 @@ class Resource(models.Model):
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
     state = models.CharField(max_length=20)
-    resource_type = models.CharField(max_length=100)
+    resource_type = models.CharField(max_length=100, blank=True, null=True)
     is_public = models.BooleanField(default=False)
     meta_info = DictField()
+    bundled_assets = ListField()
 
     def get_url(self):
         return self.download_link

@@ -20,9 +20,12 @@
 
 from __future__ import unicode_literals
 
+PRODUCT_LOCATION = 'http://testlocation.org/media/resources/test_user/widget.wgt'
+
 BASIC_PRODUCT = {
     'action': 'create',
     'product': {
+        "id": "2",
         "productNumber": "I42-340-DX",
         "version": "2.0",
         "lastUpdate": "2013-04-19T16:42:23-04:00",
@@ -140,7 +143,7 @@ BASIC_PRODUCT = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -206,7 +209,7 @@ MISSING_MEDIA = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -263,7 +266,7 @@ MISSING_TYPE = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -401,7 +404,7 @@ MULTIPLE_LOCATION = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -425,7 +428,7 @@ MULTIPLE_LOCATION = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -506,7 +509,7 @@ MULTIPLE_VALUES = {
                     {
                         "valueType": "string",
                         "default": True,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -517,7 +520,7 @@ MULTIPLE_VALUES = {
                     }, {
                         "valueType": "string",
                         "default": False,
-                        "value": "http://testlocation.org/media/resources/test_user/widget.wgt",
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -535,6 +538,7 @@ MULTIPLE_VALUES = {
 INVALID_LOCATION = {
     'action': 'create',
     'product': {
+        "isBundle": False,
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -612,6 +616,22 @@ INVALID_LOCATION = {
         ]
     }
 }
+
+BASIC_BUNDLE_CREATION = {
+    'action': 'create',
+    'product': {
+        "id": "1",
+        "isBundle": True,
+        "version": "1.0",
+        "lifecycleStatus": "Active",
+        "bundledProductSpecification": [{
+            'id': '1'
+        }, {
+            'id': '2'
+        }]
+    }
+}
+
 
 NO_CHARS_PRODUCT = {
     "productNumber": "I42-340-DX",
@@ -707,6 +727,11 @@ EMPTY_CHARS_PRODUCT = {
 }
 
 BASIC_OFFERING = {
+    "id": "3",
+    "href": "http://catalog.com/offerin3",
+    "isBundle": False,
+    "name": "TestOffering",
+    "version": "1.0",
     "productSpecification": {
         "id": "20",
         "href": "http://catalog.com/products/20"
@@ -720,11 +745,47 @@ BASIC_OFFERING = {
 }
 
 FREE_OFFERING = {
+    "isBundle": False,
+    "name": "TestOffering",
+    "version": "1.0",
     "productSpecification": {
         "id": "20",
         "href": "http://catalog.com/products/20"
-    },
+    }
 }
+
+BUNDLE_OFFERING = {
+    "isBundle": True,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+    },
+    "bundledProductOffering": [{
+        'id': '6'
+    }, {
+        'id': '7'
+    }]
+}
+
+BUNDLE_MISSING_FIELD = {
+    "isBundle": True,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+    }
+}
+
+BUNDLE_MISSING_ELEMS = {
+    "isBundle": True,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+    },
+    "bundledProductOffering": [{
+        'id': '6'
+    }]
+}
+
 
 MISSING_PRICETYPE = {
     "productSpecification": {
