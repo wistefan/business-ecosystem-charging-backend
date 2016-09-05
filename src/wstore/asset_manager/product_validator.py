@@ -141,7 +141,7 @@ class ProductValidator(CatalogValidator):
                             break
                     else:
                         # All the assets are the expected ones, so the bundle is correct
-                        asset = Resource.objects.get(pk=bundle)
+                        asset = bundle
 
                     if asset is not None:
                         break

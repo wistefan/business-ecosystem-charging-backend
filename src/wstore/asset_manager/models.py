@@ -45,7 +45,7 @@ class Resource(models.Model):
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
     state = models.CharField(max_length=20)
-    resource_type = models.CharField(max_length=100)
+    resource_type = models.CharField(max_length=100, blank=True, null=True)
     is_public = models.BooleanField(default=False)
     meta_info = DictField()
     bundled_assets = ListField()
