@@ -103,6 +103,9 @@ class ProductValidator(CatalogValidator):
 
         assets = self._extract_digital_assets(product_spec['bundledProductSpecification'])
 
+        if len(assets) and len(assets) != len(product_spec['bundledProductSpecification']):
+            raise ProductError('Mixed product bundles are not allowed. All bundled products must be digital or physical')
+
         if len(assets):
             Resource.objects.create(
                 resource_path='',

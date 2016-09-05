@@ -158,7 +158,7 @@ class ValidatorTestCase(TestCase):
 
     def _mixed_assets(self):
         digital_asset = MagicMock(pk='1')
-        return [[], [digital_asset]]
+        product_validator.Resource.objects.filter.side_effect = [[], [digital_asset]]
 
     def _all_digital(self):
         digital_asset = MagicMock(pk='1')
@@ -167,7 +167,6 @@ class ValidatorTestCase(TestCase):
 
     @parameterized.expand([
         ('non_digital', _non_digital, False),
-        ('mixed', _mixed_assets),
         ('all_digital', _all_digital)
     ])
     def test_bundle_creation(self, name, asset_mocker, created=True):
@@ -199,8 +198,11 @@ class ValidatorTestCase(TestCase):
         else:
             self.assertEquals(0, product_validator.Resource.objects.call_count)
 
-    def _validate_bundle_creation_error(self, product_request, msg):
+    def _validate_bundle_creation_error(self, product_request, msg, side_effect=None):
         self._mock_validator_imports(product_validator)
+
+        if side_effect is not None:
+            side_effect()
 
         try:
             validator = product_validator.ProductValidator()
@@ -218,6 +220,13 @@ class ValidatorTestCase(TestCase):
             }
         }, 'ProductError: A product spec bundle must contain at least two bundled product specs')
 
+    def test_bundle_creation_mixed_content(self):
+        self._validate_bundle_creation_error(
+            BASIC_BUNDLE_CREATION,
+            'ProductError: Mixed product bundles are not allowed. All bundled products must be digital or physical',
+            self._mixed_assets
+        )
+
     def test_bundle_assets_included(self):
         product_request = deepcopy(BASIC_PRODUCT)
         product_request['product']['isBundle'] = True
@@ -231,7 +240,6 @@ class ValidatorTestCase(TestCase):
     def _pending_bundles(self):
         product1 = MagicMock(product_id='1', pk='1a')
         product2 = MagicMock(product_id='2', pk='2a')
-        # product3 = MagicMock(product_id='3', pk='3a')
 
         bundle1 = MagicMock()
         bundle1.bundled_assets = [{}]
