@@ -40,6 +40,7 @@ class Context(models.Model):
     newest = ListField()
     user_refs = DictField()
     failed_cdrs = ListField()
+    payouts_n = models.IntegerField(default=0)
 
     def is_valid_currency(self, currency):
         """

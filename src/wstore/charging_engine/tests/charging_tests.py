@@ -1026,7 +1026,7 @@ MISSING_RESP = {
 
 LOCK_CLOSED_RESP = {
     'result': 'error',
-    'error': 'The payment has been canceled: The timeout set to process the payment has finished'
+    'error': 'The payment has been canceled: PaymentError: The timeout set to process the payment has finished'
 }
 
 
@@ -1158,7 +1158,7 @@ class PayPalConfirmationTestCase(TestCase):
         ('timeout_finished', BASIC_PAYPAL, LOCK_CLOSED_RESP, None, _timeout, True, True),
         ('unauthorized', BASIC_PAYPAL, {
             'result': 'error',
-            'error': 'The payment has been canceled: You are not authorized to execute the payment'
+            'error': 'The payment has been canceled: PaymentError: You are not authorized to execute the payment'
         }, None, _unauthorized, True, True),
         ('exception', BASIC_PAYPAL, {
             'result': 'error',

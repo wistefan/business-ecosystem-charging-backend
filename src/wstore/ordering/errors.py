@@ -34,4 +34,13 @@ class PaymentError(Exception):
         self.value = msg
 
     def __unicode__(self):
-        return self.value
+        return 'PaymentError: ' + self.value
+
+
+class PayoutError(Exception):
+    def __init__(self, msg):
+        super(PayoutError, self).__init__(msg)
+        self.value = msg
+
+    def __unicode__(self):
+        return 'PayoutError: ' + self.value
