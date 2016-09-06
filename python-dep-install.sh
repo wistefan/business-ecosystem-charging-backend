@@ -15,3 +15,4 @@ pip install requests
 pip install requests[security]
 pip install regex
 pip install six
+pip install paypalrestsdk
