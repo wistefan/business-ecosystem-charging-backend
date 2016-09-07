@@ -43,12 +43,13 @@ class NotificationsHandler:
         self._password = settings.WSTOREMAILPASS
         self._fromaddr = settings.WSTOREMAIL
         self._server = settings.SMTPSERVER
+        self._port = settings.SMTPPORT
 
         if not len(self._mailuser) or not len(self._password) or not len(self._fromaddr) or not len(self._server):
             raise ImproperlyConfigured('Missing email configuration')
 
     def _send_email(self, recipient, msg):
-        server = smtplib.SMTP(self._server)
+        server = smtplib.SMTP(self._server, self._port)
         server.starttls()
         server.login(self._mailuser, self._password)
 
@@ -72,12 +73,12 @@ class NotificationsHandler:
         msg.attach(message)
 
         for bill in bills:
-            path = os.path.join(settings.BASEDIR, bill[1:])
-            fp = open(path, 'rb')
+            path = os.path.join(settings.BASEDIR, bill)
 
-            b_msg = MIMEBase('application', 'pdf')
-            b_msg.set_payload(fp.read())
-            fp.close()
+            with open(path, 'rb') as fp:
+                b_msg = MIMEBase('application', 'pdf')
+                b_msg.set_payload(fp.read())
+
             # Encode the payload using Base64
             encoders.encode_base64(b_msg)
             b_msg.add_header('Content-Disposition', 'attachment', filename=bill.split('/')[-1])
@@ -101,7 +102,9 @@ class NotificationsHandler:
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
 
-        self._send_multipart_email(text, recipients, 'Product order accepted', order.bills)
+        bills = [charge.invoice for contract in order.contracts for charge in contract.charges]
+
+        self._send_multipart_email(text, recipients, 'Product order accepted', bills)
 
     def send_provider_notification(self, order, contract):
         # Get destination email
@@ -165,7 +168,9 @@ class NotificationsHandler:
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
 
-        self._send_multipart_email(text, recipients, 'Product order accepted', order.bills[-len(transactions):])
+        bills = [charge.invoice for contract in order.contracts for charge in contract.charges]
+
+        self._send_multipart_email(text, recipients, 'Product order accepted', bills[-len(transactions):])
 
     def send_payout_error(self, recipient, error_msg):
         recipients = [recipient]

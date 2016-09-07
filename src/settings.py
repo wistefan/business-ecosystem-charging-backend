@@ -104,6 +104,7 @@ WSTOREMAILUSER = 'email_user'
 WSTOREMAIL = 'wstore_email'
 WSTOREMAILPASS = 'wstore_email_passwd'
 SMTPSERVER = 'wstore_smtp_server'
+SMTPPORT = 587
 
 WSTOREPROVIDERREQUEST = 'provider_requ_email'
 

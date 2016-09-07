@@ -268,4 +268,4 @@ class InvoiceBuilder(object):
             if not file_.endswith('.pdf'):
                 os.remove(os.path.join(settings.BILL_ROOT, file_))
 
-        return os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name)
+        return os.path.join(settings.MEDIA_DIR, 'bills/' + invoice_name)

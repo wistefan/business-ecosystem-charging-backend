@@ -272,18 +272,25 @@ class NotificationsTestCase(TestCase):
         notification_handler.settings.WSTOREMAILPASS = 'passwd'
         notification_handler.settings.WSTOREMAILUSER = 'wstore'
         notification_handler.settings.SMTPSERVER = 'smtp.gmail.com'
+        notification_handler.settings.SMTPPORT = 587
 
         notification_handler.settings.BASEDIR = '/home/test/wstore'
+
+        # Mock charges
+        charge1 = MagicMock()
+        charge1.invoice = 'media/bills/bill1.pdf'
 
         # Mock contracts
         contract1 = MagicMock()
         contract1.offering.name = 'Offering1'
         contract1.offering.off_id = '1'
         contract1.offering.owner_organization.managers = ['33333', '44444']
+        contract1.charges = [charge1]
 
         contract2 = MagicMock()
         contract2.offering.name = 'Offering2'
         contract2.offering.off_id = '2'
+        contract2.charges = []
 
         # Mock order
         self._order = MagicMock()
@@ -291,7 +298,6 @@ class NotificationsTestCase(TestCase):
         self._order.order_id = '67'
         self._order.owner_organization.managers = ['11111', '22222']
         self._order.owner_organization.name = 'customer'
-        self._order.bills = ['/media/bills/bill1.pdf']
         self._order.get_item_contract.return_value = contract1
 
         self._order.contracts = [contract1, contract2]
@@ -378,7 +384,7 @@ class NotificationsTestCase(TestCase):
     def _validate_email_call(self, mime, emails=None):
         if emails is None:
             emails = ['user1@email.com', 'user2@email.com']
-        notification_handler.smtplib.SMTP.assert_called_once_with('smtp.gmail.com')
+        notification_handler.smtplib.SMTP.assert_called_once_with('smtp.gmail.com', 587)
         notification_handler.smtplib.SMTP().starttls.assert_called_once_with()
         notification_handler.smtplib.SMTP().login.assert_called_once_with('wstore', 'passwd')
         notification_handler.smtplib.SMTP().sendmail.assert_called_once_with(
@@ -392,7 +398,6 @@ class NotificationsTestCase(TestCase):
 
         notification_handler.MIMEBase.assert_called_once_with('application', 'pdf')
         notification_handler.MIMEBase().set_payload.assert_called_once_with(self._mock_open().read())
-        self._mock_open().close.assert_called_once_with()
 
         notification_handler.encoders.encode_base64.assert_called_once_with(notification_handler.MIMEBase())
         notification_handler.MIMEBase().add_header.assert_called_once_with(
