@@ -24,7 +24,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand, CommandError
 
 
-from wstore.rss_adaptor.rss_adaptor import RSSAdaptorThread
+from wstore.rss_adaptor.rss_adaptor import RSSAdaptor
 from wstore.store_commons.database import get_database_connection
 from wstore.models import Context, Organization
 
@@ -56,10 +56,13 @@ class Command(BaseCommand):
 
             # Modify correlation number
             org = Organization.objects.get(name=cdr['provider'])
-            db.wstore_organization.find_and_modify(
+
+            new_org = db.wstore_organization.find_and_modify(
                 query={'_id': ObjectId(org.pk)},
                 update={'$inc': {'correlation_number': 1}}
             )
 
-        r = RSSAdaptorThread(cdrs)
-        r.start()
+            cdr['correlation'] = new_org['correlation_number']
+
+        r = RSSAdaptor()
+        r.send_cdr(cdrs)
