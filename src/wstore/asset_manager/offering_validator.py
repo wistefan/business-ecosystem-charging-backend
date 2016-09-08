@@ -22,6 +22,8 @@ from __future__ import unicode_literals
 
 import requests
 
+from decimal import Decimal
+
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.models import Resource
 from wstore.store_commons.utils.units import recurring_periods, supported_currencies
@@ -80,6 +82,9 @@ class OfferingValidator(CatalogValidator):
 
                 if price_model['price']['currencyCode'] not in supported_currencies:
                     raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
+
+                if Decimal(price_model['price']['taxIncludedAmount']) <= Decimal("0"):
+                    raise ValueError('Invalid price, it must be greater than zero.')
 
     def _download(self, url):
         r = requests.get(url)
@@ -141,4 +146,3 @@ class OfferingValidator(CatalogValidator):
         bundled_offerings = self._get_bundled_offerings(product_offering)
         self._validate_offering_pricing(provider, product_offering, bundled_offerings)
         self._build_offering_model(provider, product_offering, bundled_offerings)
-

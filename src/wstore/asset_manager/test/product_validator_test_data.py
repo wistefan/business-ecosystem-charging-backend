@@ -739,7 +739,27 @@ BASIC_OFFERING = {
     "productOfferingPrice": [{
         "priceType": "one time",
         "price": {
-            "currencyCode": "EUR"
+            "currencyCode": "EUR",
+            'taxIncludedAmount': '1.0'
+        }
+    }]
+}
+
+ZERO_OFFERING = {
+    'id': '3',
+    "href": "http://catalog.com/offerin3",
+    "isBundle": False,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "one time",
+        "price": {
+            "currencyCode": "EUR",
+            'taxIncludedAmount': '0'
         }
     }]
 }
