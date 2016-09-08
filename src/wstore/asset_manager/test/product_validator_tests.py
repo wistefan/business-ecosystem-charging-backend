@@ -384,6 +384,7 @@ class ValidatorTestCase(TestCase):
 
     @parameterized.expand([
         ('valid_pricing', BASIC_OFFERING, _validate_single_offering_calls, None),
+        ('zero_offering', ZERO_OFFERING, None, None, 'Invalid price, it must be greater than zero.'),
         ('free_offering', FREE_OFFERING, _validate_physical_offering_calls, _non_digital_offering),
         ('bundle_offering', BUNDLE_OFFERING, _validate_bundle_digital_offering_calls, None),
         ('bundle_offering_non_digital', BUNDLE_OFFERING, _validate_bundle_physical_offering_calls, _non_digital_bundle),
