@@ -680,7 +680,7 @@ class PayoutEngineTestCase(TestCase):
         result = engine._process_payouts(data)
 
         assert len(result) == 1
-        engine.paypal.batch_payout.assert_called_once_with([{'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}])
+        engine.paypal.batch_payout.assert_called_once_with([{'amount': {'currency': 'EUR', 'value': '10.00'}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}])
 
         assert payout_engine.Context.objects.all()[0].payouts_n == 11
 
@@ -700,8 +700,8 @@ class PayoutEngineTestCase(TestCase):
         result = engine._process_payouts(data)
 
         assert len(result) == 2
-        expected_usd = [{'amount': {'currency': 'USD', 'value': 20}, 'sender_item_id': '2_10', 'recipient_type': 'EMAIL', 'receiver': createMail(2)}]
-        expected_eur = [{'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}]
+        expected_usd = [{'amount': {'currency': 'USD', 'value': '20.00'}, 'sender_item_id': '2_10', 'recipient_type': 'EMAIL', 'receiver': createMail(2)}]
+        expected_eur = [{'amount': {'currency': 'EUR', 'value': '10.00'}, 'sender_item_id': '1_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}]
         engine.paypal.batch_payout.assert_has_calls([call(expected_usd), call(expected_eur)])
 
         assert payout_engine.Context.objects.all()[0].payouts_n == 12
@@ -717,18 +717,18 @@ class PayoutEngineTestCase(TestCase):
         engine = payout_engine.PayoutEngine()
         payout_engine.Context.objects.all()[0].payouts_n = 10
 
-        data = {'EUR': {'user1@email.com': [(10, 1), (4, 2)], 'user2@email.com': [(2, 1), (20, 2)], 'user3@email.com': [(4, 1)]}}
+        data = {'EUR': {'user1@email.com': [(10, 1), (4, 2)], 'user2@email.com': [(2.21, 1), (20, 2)], 'user3@email.com': [(4, 1)]}}
 
         result = engine._process_payouts(data)
 
         assert len(result) == 1
 
         expected = [
-            {'amount': {'currency': 'EUR', 'value': 10}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
-            {'amount': {'currency': 'EUR', 'value': 4}, 'sender_item_id': '2_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
-            {'amount': {'currency': 'EUR', 'value': 2}, 'sender_item_id': '1_12', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
-            {'amount': {'currency': 'EUR', 'value': 20}, 'sender_item_id': '2_13', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
-            {'amount': {'currency': 'EUR', 'value': 4}, 'sender_item_id': '1_14', 'recipient_type': 'EMAIL', 'receiver': createMail(3)}
+            {'amount': {'currency': 'EUR', 'value': '10.00'}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
+            {'amount': {'currency': 'EUR', 'value': '4.00'}, 'sender_item_id': '2_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)},
+            {'amount': {'currency': 'EUR', 'value': '2.21'}, 'sender_item_id': '1_12', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
+            {'amount': {'currency': 'EUR', 'value': '20.00'}, 'sender_item_id': '2_13', 'recipient_type': 'EMAIL', 'receiver': createMail(2)},
+            {'amount': {'currency': 'EUR', 'value': '4.00'}, 'sender_item_id': '1_14', 'recipient_type': 'EMAIL', 'receiver': createMail(3)}
         ]
         engine.paypal.batch_payout.assert_called_once_with(expected)
 
@@ -780,14 +780,19 @@ class PayoutEngineTestCase(TestCase):
                 'batch_status': 'SUCCESS'
             }
         }
-        payouts = [(payout.copy(), True), (payout.copy(), False), (payout.copy(), True)]
+        err_payout = {
+            'sender_batch_header': {
+                'sender_batch_id': 'BATCHID'
+            }
+        }
+        payouts = [(payout.copy(), True), (err_payout.copy(), False), (payout.copy(), True)]
         engine._process_payouts = MagicMock(return_value=payouts)
         rpayout = ReportsPayout(['report1'], 'payoutId', 'SUCCESS', MagicMock())
         payout_engine.ReportsPayout.return_value = rpayout
         engine.process_reports(['report1'])
 
-        payout_engine.ReportsPayout.assert_has_calls([call(reports=['report1'], payout_id='payoutId', status='SUCCESS'), call(reports=['report1'], payout_id='payoutId', status='SUCCESS'), call(reports=['report1'], payout_id='payoutId', status='SUCCESS')])
-        rpayout.save.assert_has_calls([call(), call(), call()])
+        payout_engine.ReportsPayout.assert_has_calls([call(reports=['report1'], payout_id='payoutId', status='SUCCESS'), call(reports=['report1'], payout_id='payoutId', status='SUCCESS')])
+        rpayout.save.assert_has_calls([call(), call()])
         payout_engine.PayoutWatcher.assert_called_once_with([payout.copy(), payout.copy()], ['report1'])
 
     def test_process_unpaid(self):
