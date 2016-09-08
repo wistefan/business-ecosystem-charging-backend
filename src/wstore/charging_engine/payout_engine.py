@@ -22,6 +22,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from decimal import Decimal
 import time
 import threading
 
@@ -292,7 +293,7 @@ class PayoutEngine(object):
                     payment = {
                         'recipient_type': 'EMAIL',
                         'amount': {
-                            'value': value,
+                            'value': "{0:.2f}".format(round(Decimal(value), 2)),
                             'currency': currency
                         },
                         'receiver': user,
@@ -318,14 +319,15 @@ class PayoutEngine(object):
         to_watch = []
 
         for payout, created in payouts:
+            if not created:
+                # Full error, not even said the semipaid because it didn't failed some transaction
+                print("Error, batch id: {}".format(payout['sender_batch_header']['sender_batch_id']))  # Log
+                continue
             payout_id = payout['batch_header']['payout_batch_id']
             status = payout['batch_header']['batch_status']
             rpayout = ReportsPayout(reports=reports, payout_id=payout_id, status=status)
             rpayout.save()
-            if not created:
-                # Full error, not even said the semipaid because it didn't failed some transaction
-                print("Error, batch id {} with status {}".format(payout_id, status))  # Log
-                continue
+
             to_watch.append(payout)
 
         if len(to_watch) > 0:
