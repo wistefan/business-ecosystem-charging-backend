@@ -149,7 +149,7 @@ TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
 # Daily job that checks pending pay-per-use charges
 CRONJOBS = [
-    ('0 5 * * *', 'django.core.management.call_command', ['resolve_use_charging']),
+    ('0 5 * * *', 'django.core.management.call_command', ['pending_charges_daemon']),
     ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs'])
 ]
 
