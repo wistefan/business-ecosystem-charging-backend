@@ -2,21 +2,21 @@
 
 # Copyright (c) 2013 - 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
-
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.contrib.auth import logout as django_logout
 from django.http import HttpResponseRedirect
@@ -65,11 +65,7 @@ def logout(request):
             response = build_response(request, 200, 'OK')
 
     # If not using the FI-LAB authentication redirect to the login page
-    elif settings.OILAUTH:
-        from wstore.social_auth_backend import FIWARE_LOGOUT_URL
-        response = HttpResponseRedirect(FIWARE_LOGOUT_URL)
-    else:
-        url = '/login?next=/'
-        response = HttpResponseRedirect(url)
+    url = '/login?next=/'
+    response = HttpResponseRedirect(url)
 
     return response

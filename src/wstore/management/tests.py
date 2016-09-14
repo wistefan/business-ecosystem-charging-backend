@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
-
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 from __future__ import unicode_literals
@@ -29,11 +29,11 @@ from nose_parameterized import parameterized
 from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
-from django.core.management.base import CommandError
 
-from wstore.management.commands import configureproject, createindexes,\
-  createtags, loadplugin, removeplugin
+from wstore.management.commands import configureproject, loadplugin, removeplugin
 
+
+__test__ = False
 
 class ConfigureProjectTestCase(TestCase):
     tags = ('management', )
@@ -107,96 +107,6 @@ class IndexTestCase(TestCase):
                 called = False
 
             self.assertFalse(called)
-
-
-class CreateIndexesTestCase(IndexTestCase):
-    tags = ('management',)
-
-    def __init__(self, methodName='runTest'):
-        self.tested_mod = createindexes
-        IndexTestCase.__init__(self, methodName=methodName)
-
-    def setUp(self):
-        # Mock search engine
-        self.se_inst = MagicMock()
-        createindexes.SearchEngine = MagicMock()
-        createindexes.SearchEngine.return_value = self.se_inst
-        # Mock offerings
-        self.tested_mod.Offering = MagicMock()
-        self.offerings = [
-            'offering1',
-            'offering2',
-            'offering3'
-        ]
-        self.tested_mod.Offering.objects.all.return_value = self.offerings
-        IndexTestCase.setUp(self)
-
-    def tearDown(self):
-        reload(createindexes)
-        IndexTestCase.tearDown(self)
-
-    def manager_assertion(self):
-        self.se_inst.create_index.assert_calls(self.offerings, True)
-        IndexTestCase.manager_assertion(self)
-
-    @parameterized.expand([
-        ('no_input', False),
-        ('interactive',),
-        ('inter_inv', True, IndexTestCase._invalid_option),
-        ('canceled', True, IndexTestCase._canceled, False)
-    ])
-    def test_create_indexes(self, name, input_=True, side_effect=None, completed=True):
-
-        info = {
-            'command': 'createindexes',
-            'module': 'search'
-        }
-        self._index_tst(info, input_=input_, side_effect=side_effect, completed=completed)
-
-
-class CreateTagIndexesTestCase(IndexTestCase):
-
-    tags = ('management',)
-
-    def __init__(self, methodName='runTest'):
-        self.tested_mod = createtags
-        IndexTestCase.__init__(self, methodName=methodName)
-
-    def setUp(self):
-        # Mock Tagging manager
-        self.tm_inst = MagicMock()
-        createtags.TagManager = MagicMock()
-        createtags.TagManager.return_value = self.tm_inst
-        # Mock offerings
-        self.offering = MagicMock()
-        self.offering.tags = ['tag1']
-        createtags.Offering = MagicMock()
-        createtags.Offering.objects.all.return_value = [
-            self.offering
-        ]
-        IndexTestCase.setUp(self)
-
-    def tearDown(self):
-        reload(createtags)
-        IndexTestCase.tearDown(self)
-
-    def manager_assertion(self):
-        self.tm_inst.update_tags.assert_called_once_with(self.offering, ['tag1'])
-        IndexTestCase.manager_assertion(self)
-
-    @parameterized.expand([
-        ('no_input', False),
-        ('interactive',),
-        ('inter_inv', True, IndexTestCase._invalid_option),
-        ('canceled', True, IndexTestCase._canceled, False)
-    ])
-    def test_create_tag_indexes(self, name, input_=True, side_effect=None, completed=True):
-
-        info = {
-            'command': 'createtags',
-            'module': 'social'
-        }
-        self._index_tst(info, input_=input_, side_effect=side_effect, completed=completed)
 
 
 class FakeCommandError(Exception):

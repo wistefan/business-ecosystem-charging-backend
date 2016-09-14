@@ -1,54 +1,37 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from __future__ import unicode_literals
 
-from django.db import models
 from djangotoolbox.fields import ListField, DictField
-
-from wstore.models import Purchase
-
-
-class Contract(models.Model):
-    # Parsed version of the pricing model used to calculate charges
-    pricing_model = DictField()
-    # Date of the last charge to the customer
-    last_charge = models.DateTimeField(blank=True, null=True)
-    # List with the made charges
-    charges = ListField()
-    # List with the charged SDRs for that offering
-    applied_sdrs = ListField()
-    # List the pending SDRs for that offering
-    pending_sdrs = ListField()
-    # Related purchase
-    purchase = models.OneToOneField(Purchase)
-    # Pending paid info used in asynchronous charges
-    pending_payment = DictField()
-    # Revenue sharing product class
-    revenue_class = models.CharField(max_length=15, blank=True, null=True)
+from django.db import models
 
 
-# This model is used as a unit dictionary in order to determine
-# the pricing model that is being used
-class Unit(models.Model):
-    # Name of the unit
-    name = models.CharField(max_length=50)
-    # Type of price model defined by the unit
-    defined_model = models.CharField(max_length=50)
-    # Period of time defined by the unit for subscription models
-    renovation_period = models.IntegerField(null=True, blank=True)
+class ReportsPayout(models.Model):
+    reports = ListField()
+    payout_id = models.CharField(max_length=15)
+    status = models.CharField(max_length=15)
+
+
+class ReportSemiPaid(models.Model):
+    report = models.IntegerField()
+    failed = ListField()
+    success = ListField()
+    errors = DictField()

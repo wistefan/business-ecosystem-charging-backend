@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL) 
-# as published by the European Commission, either version 1.1 
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# You should have received a copy of the European Union Public Licence
-# along with WStore.  
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
-
+import json
 from xml.dom.minidom import getDOMImplementation
-from django.utils import simplejson
+
 
 def get_xml_response(request, mimetype, status_code, value):
     dom = getDOMImplementation()
@@ -39,15 +40,16 @@ def get_xml_response(request, mimetype, status_code, value):
 
 
 def get_json_response(request, mimetype, status_code, message):
-    response = {
-        'message': message
-    }
+    response = {}
     if status_code >= 400:
         response['result'] = 'error'
+        response['error'] = message
     else:
         response['result'] = 'correct'
+        response['message'] = message
 
-    return simplejson.dumps(response)
+    return json.dumps(response)
+
 
 def get_unicode_response(request, mimetype, status_code, message):
     response = ''
@@ -56,4 +58,4 @@ def get_unicode_response(request, mimetype, status_code, message):
     else:
         response += 'Correct: ' + message
 
-        return unicode(response)
+    return unicode(response)

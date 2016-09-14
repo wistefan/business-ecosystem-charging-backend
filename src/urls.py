@@ -1,38 +1,33 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
-
-from django.conf.urls.defaults import patterns, include, url
+from django.conf.urls import patterns, url, include
 from django.contrib import admin
 
 import wstore.urls
-import wstore.registration.urls as registration
 from wstore.views import ServeMedia
 
 admin.autodiscover()
 
 urlpatterns = patterns('',
-    url(r'^admin/', include(admin.site.urls)),
-    url(r'^login/?$', 'django.contrib.auth.views.login', name='login'),
-    url(r'^logout/?$', 'wstore.store_commons.authentication.logout', name='logout'),
-    url(r'^media/(?P<path>.+)/(?P<name>[\w -.]+)/?$', ServeMedia(permitted_methods=('GET',)))
+   url(r'^charging/media/(?P<path>.+)/(?P<name>[\w -.]+)/?$', ServeMedia(permitted_methods=('GET',)))
 )
 
 urlpatterns += wstore.urls.urlpatterns
-urlpatterns += registration.urlpatterns

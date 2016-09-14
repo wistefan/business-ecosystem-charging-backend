@@ -1,628 +1,184 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
-
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
+from django.contrib.auth.models import AnonymousUser
+from django.test.utils import override_settings
 
-import rdflib
 from mock import MagicMock
 from nose_parameterized import parameterized
 
 from django.test import TestCase
-from django.contrib.sites.models import Site
 
-from wstore.store_commons.utils.usdlParser import USDLParser, validate_usdl
-from wstore.store_commons.utils import usdlParser
-from wstore.models import Organization, Context
+from wstore.store_commons import middleware, rollback
 
 __test__ = False
 
 
-class UsdlParserTestCase(TestCase):
+@override_settings(ADMIN_ROLE='provider', PROVIDER_ROLE='seller', CUSTOMER_ROLE='customer')
+class AuthenticationMiddlewareTestCase(TestCase):
 
-    tags = ('usdl-test-case',)
-
-    def test_basic_parse(self):
-
-        f = open('./wstore/store_commons/test/basic_usdl.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-        self.assertEqual(parsed_info['services_included'][0]['version'], '1.0')
-
-    def test_parse_complete_offering(self):
-
-        f = open('./wstore/store_commons/test/test_usdl1.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-        self.assertEqual(parsed_info['services_included'][0]['version'], '1.0')
-
-        self.assertEqual(len(parsed_info['pricing']['price_plans']), 1)
-        price_plan = parsed_info['pricing']['price_plans'][0]
-
-        self.assertEqual(price_plan['title'], 'Example price plan')
-        self.assertEqual(price_plan['description'], 'Price plan description')
-
-        self.assertEqual(len(price_plan['price_components']), 2)
-
-        for price_com in price_plan['price_components']:
-
-            if price_com['title'] == 'Price component 1':
-                self.assertEqual(price_com['title'], 'Price component 1')
-                self.assertEqual(price_com['description'], 'price component 1 description')
-                self.assertEqual(price_com['value'], '1.0')
-                self.assertEqual(price_com['currency'], 'euros')
-                self.assertEqual(price_com['unit'], 'single pay')
-            else:
-                self.assertEqual(price_com['title'], 'Price component 2')
-                self.assertEqual(price_com['description'], 'price component 2 description')
-                self.assertEqual(price_com['value'], '1.0')
-                self.assertEqual(price_com['currency'], 'euros')
-                self.assertEqual(price_com['unit'], 'single pay')
-
-        self.assertEqual(len(price_plan['taxes']), 1)
-        self.assertEqual(price_plan['taxes'][0]['title'], 'Example tax')
-        self.assertEqual(price_plan['taxes'][0]['description'], 'example tax description')
-        self.assertEqual(price_plan['taxes'][0]['value'], '1.0')
-        self.assertEqual(price_plan['taxes'][0]['currency'], 'euros')
-        self.assertEqual(price_plan['taxes'][0]['unit'], 'percent')
-
-    def test_parse_complete_service(self):
-
-        f = open('./wstore/store_commons/test/test_usdl2.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-        self.assertEqual(parsed_info['services_included'][0]['version'], '1.0')
-
-        legal = parsed_info['services_included'][0]['legal']
-        self.assertEqual(len(legal), 1)
-        self.assertEqual(legal[0]['label'], 'example legal')
-        self.assertEqual(legal[0]['description'], 'example legal description')
-
-        self.assertEqual(len(legal[0]['clauses']), 2)
-
-        for clause in legal[0]['clauses']:
-
-            if clause['name'] == 'example clause 1':
-                self.assertEqual(clause['name'], 'example clause 1')
-                self.assertEqual(clause['text'], 'example text 1')
-            else:
-                self.assertEqual(clause['name'], 'example clause 2')
-                self.assertEqual(clause['text'], 'example text 2')
-
-        sla = parsed_info['services_included'][0]['sla']
-        self.assertEqual(len(sla), 1)
-        self.assertEqual(sla[0]['name'], 'example service level')
-        self.assertEqual(len(sla[0]['slaExpresions']), 1)
-        self.assertEqual(sla[0]['slaExpresions'][0]['description'], 'example service level description')
-        variables = sla[0]['slaExpresions'][0]['variables']
-        self.assertEqual(len(variables), 1)
-        self.assertEqual(variables[0]['label'], 'Example variable')
-        self.assertEqual(variables[0]['value'], 'example value')
-        self.assertEqual(variables[0]['unit'], 'example unit')
-
-    def test_parse_some_services(self):
-
-        f = open('./wstore/store_commons/test/test_usdl3.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 2)
-
-        for serv in parsed_info['services_included']:
-
-            if serv['name'] == 'Example service 1':
-                self.assertEqual(serv['name'], 'Example service 1')
-                self.assertEqual(serv['short_description'], 'Short description 1')
-                self.assertEqual(serv['long_description'], 'Long description 1')
-                self.assertEqual(serv['version'], '1.0')
-            else:
-                self.assertEqual(serv['name'], 'Example service 2')
-                self.assertEqual(serv['short_description'], 'Short description 2')
-                self.assertEqual(serv['long_description'], 'Long description 2')
-                self.assertEqual(serv['version'], '1.0')
-
-    def test_parse_interaction_protocols(self):
-
-        f = open('./wstore/store_commons/test/test_usdl4.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'Example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-
-        interactions = parsed_info['services_included'][0]['interactions']
-
-        self.assertEqual(len(interactions), 1)
-        self.assertEqual(interactions[0]['title'], 'test protocol')
-        self.assertEqual(interactions[0]['description'], 'test protocol description')
-        self.assertEqual(interactions[0]['technical_interface'], 'http://technicalinterface.com')
-
-        inter = interactions[0]['interactions']
-
-        self.assertEqual(len(inter), 1)
-        self.assertEqual(inter[0]['title'], 'test interaction')
-        self.assertEqual(inter[0]['description'], 'test interaction description')
-        self.assertEqual(inter[0]['interface_operation'], 'http://interfaceoperation.com')
-
-        inputs = inter[0]['inputs']
-
-        self.assertEqual(len(inputs), 1)
-        self.assertEqual(inputs[0]['label'], 'test input')
-        self.assertEqual(inputs[0]['description'], 'test input description')
-        self.assertEqual(inputs[0]['interface_element'], 'http://interfaceelementinput.com')
-
-        outputs = inter[0]['outputs']
-
-        self.assertEqual(len(outputs), 1)
-        self.assertEqual(outputs[0]['label'], 'test output')
-        self.assertEqual(outputs[0]['description'], 'test output description')
-        self.assertEqual(outputs[0]['interface_element'], 'http://interfaceelementoutput.com')
-
-    def test_parse_price_specification(self):
-
-        f = open('./wstore/store_commons/test/test_usdl5.ttl', 'rb')
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-        self.assertEqual(parsed_info['services_included'][0]['version'], '1.0')
-
-        self.assertEqual(len(parsed_info['pricing']['price_plans']), 1)
-        price_plan = parsed_info['pricing']['price_plans'][0]
-
-        self.assertEqual(price_plan['title'], 'Example price plan')
-        self.assertEqual(price_plan['description'], 'Price plan description')
-
-        self.assertEqual(len(price_plan['price_components']), 2)
-
-        for price_com in price_plan['price_components']:
-
-            if price_com['title'] == 'Price component 1':
-                self.assertEqual(price_com['title'], 'Price component 1')
-                self.assertEqual(price_com['description'], 'price component 1 description')
-                self.assertEqual(price_com['value'], '1.0')
-                self.assertEqual(price_com['currency'], 'EUR')
-                self.assertEqual(price_com['unit'], 'single pay')
-            else:
-                self.assertEqual(price_com['title'], 'Price component 2')
-                self.assertEqual(price_com['description'], 'price component 2 description')
-                self.assertEqual(price_com['value'], '1.0')
-                self.assertEqual(price_com['currency'], 'EUR')
-                self.assertEqual(price_com['unit'], 'single pay')
-
-        self.assertEqual(len(price_plan['taxes']), 1)
-        self.assertEqual(price_plan['taxes'][0]['title'], 'Example tax')
-        self.assertEqual(price_plan['taxes'][0]['description'], 'example tax description')
-        self.assertEqual(price_plan['taxes'][0]['value'], '1.0')
-        self.assertEqual(price_plan['taxes'][0]['currency'], 'EUR')
-        self.assertEqual(price_plan['taxes'][0]['unit'], 'percent')
-
-    def test_parse_price_deductions(self):
-
-        f = open('./wstore/store_commons/test/test_usdl6.ttl', 'rb')
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        parsed_info = parser.parse()
-
-        self.assertEqual(parsed_info['pricing']['title'], 'test offering')
-        self.assertEqual(len(parsed_info['services_included']), 1)
-        self.assertEqual(parsed_info['services_included'][0]['name'], 'example service')
-        self.assertEqual(parsed_info['services_included'][0]['short_description'], 'Short description')
-        self.assertEqual(parsed_info['services_included'][0]['long_description'], 'Long description')
-        self.assertEqual(parsed_info['services_included'][0]['version'], '1.0')
-
-        self.assertEqual(len(parsed_info['pricing']['price_plans']), 1)
-        price_plan = parsed_info['pricing']['price_plans'][0]
-
-        self.assertEqual(price_plan['title'], 'Example price plan')
-        self.assertEqual(price_plan['description'], 'Price plan description')
-
-        self.assertEqual(len(price_plan['price_components']), 1)
-        self.assertEqual(len(price_plan['deductions']), 1)
-
-        price_com = price_plan['price_components'][0]
-        self.assertEqual(price_com['title'], 'Price component')
-        self.assertEqual(price_com['description'], 'price component description')
-        self.assertEqual(price_com['value'], '1.0')
-        self.assertEqual(price_com['currency'], 'EUR')
-        self.assertEqual(price_com['unit'], 'single pay')
-
-        deduction = price_plan['deductions'][0]
-        self.assertEqual(deduction['title'], 'Price deduction')
-        self.assertEqual(deduction['description'], 'price deduction description')
-        self.assertEqual(deduction['value'], '1.0')
-        self.assertEqual(deduction['currency'], 'EUR')
-        self.assertEqual(deduction['unit'], 'single pay')
-
-        self.assertEqual(len(price_plan['taxes']), 1)
-        self.assertEqual(price_plan['taxes'][0]['title'], 'Example tax')
-        self.assertEqual(price_plan['taxes'][0]['description'], 'example tax description')
-        self.assertEqual(price_plan['taxes'][0]['value'], '1.0')
-        self.assertEqual(price_plan['taxes'][0]['currency'], 'EUR')
-        self.assertEqual(price_plan['taxes'][0]['unit'], 'percent')
-
-    test_parse_price_deductions.tags = ('fiware-ut-27',)
-
-    def test_parse_invalid_format(self):
-
-        f = open('./wstore/store_commons/test/basic_usdl.ttl', 'rb')
-
-        error = False
-        msg = None
-        try:
-            parser = USDLParser(f.read(), 'text/fail')
-        except Exception, e:
-            error = True
-            msg = e.message
-
-        self.assertTrue(error)
-        self.assertEqual(msg, 'Error the document has not a valid rdf format')
-        f.close()
-
-    def test_parse_no_offering(self):
-
-        f = open('./wstore/store_commons/test/error_usdl1.ttl', 'rb')
-
-        error = False
-        msg = None
-        try:
-            parser = USDLParser(f.read(), 'text/turtle')
-        except Exception, e:
-            error = True
-            msg = e.message
-
-        self.assertTrue(error)
-        self.assertEqual(msg, 'No service offering has been defined')
-        f.close()
-
-    def test_parse_no_services(self):
-
-        f = open('./wstore/store_commons/test/error_usdl2.ttl', 'rb')
-
-        parser = USDLParser(f.read(), 'text/turtle')
-        f.close()
-
-        error = False
-        msg = None
-        try:
-            parser.parse()
-        except Exception, e:
-            error = True
-            msg = e.message
-
-        self.assertTrue(error)
-        self.assertEqual(msg, 'No services included')
-
-
-class USDLValidationTestCase(TestCase):
-
-    tags = ('usdl-validation',)
+    tags = ('middleware', )
 
     def setUp(self):
-        # Create default context
-        site = Site.objects.create(name='Default', domain='http://localhost:8000/')
-        cnt = Context.objects.create(site=site)
+        self.request = MagicMock()
+        self.request.META = {
+            'HTTP_X_NICK_NAME': 'test-user',
+            'HTTP_X_DISPLAY_NAME': 'Test user'
+        }
 
-    def _mock_context(self):
-        cnt = Context.objects.all()[0]
-        cnt.allowed_currencies['default'] = 'EUR'
-        cnt.allowed_currencies['allowed'] = []
-        cnt.allowed_currencies['allowed'].append({
-            'currency': 'EUR',
-            'in_use': True
-        })
-        cnt.save()
+        self._user_model = MagicMock()
+        self._user_inst = MagicMock()
+        self._user_inst.username = 'test-user'
+        self._user_model.objects.get.return_value = self._user_inst
+        self._user_model.objects.create.return_value = self._user_inst
+
+        import wstore.models
+        wstore.models.User = self._user_model
+
+        self._org_model = MagicMock()
+        self._org_instance = MagicMock()
+        self._org_instance.pk = 'org'
+        self._org_model.objects.get.return_value = self._org_instance
+
+        wstore.models.Organization = self._org_model
 
     def tearDown(self):
-        reload(usdlParser)
+        import wstore.models
+        reload(wstore.models)
 
-    def _mock_cnt_curr(self):
-        cnt = Context.objects.all()[0]
-        cnt.allowed_currencies['allowed'] = []
-        cnt.save()
+    def _new_user(self):
+        self._user_model.objects.get.side_effect = Exception('Not found')
 
-    def _mock_cnt_multiple(self):
-        cnt = Context.objects.all()[0]
-        cnt.allowed_currencies['default'] = 'EUR'
-        cnt.allowed_currencies['allowed'] = []
-        cnt.allowed_currencies['allowed'].append({
-            'currency': 'EUR',
-            'in_use': True
-        })
-        cnt.allowed_currencies['allowed'].append({
-            'currency': 'GBP',
-            'in_use': True
-        })
-        cnt.save()
+    def _missing_header(self):
+        self.request.META = {}
+
+    def _missing_token(self):
+        del self.request.META['HTTP_AUTHORIZATION']
+
+    def _invalid_token(self):
+        self.request.META['HTTP_AUTHORIZATION'] = '1234567890abcdf'
+
+    def _missing_email(self):
+        del self.request.META['HTTP_X_EMAIL']
 
     @parameterized.expand([
-        ('basic_validation', './wstore/store_commons/test/val.ttl', ),
-        ('price_comp', './wstore/store_commons/test/val_comp.ttl', _mock_context),
-        ('inv_service', './wstore/store_commons/test/val_serv.ttl', None, False, 'Only a Service included in the offering is supported'),
-        ('inv_currency', './wstore/store_commons/test/val_curr.ttl', _mock_cnt_curr, False, 'A price component contains and invalid or unsupported currency'),
-        ('inv_mut_curr', './wstore/store_commons/test/val_mul_curr.ttl', _mock_cnt_multiple, False, 'All price components must use the same currency'),
-        ('inv_unit', './wstore/store_commons/test/val_unit.ttl', _mock_context, False, 'A price component contains an unsupported unit'),
-        ('inv_value', './wstore/store_commons/test/val_value.ttl', _mock_context, False, 'A price component contains an invalid value')
+        ('basic', 'provider,seller,', True, ['provider']),
+        ('customer', 'customer', False, ['customer']),
+        ('new_user', 'seller', False, ['provider'], _new_user),
+        ('empty', '', False, []),
+        ('missing_header', '', False, [], _missing_header, False, True),
+        ('missing_token', '', False, [], _missing_token, False, True),
+        ('missing_email', '', False, [], _missing_email, False, True),
+        ('invalid_token', '', False, [], _invalid_token, False, True)
     ])
-    def test_usdl_validation(self, name, file_path, mock_context=None, valid_exp=True, msg=None):
+    def test_get_api_user(self, name, roles, staff, expected_roles, side_effect=None, created=False, anonymous=False):
 
-        if mock_context:
-            mock_context(self)
+        self.request.META['HTTP_X_ROLES'] = roles
+        self.request.META['HTTP_AUTHORIZATION'] = 'Bearer 1234567890abcdf'
+        self.request.META['HTTP_X_EMAIL'] = 'user@email.com'
 
-        # Open USDL file
-        f = open(file_path, 'rb')
+        if side_effect is not None:
+            side_effect(self)
 
-        # Validate the USDL
-        valid = validate_usdl(f.read(), 'text/turtle', {})
-        f.close()
+        user = middleware.get_api_user(self.request)
 
-        # Check validation result
-        if valid_exp:
-            self.assertTrue(valid[0])
+        if not anonymous:
+            self.assertEquals(self._user_inst, user)
+
+            # Check user info
+            if not created:
+                self._user_model.objects.get.assert_called_once_with(username='test-user')
+            else:
+                self._user_model.objects.create.assert_called_once_with(username='test-user')
+
+            self.assertEquals(self._user_inst.is_staff, staff)
+
+            self._org_model.objects.get.assert_called_once_with(name='test-user')
+            self.assertEquals([{'organization': 'org', 'roles': expected_roles}], self._user_inst.userprofile.organizations)
+
+            self.assertEquals('user@email.com', self._user_inst.email)
+            self.assertEquals('1234567890abcdf', self._user_inst.userprofile.access_token)
+            self.assertEquals('Test user', self._user_inst.userprofile.complete_name)
+            self.assertEquals('test-user', self._user_inst.userprofile.actor_id)
+
+            self._user_inst.userprofile.save.assert_called_once_with()
+            self._user_inst.save.assert_called_once_with()
+
         else:
-            self.assertFalse(valid[0])
-            self.assertEquals(valid[1], msg)
+            self.assertEquals(AnonymousUser(), user)
 
+
+class RollbackTestCase(TestCase):
+
+    tags = ('rollback', )
+
+    def test_rollback_correct(self):
+        called_method = MagicMock()
+        called_method.return_value = 'Returned'
+
+        wrap = rollback.rollback()
+        wrapper = wrap(called_method)
+
+        ref = MagicMock()
+
+        value = wrapper(ref, 'value')
+
+        called_method.assert_called_once_with(ref, 'value')
+        self.assertEquals('Returned', value)
+        self.assertEquals({
+            'files': [],
+            'models': []
+        }, ref.rollback_logger)
 
     @parameterized.expand([
-        ('open', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'open plan'
-                }]
-            }
-        }, None, True, True),
-        ('open_plans', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'plan_label1'
-                },{
-                    'title': 'plan 2',
-                    'label': 'plan_label2'
-                }]
-            }
-        }, 'For open offerings only a price plan is allowed and must specify free use', False, True),
-        ('open_plan_price', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'plan_label1',
-                    'price_components' : [{
-                        'currency': 'EUR',
-                        'value': '10'
-                    }]
-                }]
-            }
-        }, 'It is not allowed to specify pricing models for open offerings', False, True),
-        ('no_label', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                },{
-                    'title': 'plan 2',
-                }]
-            }
-        }, 'A label is required if there are more than a price plan'),
-        ('label_not_unique', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'plan_label'
-                },{
-                    'title': 'plan 2',
-                    'label': 'plan_label'
-                }]
-            }
-        }, 'The price plan labels must be unique'),
-        ('update_plan_not_unique', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'update'
-                },{
-                    'title': 'plan 2',
-                    'label': 'update'
-                }]
-            }
-        }, 'Only an updating price plan is allowed'),
-        ('dev_plan_not_unique', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'developer'
-                },{
-                    'title': 'plan 2',
-                    'label': 'developer'
-                }]
-            }
-        }, 'Only a developers plan is allowed'),
-        ('no_version', {
-            'services_included': ['service'],
-            'pricing': {
-                'price_plans': [{
-                    'title': 'plan 1',
-                    'label': 'update'
-                },{
-                    'title': 'plan 2',
-                    'label': 'developer'
-                }]
-            }
-        }, 'It is not possible to define an updating plan without a previous version of the offering')
+        ('with_post', True),
+        ('without_post', False),
     ])
-    def test_pricing_validation(self, name, data, msg=None, correct=False, open_=False):
+    def test_rollback_exception(self, name, has_post):
+        model = MagicMock()
 
-        # Mock USDL parser
-        usdlParser.USDLParser = MagicMock()
-        parser = MagicMock()
-        parser.parse.return_value = data
+        post_action = None
+        if has_post:
+            post_action = MagicMock()
 
-        org = Organization.objects.create(name='org')
+        rollback.os = MagicMock()
 
-        usdlParser.USDLParser.return_value = parser
-        valid = usdlParser.validate_usdl('', 'text/turtle', {
-            'organization': org,
-            'name': 'offering',
-            'open': open_
-        })
+        def called_method(ref):
+            ref.rollback_logger['files'].append('/home/test/testfile.pdf')
+            ref.rollback_logger['models'].append(model)
+            raise ValueError('Value error')
 
-        if not correct:
-            self.assertFalse(valid[0])
-            self.assertEquals(valid[1], msg)
-        else:
-            self.assertTrue(valid[0])
+        wrap = rollback.rollback(post_action=post_action)
+        wrapper = wrap(called_method)
 
+        error = False
+        try:
+            wrapper(MagicMock())
+        except ValueError as e:
+            error = True
+            self.assertEquals('Value error', unicode(e))
 
-class FakeParser(USDLParser):
+        self.assertTrue(error)
+        rollback.os.remove.assert_called_once_with('/home/test/testfile.pdf')
+        model.delete.assert_called_once_with()
 
-    def __init__(self, graph):
-        self._graph = graph
-
-
-class PriceFunctionParsingTestCase(TestCase):
-
-    tags = ('usdl-price-func', 'fiware-ut-27')
-
-    def test_price_function_parsing(self):
-
-        # Load price function RDF
-        f = open('wstore/store_commons/test/price_funct_pars.ttl', 'rb')
-        g = rdflib.Graph().parse(data=f.read(), format='n3')
-        # Get price function node
-        price_function = g.subjects(rdflib.RDF.type, rdflib.URIRef('http://spinrdf.org/spin#Function')).next()
-
-        # Avoid constructor checks, not needed for the current test
-        # USDLParser.__init__ = fake_init
-        usdl_parser = FakeParser(g)
-        parsed_function = usdl_parser._parse_function(price_function)
-
-        # Check parsed function
-        self.assertEquals(len(parsed_function['variables']), 2)
-        self.assertEquals(parsed_function['variables']['usage']['label'], 'Usage variable')
-        self.assertEquals(parsed_function['variables']['usage']['type'], 'usage')
-        self.assertEquals(parsed_function['variables']['constant']['label'], 'Constant')
-        self.assertEquals(parsed_function['variables']['constant']['type'], 'constant')
-
-        self.assertEquals(parsed_function['function']['operation'], '+')
-        self.assertEquals(parsed_function['function']['arg1'], 'usage')
-        self.assertEquals(parsed_function['function']['arg2']['operation'], '*')
-        self.assertEquals(parsed_function['function']['arg2']['arg1']['operation'], '*')
-        self.assertEquals(parsed_function['function']['arg2']['arg1']['arg1'], 'constant')
-        self.assertEquals(parsed_function['function']['arg2']['arg1']['arg2'], 'constant')
-        self.assertEquals(parsed_function['function']['arg2']['arg2'], 'usage')
-
-    def test_price_function_exceptions(self):
-
-        # Load testing info
-        usdls = [
-            'wstore/store_commons/test/price_funct_err1.ttl',
-            'wstore/store_commons/test/price_funct_err2.ttl',
-            'wstore/store_commons/test/price_funct_err3.ttl',
-            'wstore/store_commons/test/price_funct_err4.ttl',
-            'wstore/store_commons/test/price_funct_err5.ttl',
-            'wstore/store_commons/test/price_funct_err6.ttl',
-            'wstore/store_commons/test/price_funct_err7.ttl',
-            'wstore/store_commons/test/price_funct_err8.ttl',
-            'wstore/store_commons/test/price_funct_err9.ttl',
-            'wstore/store_commons/test/price_funct_err10.ttl'
-        ]
-        error_messages = [
-            'Only a value is allowed for constants',
-            'Invalid variable type',
-            'Invalid SPARQL method',
-            'Only a bind expression is allowed',
-            'Variable not declared',
-            'Duplicated expression',
-            'Duplicated expression',
-            'Invalid predicate',
-            'An expression must contain an operation per level',
-            'Invalid operation'
-        ]
-        # Test all exceptions that can be raised
-        for i in range(0, 9):
-            # Load price function RDF
-            f = open(usdls[i], 'rb')
-            g = rdflib.Graph().parse(data=f.read(), format='n3')
-            # Get price function node
-            price_function = g.subjects(rdflib.RDF.type, rdflib.URIRef('http://spinrdf.org/spin#Function')).next()
-
-            # Avoid constructor checks, not needed for the current test
-            # USDLParser.__init__ = fake_init
-            usdl_parser = FakeParser(g)
-
-            error = False
-            msg = None
-            try:
-                usdl_parser._parse_function(price_function)
-            except Exception, e:
-                error = True
-                msg = e.message
-
-            self.assertTrue(error)
-            self.assertEquals(msg, 'Invalid price function: ' + error_messages[i])
+        if has_post:
+            post_action.assert_called_once_with()

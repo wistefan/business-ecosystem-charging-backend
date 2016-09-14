@@ -1,113 +1,155 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from decimal import Decimal
+import random
+import string
 
-
-from paypalpy import paypal
-
-from django.contrib.sites.models import Site
+import paypalrestsdk
 
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
+from wstore.ordering.errors import PaymentError
+from wstore.models import Context
 
+# Paypal credentials
+PAYPAL_CLIENT_ID = ''
+PAYPAL_CLIENT_SECRET = ''
+MODE = 'sandbox'  # sandbox or live
 
-# Paypal creadetials
-PAYPAL_USER = ''
-PAYPAL_PASSWD = ''
-PAYPAL_SIGNATURE = ''
-PAYPAL_URL = 'https://api-3t.sandbox.paypal.com/nvp'
-PAYPAL_CHECKOUT_URL='https://www.sandbox.paypal.com/webscr?cmd=_express-checkout'
 
 class PayPalClient(PaymentClient):
 
     _purchase = None
-    _client = None
-    _response = None
+    _checkout_url = None
 
-    def __init__(self, purchase):
-        self._purchase = purchase
-        paypal.SKIP_AMT_VALIDATION = True
-        self._client = paypal.PayPal(PAYPAL_USER, PAYPAL_PASSWD, PAYPAL_SIGNATURE, PAYPAL_URL)
+    def __init__(self, order):
+        self._order = order
+        # Configure API connection
+        paypalrestsdk.configure({
+            "mode": MODE,
+            "client_id": PAYPAL_CLIENT_ID,
+            "client_secret": PAYPAL_CLIENT_SECRET
+        })
 
-    def _get_country_code(self, country):
+    def start_redirection_payment(self, transactions):
 
-        country_code = None
-        # Get country code
-        for cc in paypal.COUNTRY_CODES:
-            if cc[1].lower() == country.lower():
-                country_code = cc[0]
-                break
-
-        return country_code
-
-    def start_redirection_payment(self, price, currency):
-        # Set express checkout
-        url = Site.objects.all()[0].domain
+        # Build URL
+        url = Context.objects.all()[0].site.domain
         if url[-1] != '/':
             url += '/'
 
-        try:
-            self._response = self._client.SetExpressCheckout(
-                paymentrequest_0_paymentaction='Sale',
-                paymentrequest_0_amt=price,
-                paymentrequest_0_currencycode=currency,
-                returnurl=url + 'api/contracting/' + self._purchase.ref + '/accept',
-                cancelurl=url + 'api/contracting/' + self._purchase.ref + '/cancel',
-            )
+        # Build payment object
+        payment = paypalrestsdk.Payment({
+            'intent': 'sale',
+            'payer': {
+                'payment_method': 'paypal'
+            },
+            'redirect_urls': {
+                'return_url': url + 'payment?action=accept&ref=' + self._order.pk,
+                'cancel_url': url + 'payment?action=cancel&ref=' + self._order.pk
+            },
+            'transactions': [{
+                'amount': {
+                    'total': unicode(t['price']),
+                    'currency': t['currency']
+                },
+                'description': t['description']
+            } for t in transactions]
+        })
 
-        except Exception, e:
-            raise Exception('Error while creating payment: ' + e.value[0])
+        # Create Payment
+        if not payment.create():
+
+            # Check if the error is due to a problem supporting multiple transactions
+            details = payment.error['details']
+            if len(transactions) > 1 and len(details) == 1 and \
+                    details[0]['issue'] == 'Only single payment transaction currently supported':
+
+                # Aggregate transactions in a single payment if possible
+                current_curr = transactions[0]['currency']
+                total = Decimal('0')
+                items = ''
+
+                for t in transactions:
+                    # Only if all the transactions have the same currency they can be aggregated
+                    if t['currency'] != current_curr:
+                        break
+
+                    total += Decimal(t['price'])
+                    items += t['item'] + ':' + t['price'] + '<' + t['description'] + '>'
+                else:
+                    msg = 'All your order items have been aggregated, since PayPal is not able '
+                    msg += 'to process multiple transactions in this moment.                   '
+                    msg += 'Order composed of the following items ' + items
+
+                    self.start_redirection_payment([{
+                        'price': unicode(total),
+                        'currency': current_curr,
+                        'description': msg
+                    }])
+                    return
+
+            raise PaymentError("The payment cannot be created: " + details[0]["issue"])
+
+        # Extract URL where redirecting the customer
+        response = payment.to_dict()
+        for l in response['links']:
+            if l['rel'] == 'approval_url':
+                self._checkout_url = l['href']
+                break
 
     def direct_payment(self, currency, price, credit_card):
-
-        country_code = self._get_country_code(self._purchase.tax_address['country'])
-
-        if country_code == None:
-            raise Exception('Country not recognized')
-        try:
-            self._response = self._client.DoDirectPayment(
-                paymentaction='Sale',
-                ipaddress='192.168.1.1',
-                creditcardtype=credit_card['type'],
-                acct=credit_card['number'],
-                expdate=paypal.ShortDate(int(credit_card['expire_year']), int(credit_card['expire_month'])),
-                cvv2=credit_card['cvv2'],
-                firstname=self._purchase.customer.first_name,
-                lastname=self._purchase.customer.last_name,
-                street=self._purchase.tax_address['street'],
-                state='mad',
-                city=self._purchase.tax_address['city'],
-                countrycode=country_code,
-                zip=self._purchase.tax_address['postal'],
-                amt=price,
-                currencycode=currency
-            )
-        except Exception, e:
-            raise Exception('Error while creating payment: ' + e.value[0])
+        pass
 
     def end_redirection_payment(self, token, payer_id):
-        self._client.DoExpressCheckoutPayment(
-            paymentrequest_0_paymentaction='Sale',
-            paymentrequest_0_amt=self._purchase.contract.pending_payment['price'],
-            paymentrequest_0_currencycode='EUR',
-            token=token,
-            payerid=payer_id
-        )
+        payment = paypalrestsdk.Payment.find(token)
+
+        if not payment.execute({"payer_id": payer_id}):
+            raise PaymentError("The payment cannot be executed: " + payment.error)
+
+        sales_ids = []
+        response = payment.to_dict()
+        for t in response['transactions']:
+            for r in t['related_resources']:
+                sales_ids.append(r['sale']['id'])
+
+        return sales_ids
+
+    def refund(self, sale_id):
+        sale = paypalrestsdk.Sale.find(sale_id)
+
+        if not sale.refund({}):
+            raise PaymentError("The refund cannot be completed: " + sale.error)
 
     def get_checkout_url(self):
-        return PAYPAL_CHECKOUT_URL + '&token=' + self._response['TOKEN'][0]
+        return self._checkout_url
+
+    def batch_payout(self, payouts):
+        sender_batch_id = ''.join(random.choice(string.ascii_uppercase) for i in range(12))
+        payout = paypalrestsdk.Payout({
+            "sender_batch_header": {
+                "sender_batch_id": sender_batch_id,
+                "email_subject": "You have a payment"
+            },
+            "items": payouts
+        })
+
+        return payout, payout.create()
+

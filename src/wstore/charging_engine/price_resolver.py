@@ -1,155 +1,118 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
-# This file is part of WStore.
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
 
-# WStore is free software: you can redistribute it and/or modify
-# it under the terms of the European Union Public Licence (EUPL)
-# as published by the European Commission, either version 1.1
-# of the License, or (at your option) any later version.
-
-# WStore is distributed in the hope that it will be useful,
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# European Union Public Licence for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# You should have received a copy of the European Union Public Licence
-# along with WStore.
-# If not, see <https://joinup.ec.europa.eu/software/page/eupl/licence-eupl>.
+from __future__ import unicode_literals
+
+from decimal import Decimal
 
 
-class PriceResolver():
+class PriceResolver:
 
     _applied_sdrs = None
 
     def __init__(self):
-        self._applied_sdrs = {
-            'charges': [],
-            'deductions': []
-        }
+        self._applied_sdrs = []
+        self._alteration_applied = False
 
-    def _price_function_calculation(self, function, variables):
-        """
-            It calculates the value of a price function
-            using the provided function value extracted
-            from the different SDR documents
-       """
-       
-        # Get arguments
-        if type(function['arg1']) == str or type(function['arg1']) == unicode:
-            arg1 = variables[function['arg1']]
-        elif type(function['arg1']) == dict:
-            arg1 = self._price_function_calculation(function['arg1'], variables)
-        else:
-            raise Exception('Invalid argument 1')
-
-        if type(function['arg2']) == str or type(function['arg2']) == unicode:
-            arg2 = variables[function['arg2']]
-        elif type(function['arg2']) == dict:
-            arg2 = self._price_function_calculation(function['arg2'], variables)
-        else:
-            raise Exception('Invalid argument 2')
-
-        result = 0
-        # Make operation
-        if function['operation'] == '+':
-            result = arg1 + arg2
-        elif function['operation'] == '-':
-            result = arg1 - arg2
-        elif function['operation'] == '*':
-            result = arg1 * arg2
-        elif function['operation'] == '/':
-            result = arg1 / arg2
-        else:
-            raise Exception('Unsupported operation')
-
-        return result
-
-    def _resolve_price_function(self, function, accounting):
-        """
-           Aggregates the accounting information in the 
-           different variables present in a price function
-           in order to calculate the related charging
-       """
-
-        function = function['price_function']
-        # Map price variables id with SDR documents
-        aggregated_accounting_val = {}
-        for k, v in function['variables'].iteritems():
-
-            if v['type'] == 'usage':
-                aggregated_accounting_val[k] = []
-
-                for sdr in accounting:
-                    if sdr['component_label'].lower() == v['label'].lower():
-                        aggregated_accounting_val[k].append(sdr)
-            else:
-                aggregated_accounting_val[k] = float(v['value'])
-
-        # Reduce accounting info to a single value per price variable
-        for k in aggregated_accounting_val:
-            usage = 0
-            # Avoid iterations over constants
-            if type(aggregated_accounting_val[k]) == list:
-                for value in aggregated_accounting_val[k]:
-                    usage += float(value['value'])
-
-                aggregated_accounting_val[k] = usage
-
-        return self._price_function_calculation(function['function'], aggregated_accounting_val)
-
-    def _resolve_pay_per_use_agregation(self, component, accounting):
-        """
-           Resolves the charging of pay per use component based
-           on a fixed use value
-       """
-
-        result = 0
-        for sdr in accounting:
-            # Calculate and aggregate price based on value per consumption
-            result += (float(sdr['value']) * float(component['value']))
-
-        return result
-
-    def _pay_per_use_preprocesing(self, use_models, accounting_info, discount=False):
+    def _pay_per_use_preprocesing(self, use_models, accounting_info):
         """
            Process pay-per-use payments and call the corresponding
            price calculator
        """
 
-        price = 0
-        for payment in use_models: # TODO check if the payment can be applied
-            related_accounting = []
-            # Check price function
-            if 'price_function' in payment:
-                for sdr in accounting_info:
-                    # Iterate over price variables
-                    for k, var in payment['price_function']['variables'].iteritems():
-                        if var['label'].lower() == sdr['component_label'].lower():
-                            related_accounting.append(sdr)
-                agregator = self._resolve_price_function
-            else:
-                # Get the related accounting info
-                for sdr in accounting_info:
-                    if sdr['unit'].lower() == payment['unit'].lower():
-                        related_accounting.append(sdr)
+        price = Decimal('0')
+        duty_free = Decimal('0')
 
-                agregator = self._resolve_pay_per_use_agregation
+        for component in use_models:
+            related_accounting = []
+
+            # Get the related accounting info
+            partial_price = Decimal('0')
+            partial_duty_free = Decimal('0')
+
+            for sdr in accounting_info:
+                if sdr['unit'].lower() == component['unit'].lower():
+                    sdr_info = {
+                        'usage_id': sdr['usage_id'],
+                        'value': sdr['value']
+                    }
+                    comp_price = (Decimal(sdr['value']) * Decimal(component['value']))
+                    partial_price += comp_price
+                    sdr_info['price'] = unicode(comp_price)
+
+                    comp_duty_free = (Decimal(sdr['value']) * Decimal(component['duty_free']))
+                    partial_duty_free += comp_duty_free
+                    sdr_info['duty_free'] = unicode(comp_duty_free)
+
+                    # Save the information of the SDR document which is needed for further precessing
+                    related_accounting.append(sdr_info)
 
             # Include the applied SDRs
-            price += agregator(payment, related_accounting)
-            applied_accounting = {
-                'model': payment,
+            self._applied_sdrs.append({
+                'model': component,
                 'accounting': related_accounting,
-                'price': price
-            }
-            if discount:
-                self._applied_sdrs['deductions'].append(applied_accounting)
-            else:
-                self._applied_sdrs['charges'].append(applied_accounting)
+                'price': unicode(partial_price),
+                'duty_free': unicode(partial_duty_free)
+            })
 
-        return price
+            price += partial_price
+            duty_free += partial_duty_free
+
+        return price, duty_free
+
+    def is_altered(self):
+        return self._alteration_applied
+
+    def _process_alteration(self, alteration, price, duty_free):
+        # Check if there is a condition
+        partial_price, partial_duty = Decimal(0), Decimal(0)
+        self._alteration_applied = True
+
+        if 'condition' in alteration:
+            condition_handlers = {
+                'eq': price.__eq__,
+                'lt': price.__lt__,
+                'gt': price.__gt__,
+                'le': price.__le__,
+                'ge': price.__ge__,
+            }
+            op = alteration['condition']['operation']
+            value = alteration['condition']['value']
+
+            self._alteration_applied = condition_handlers[op](Decimal(value))
+
+        if self._alteration_applied:
+            # Check if the alteration is a percentage or a fixed value
+            if isinstance(alteration['value'], dict):
+                partial_price = Decimal(alteration['value']['value'])
+                partial_duty = Decimal(alteration['value']['duty_free'])
+            else:
+                partial_price = (Decimal(alteration['value']) * price) / Decimal('100')
+                partial_duty = (Decimal(alteration['value']) * duty_free) / Decimal('100')
+
+            # Check if the alteration is a discount
+            if alteration['type'] == 'discount':
+                partial_price *= Decimal('-1')
+                partial_duty *= Decimal('-1')
+
+        return partial_price, partial_duty
 
     def get_applied_sdr(self):
         """
@@ -164,27 +127,41 @@ class PriceResolver():
            model and accounting info.
        """
 
-        price = 0
+        price = Decimal('0')
+        duty_free = Decimal('0')
         # Check the pricing model
         if 'single_payment' in pricing_model:
             for payment in pricing_model['single_payment']:
-                price = price + float(payment['value'])
+                price += Decimal(payment['value'])
+                duty_free += Decimal(payment['duty_free'])
 
         if 'subscription' in pricing_model:
             for payment in pricing_model['subscription']:
-                price = price + float(payment['value'])
+                price += Decimal(payment['value'])
+                duty_free += Decimal(payment['duty_free'])
 
         if 'pay_per_use' in pricing_model:
             # Calculate the payment associated with the price component
-            price = price + self._pay_per_use_preprocesing(pricing_model['pay_per_use'], accounting_info)
+            partial_price, partial_duty_free = self._pay_per_use_preprocesing(
+                pricing_model['pay_per_use'], accounting_info)
 
-        if 'deductions' in pricing_model:
-            # Calculate deductions
-            price = price - self._pay_per_use_preprocesing(pricing_model['deductions'], accounting_info, discount=True)
+            price += partial_price
+            duty_free += partial_duty_free
+
+        # Apply price alterations if existing
+        if 'alteration' in pricing_model:
+            partial_price, partial_duty_free = self._process_alteration(pricing_model['alteration'], price, duty_free)
+
+            price += partial_price
+            duty_free += partial_duty_free
 
         # If the price is negative i.e too much deductions
         # the value is set to 0
-        if price < 0:
-            price = 0
+        if price < Decimal('0'):
+            price = Decimal('0')
 
-        return price
+        # The result must contain two decimal places
+        price = price.quantize(Decimal('10') ** -2)
+        duty_free = duty_free.quantize(Decimal('10') ** -2)
+
+        return unicode(price), unicode(duty_free)
