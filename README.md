@@ -27,7 +27,7 @@ In this context, the Business Ecosystem Charging Backend is the component in cha
 The Business Ecosystem Charging Backend is installed as part of the Business API Ecosystem, so the instructions to install it can be found at [the Business API Ecosystem Installation Guide](http://business-api-ecosystem.readthedocs.io/en/latest/installation-administration-guide.html). You can install the software in three different ways:
 
 * Using the provided script
-* Using a [Docker Container]()
+* Using a [Docker Container](https://hub.docker.com/r/conwetlab/biz-ecosystem-charging-backend/)
 * Manually
 
 # API Reference
