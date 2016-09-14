@@ -1,6 +1,6 @@
 FROM python:2.7
 
-RUN apt-get update && apt-get install -y mongodb python-pip git wkhtmltopdf xvfb python-dev
+RUN apt-get update && apt-get install -y --fix-missing  mongodb python-pip git wkhtmltopdf xvfb python-dev
 
 RUN git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git
 

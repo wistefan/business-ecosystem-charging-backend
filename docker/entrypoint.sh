@@ -40,16 +40,16 @@ mongod &
 
 sleep 15
 
-sed -i "s|PAYPAL_CLIENT_ID = [\w-]*|PAYPAL_CLIENT_ID = $PAYPAL_CLIENT_ID|g" ./wstore/charging_engine/payment_client/paypal_client.py
+sed -i "s|PAYPAL_CLIENT_ID = ''|PAYPAL_CLIENT_ID = '$PAYPAL_CLIENT_ID'|g" ./wstore/charging_engine/payment_client/paypal_client.py
 
-sed -i "s|PAYPAL_CLIENT_SECRET = [\w-]*|PAYPAL_CLIENT_SECRET = $PAYPAL_CLIENT_SECRET|g" ./wstore/charging_engine/payment_client/paypal_client.py
+sed -i "s|PAYPAL_CLIENT_SECRET = ''|PAYPAL_CLIENT_SECRET = '$PAYPAL_CLIENT_SECRET'|g" ./wstore/charging_engine/payment_client/paypal_client.py
 
 
-sed -i "s|WSTOREMAIL = <email>|WSTOREMAIL = $WSTOREMAIL|g" ./settings.py
+sed -i "s|WSTOREMAIL = 'wstore_email'|WSTOREMAIL = '$WSTOREMAIL'|g" ./settings.py
 
-sed -i "s|WSTOREMAILUSER = <mail_user|WSTOREMAILUSER = $WSTOREMAILUSER|g" ./settings.py
+sed -i "s|WSTOREMAILUSER = 'email_user'|WSTOREMAILUSER = '$WSTOREMAILUSER'|g" ./settings.py
 
-sed -i "s|WSTOREMAILPASS = <email_passwd>|WSTOREMAILPASS = $WSTOREMAILPASS|g" ./settings.py
+sed -i "s|WSTOREMAILPASS = 'wstore_email_passwd'|WSTOREMAILPASS = '$WSTOREMAILPASS'|g" ./settings.py
 
 sed -i "s|PAYMENT_METHOD = None|PAYMENT_METHOD = 'paypal'|g" ./settings.py
 
@@ -67,4 +67,5 @@ sed -i "s|AUTHORIZE_SERVICE = 'http://localhost:8004/authorizeService/apiKeys'|A
 
 python /entrypoint.py
 
-python ./manage.py runserver 8004
+echo "Starting charging server"
+python ./manage.py runserver 0.0.0.0:8004

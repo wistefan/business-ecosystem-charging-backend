@@ -22,6 +22,7 @@ while not connected and i < 20:
         i += 1
         dbNames = db.collection_names()
         connected = True
+        print("\nConnection correct\n")
     except:
         pass
 
@@ -31,6 +32,7 @@ if not connected:
 
 try:
     if "site" not in dbNames:
+        print("\nCreating external site\n")
         system("/business-ecosystem-charging-backend/src/manage.py createsite external {}:{}".format(getenv("BIZ_ECOSYS_HOST"), getenv("BIZ_ECOSYS_PORT")))
 except:
     print("ERROR CREATESITE EXTERNAL")
@@ -38,6 +40,7 @@ except:
 
 try:
     if "local_site" not in db.collection_names():
+        print("\nCreating localsite site\n")
         system("/business-ecosystem-charging-backend/src/manage.py createsite internal http://127.0.0.1:8004")
 except:
     print("ERROR CREATESITE INTERNAL")
