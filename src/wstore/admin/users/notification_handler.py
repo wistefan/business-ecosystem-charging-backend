@@ -86,6 +86,10 @@ class NotificationsHandler:
 
         self._send_email(recipients, msg)
 
+    def extract_bills_paths(self, order):
+        return [charge.invoice[10:] if charge.invoice.startswith("/charging/") else charge.invoice
+                for contract in order.contracts for charge in contract.charges]
+
     def send_acquired_notification(self, order):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
@@ -102,7 +106,7 @@ class NotificationsHandler:
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
 
-        bills = [charge.invoice for contract in order.contracts for charge in contract.charges]
+        bills = self.extract_bills_paths(order)
 
         self._send_multipart_email(text, recipients, 'Product order accepted', bills)
 
@@ -168,7 +172,7 @@ class NotificationsHandler:
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
 
-        bills = [charge.invoice for contract in order.contracts for charge in contract.charges]
+        bills = self.extract_bills_paths(order)
 
         self._send_multipart_email(text, recipients, 'Product order accepted', bills[-len(transactions):])
 

@@ -40,7 +40,7 @@ OWNER_NAME = 'owner-user'
 
 BASEDIR = '/home/test'
 BILL_ROOT = '/home/test/media/invoices'
-MEDIA_DIR = 'media/'
+MEDIA_URL = '/charging/media/'
 
 TAX = {
     'street': 'street',
@@ -314,7 +314,7 @@ class InvoiceBuilderTestCase(TestCase):
         invoice_builder.Context = MagicMock()
         invoice_builder.settings.BILL_ROOT = BILL_ROOT
         invoice_builder.settings.BASEDIR = BASEDIR
-        invoice_builder.settings.MEDIA_DIR = MEDIA_DIR
+        invoice_builder.settings.MEDIA_URL = MEDIA_URL
 
         invoice_builder.codecs = MagicMock()
         self._file_handler = MagicMock()
@@ -352,7 +352,7 @@ class InvoiceBuilderTestCase(TestCase):
         # Validate Path
         invoice_name = "{}_{}_{}_2.pdf".format(self._order.pk, self._contract.item_id, TIMESTAMP.split()[0])
 
-        exp_path = MEDIA_DIR + 'bills/' + invoice_name
+        exp_path = MEDIA_URL + 'bills/' + invoice_name
         html_path = BILL_ROOT + '/' + invoice_name.replace('_2.pdf', '.html')
 
         self.assertEquals(exp_path, invoice_path)
