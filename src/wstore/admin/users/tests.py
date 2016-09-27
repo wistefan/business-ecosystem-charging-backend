@@ -278,7 +278,7 @@ class NotificationsTestCase(TestCase):
 
         # Mock charges
         charge1 = MagicMock()
-        charge1.invoice = 'media/bills/bill1.pdf'
+        charge1.invoice = '/charging/media/bills/bill1.pdf'
 
         # Mock contracts
         contract1 = MagicMock()
