@@ -83,15 +83,15 @@ class ResourceRetrievingTestCase(TestCase):
 
     @parameterized.expand([
         ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
-        ([RESOURCE_DATA1], {"offset": 0, "page": 1}),
-        ([RESOURCE_DATA2, RESOURCE_DATA3], {"offset": 1, "page": 2}),
+        ([RESOURCE_DATA1], {"offset": 0, "size": 1}),
+        ([RESOURCE_DATA2, RESOURCE_DATA3], {"offset": 1, "size": 2}),
         ([], {"offset": 5}, ValueError, "Missing required parameter in pagination"),
-        ([], {"page": 8}, ValueError, "Missing required parameter in pagination"),
-        ([], {"offset": -1, "page": 8}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": 1, "page": 0}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": 5, "page": -1}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": -6, "page": 2}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": -1, "page": 0}, ValueError, "Invalid pagination limits")
+        ([], {"size": 8}, ValueError, "Missing required parameter in pagination"),
+        ([], {"offset": -1, "size": 8}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": 1, "size": 0}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": 5, "size": -1}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": -6, "size": 2}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": -1, "size": 0}, ValueError, "Invalid pagination limits")
     ])
     def test_resource_retrieving(self, expected_result, pagination=None, err_type=None, err_msg=None):
 

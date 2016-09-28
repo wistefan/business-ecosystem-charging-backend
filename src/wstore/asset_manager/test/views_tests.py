@@ -112,7 +112,7 @@ class AssetCollectionTestCase(TestCase):
             'version': '1.0'
         }], None, 200, None, {
             'offset': '1',
-            'page': '1'
+            'size': '1'
         }),
         ([], _anonymous, 401, 'Authentication required'),
         ([], _call_exception, 400, 'Getting resources error')
@@ -127,7 +127,7 @@ class AssetCollectionTestCase(TestCase):
         path = '/api/offering/resources'
 
         if pagination is not None:
-            path += '?offset=' + pagination['offset'] + '&page=' + pagination['page']
+            path += '?offset=' + pagination['offset'] + '&size=' + pagination['size']
 
         if user is not None:
             path += "{}user={}".format("&" if "?" in path else "?", user)

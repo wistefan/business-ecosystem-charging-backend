@@ -165,10 +165,10 @@ class AssetManager:
 
     def get_provider_assets_info(self, provider, pagination=None):
 
-        if pagination and ('offset' not in pagination or 'page' not in pagination):
+        if pagination and ('offset' not in pagination or 'size' not in pagination):
             raise ValueError('Missing required parameter in pagination')
 
-        if pagination and (not int(pagination['offset']) >= 0 or not int(pagination['page']) > 0):
+        if pagination and (not int(pagination['offset']) >= 0 or not int(pagination['size']) > 0):
             raise ValueError('Invalid pagination limits')
 
         response = []
@@ -177,7 +177,7 @@ class AssetManager:
 
         if pagination:
             x = int(pagination['offset'])
-            y = x + int(pagination['page'])
+            y = x + int(pagination['size'])
 
             resources = resources[x:y]
 

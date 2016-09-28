@@ -51,9 +51,9 @@ class AssetCollection(Resource):
 
         pagination = {
             'offset': request.GET.get('offset', None),
-            'page': request.GET.get('page', None)
+            'size': request.GET.get('size', None)
         }
-        if pagination['offset'] is None or pagination['page'] is None:
+        if pagination['offset'] is None or pagination['size'] is None:
             pagination = None
 
         if user is None:
