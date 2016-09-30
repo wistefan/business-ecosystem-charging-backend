@@ -294,7 +294,11 @@ class AssetCollectionTestCase(TestCase):
         else:
             content = json.dumps(data)
 
-        self.am_instance.upload_asset.return_value = 'http://locationurl.com/'
+        resource = MagicMock()
+        resource.pk = "123456"
+        resource.get_url.return_value = 'http://locationurl.com/'
+        resource.get_uri.return_value = 'http://uri.com/'
+        self.am_instance.upload_asset.return_value = resource
 
         def validator(request, body_response):
             if not error:
@@ -306,7 +310,9 @@ class AssetCollectionTestCase(TestCase):
                     self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
                 self.assertEquals(body_response, {
                     'contentType': 'application/zip',
-                    'content': 'http://locationurl.com/'
+                    'content': 'http://locationurl.com/',
+                    'id': '123456',
+                    'href': 'http://uri.com/'
                 })
             else:
                 self.assertEqual(body_response, {

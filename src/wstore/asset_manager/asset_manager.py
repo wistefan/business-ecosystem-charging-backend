@@ -141,7 +141,7 @@ class AssetManager:
         resource_data, current_organization = self._load_resource_info(provider, data, file_=file_)
         resource = self._create_resource_model(current_organization, resource_data)
 
-        return resource.get_url()
+        return resource
 
     def get_resource_info(self, resource):
         return {

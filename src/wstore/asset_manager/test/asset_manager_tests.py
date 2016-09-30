@@ -166,6 +166,7 @@ class UploadAssetTestCase(TestCase):
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
         self.res_mock.get_url.return_value = "http://locationurl.com/"
+        self.res_mock.get_uri.return_value = "http://uri.com/"
         asset_manager.Resource.objects.create.return_value = self.res_mock
         asset_manager.Resource.objects.get.return_value = self.res_mock
 
@@ -223,7 +224,7 @@ class UploadAssetTestCase(TestCase):
 
         error = None
         try:
-            location = am.upload_asset(self._user, data, file_=self._file)
+            resource = am.upload_asset(self._user, data, file_=self._file)
         except Exception as e:
             error = e
 
@@ -232,7 +233,9 @@ class UploadAssetTestCase(TestCase):
             self.assertTrue(error is None)
 
             # Check calls
-            self.assertEquals("http://locationurl.com/", location)
+            self.assertEquals(self.res_mock, resource)
+            self.assertEquals("http://locationurl.com/", resource.get_url())
+            self.assertEqual("http://uri.com/", resource.get_uri())
             asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
             asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
             self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")

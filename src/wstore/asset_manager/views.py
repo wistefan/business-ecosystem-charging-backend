@@ -141,21 +141,25 @@ class UploadCollection(Resource):
         try:
             if content_type == 'application/json':
                 data = json.loads(request.body)
-                location = asset_manager.upload_asset(user, data)
+                resource = asset_manager.upload_asset(user, data)
             else:
                 data = json.loads(request.POST['json'])
                 f = request.FILES['file']
-                location = asset_manager.upload_asset(user, data, file_=f)
+                resource = asset_manager.upload_asset(user, data, file_=f)
 
         except ConflictError as e:
             return build_response(request, 409, unicode(e))
         except Exception as e:
             return build_response(request, 400, unicode(e))
 
+        location = resource.get_url()
+
         # Fill location header with the URL of the uploaded digital asset
         response = HttpResponse(json.dumps({
             'content': location,
-            'contentType': data['contentType']
+            'contentType': data['contentType'],
+            'id': resource.pk,
+            'href': resource.get_uri()
         }), status=200, mimetype='application/json; charset=utf-8')
 
         response['Location'] = location
