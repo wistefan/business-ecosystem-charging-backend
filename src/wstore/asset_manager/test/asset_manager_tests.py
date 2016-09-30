@@ -128,6 +128,23 @@ class ResourceRetrievingTestCase(TestCase):
 
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
+    @parameterized.expand([
+        ('basic', [RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4])
+    ])
+    def test_assets_from_product(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
+        if side_effect is not None:
+            side_effect(self)
+
+        error = None
+        result = None
+        try:
+            am = asset_manager.AssetManager()
+            result = am.get_product_assets('123')
+        except Exception as e:
+            error = e
+
+        asset_manager.Resource.objects.filter.assert_called_once_with(product_id='123')
+        self.validate_response(result, expected_result, error, err_type, err_msg)
 
 class UploadAssetTestCase(TestCase):
 

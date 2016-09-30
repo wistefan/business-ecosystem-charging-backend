@@ -163,6 +163,11 @@ class AssetManager:
 
         return self.get_resource_info(asset)
 
+    def get_product_assets(self, product_id):
+        assets = Resource.objects.filter(product_id=product_id)
+
+        return [self.get_resource_info(asset) for asset in assets]
+
     def get_provider_assets_info(self, provider, pagination=None):
 
         if pagination and ('offset' not in pagination or 'size' not in pagination):

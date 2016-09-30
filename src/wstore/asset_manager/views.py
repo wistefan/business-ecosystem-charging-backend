@@ -99,6 +99,26 @@ class AssetEntry(Resource):
         return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
 
 
+class AssetEntryFromProduct(Resource):
+    def read(selg, request, product_id):
+        """
+        Retrieves the assets from a product
+        :param request:
+        :param id:
+        :return:
+        """
+
+        try:
+            asset_manager = AssetManager()
+            response = asset_manager.get_product_assets(product_id)
+        except PermissionDenied as e:
+            return build_response(request, 403, unicode(e))
+        except:
+            return build_response(request, 500, 'An unexpected error occurred')
+
+        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
+
+
 class UploadCollection(Resource):
 
     @supported_request_mime_types(('application/json', 'multipart/form-data'))

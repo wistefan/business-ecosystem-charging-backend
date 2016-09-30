@@ -205,6 +205,37 @@ class AssetCollectionTestCase(TestCase):
         else:
             self.assertEquals(self.am_instance.get_asset_info.call_count, 0)
 
+    def _call_exception_product(self):
+        self.am_instance.get_product_assets.side_effect = Exception("Getting resources error")
+
+    @parameterized.expand([
+        ('basic', [{'id': '2345'}], 200),
+        ('exception', {
+            'error': 'An unexpected error occurred',
+            'result': 'error'
+        }, 500, _call_exception_product)
+    ])
+    def test_get_assets_product(self, name, exp_value, exp_code, side_effect=None, called=True):
+        resource_entry = views.AssetEntryFromProduct(permitted_methods=('GET',))
+        self.am_instance.get_product_assets.return_value = exp_value
+
+        if side_effect is not None:
+            side_effect(self)
+
+        request = self.factory.get('/charging/api/assetsManagement/assets/product/111', HTTP_ACCEPT='application/json')
+
+        response = resource_entry.read(request, '111')
+        self.assertEquals(response.status_code, exp_code)
+        self.assertEquals(response.get('Content-type'), 'application/json; charset=utf-8')
+
+        body_response = json.loads(response.content)
+        self.assertEquals(body_response, exp_value)
+
+        if called:
+            self.am_instance.get_product_assets.assert_called_once_with('111')
+        else:
+            self.assertEquals(self.am_instance.get_product_assets.call_count, 0)
+
     def _creation_exception(self):
         self.am_instance.upload_asset.side_effect = Exception('Resource creation exception')
 
