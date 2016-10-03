@@ -146,3 +146,7 @@ class OfferingValidator(CatalogValidator):
         bundled_offerings = self._get_bundled_offerings(product_offering)
         self._validate_offering_pricing(provider, product_offering, bundled_offerings)
         self._build_offering_model(provider, product_offering, bundled_offerings)
+
+    def validate_update(self, provider, product_offering):
+        bundled_offerings = self._get_bundled_offerings(product_offering)
+        self._validate_offering_pricing(provider, product_offering, bundled_offerings)
