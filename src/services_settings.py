@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 
+CATALOG = 'http://localhost:8080/DSProductCatalog'
 INVENTORY = 'http://localhost:8080/DSProductInventory'
 ORDERING = 'http://localhost:8080/DSProductOrdering'
 BILLING = 'http://localhost:8080/DSBillingManagement'
