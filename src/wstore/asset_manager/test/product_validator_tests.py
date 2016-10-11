@@ -153,6 +153,26 @@ class ValidatorTestCase(TestCase):
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(err_msg, unicode(e))
 
+    def test_validate_detached(self):
+        self._mock_validator_imports(product_validator)
+        self._plugin_instance.formats = ["URL"]
+
+        res1 = MagicMock(product_id=None)
+        res2 = MagicMock(product_id=None)
+        product_validator.Resource.objects.filter.return_value = [res1, res2]
+
+        validator = product_validator.ProductValidator()
+        validator.validate('create', self._provider, BASIC_PRODUCT['product'])
+
+        res1.delete.assert_called_once_with()
+        res2.delete.assert_called_once_with()
+        product_validator.Resource.objects.create.assert_called_once_with(
+            resource_path='',
+            download_link=PRODUCT_LOCATION,
+            provider=self._provider,
+            content_type='application/x-widget'
+        )
+
     def _non_digital(self):
         return [[], []]
 
@@ -299,6 +319,7 @@ class ValidatorTestCase(TestCase):
         ('no_digital_chars', EMPTY_CHARS_PRODUCT)
     ])
     def test_validate_physical(self, name, product):
+        self._mock_validator_imports(product_validator)
         validator = product_validator.ProductValidator()
         validator.validate('create', self._provider, product)
 
