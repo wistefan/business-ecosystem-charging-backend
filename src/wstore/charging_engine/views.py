@@ -182,7 +182,7 @@ class PayPalConfirmation(Resource):
             order.save()
 
             charging_engine = ChargingEngine(order)
-            charging_engine.end_charging(transactions, concept)
+            charging_engine.end_charging(transactions, pending_info['free_contracts'], concept)
 
         except Exception as e:
 
