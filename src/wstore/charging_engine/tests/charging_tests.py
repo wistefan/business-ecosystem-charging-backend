@@ -1361,7 +1361,7 @@ class SDRCollectionTestCase(TestCase):
 
 class PayPalRefundTestCase(TestCase):
 
-    tags = ('ordering', 'paypal-conf')
+    tags = ('ordering', 'refund')
 
     def setUp(self):
 
@@ -1382,16 +1382,11 @@ class PayPalRefundTestCase(TestCase):
         self._order_inst = MagicMock()
         self._order_inst.order_id = '1'
         self._order_inst.owner_organization = org
-        self._order_inst.state = 'pending'
-        self._order_inst.pending_payment = {
-            'transactions': [{
-                'item': '1'
-            }, {
-                'item': '2'
-            }],
-            'concept': 'initial'
-        }
+        self._order_inst.contracts = []
         views.Order.objects.get.return_value = self._order_inst
+
+        # Mock CDR Manager
+        views.CDRManager = MagicMock()
 
         # Mock payment client
         mock_payment_client(self, views)
@@ -1403,15 +1398,16 @@ class PayPalRefundTestCase(TestCase):
         reload(views)
 
     @parameterized.expand([
-        ([],),
-        ([1],),
-        ([1, 2],),
-        ([1, 2], True)
+        ([], [MagicMock(charges=[])]),
+        ([1], [MagicMock(charges=[{'cost': '10', 'duty_free': '8', 'date': datetime(2016, 10, 20)}])]),
+        ([1, 2], [MagicMock(charges=[{'cost': '10', 'duty_free': '8', 'date': datetime(2016, 10, 20)}]), MagicMock(charges=[{'cost': '10', 'duty_free': '8', 'date': datetime(2016, 10, 20)}])]),
+        ([1, 2], [MagicMock(charges=[{'cost': '10', 'duty_free': '8', 'date': datetime(2016, 10, 20)}]), MagicMock(charges=[{'cost': '10', 'duty_free': '8', 'date': datetime(2016, 10, 20)}])], True)
     ])
-    def test_refund_sales_empty(self, sales_ids, refund_fail=False):
+    def test_refund_sales(self, sales_ids, contracts, refund_fail=False):
 
         # Mock
         self._order_inst.sales_ids = sales_ids
+        self._order_inst.contracts = contracts
 
         if refund_fail:
             self._payment_inst.refund.side_effect = Exception('unexpected')
@@ -1435,7 +1431,14 @@ class PayPalRefundTestCase(TestCase):
         if not refund_fail:
             self.assertEquals(resp, {'message': 'Ok', 'result': 'correct'})
 
-            for sale_id in sales_ids:
-                self._payment_inst.refund.assert_any_call(sale_id)
+            calls = [call(sale_id) for sale_id in sales_ids]
+            self.assertEquals(calls, self._payment_inst.refund.call_args_list)
+
+            cdr_manager_calls = [call(self._order_inst, contract) for contract in contracts if len(contract.charges) > 0]
+            self.assertEquals(cdr_manager_calls, views.CDRManager.call_args_list)
+
+            cdr_refund_calls = [call(contract.charges[0]['cost'], contract.charges[0]['duty_free'], '2016-10-20T00:00:00Z') for contract in contracts if len(contract.charges) > 0]
+            self.assertEquals(cdr_refund_calls, views.CDRManager().refund_cdrs.call_args_list)
+
         else:
             self.assertEquals(resp, {'error': 'Sales cannot be refunded', 'result': 'error'})
