@@ -63,6 +63,9 @@ class ProductValidator(CatalogValidator):
 
             if asset.content_type != media_type.lower():
                 raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
+
+            asset.has_terms = self._has_terms
+            asset.save()
         else:
             # If the asset is an URL and the resource model is created, that means that
             # the asset have been already included in another product
@@ -80,6 +83,7 @@ class ProductValidator(CatalogValidator):
 
             # Create the new asset model
             asset = Resource.objects.create(
+                has_terms=self._has_terms,
                 resource_path='',
                 download_link=url,
                 provider=provider,
@@ -118,6 +122,7 @@ class ProductValidator(CatalogValidator):
 
         if len(assets):
             Resource.objects.create(
+                has_terms=self._has_terms,
                 resource_path='',
                 download_link='',
                 provider=provider,

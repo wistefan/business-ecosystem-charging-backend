@@ -20,6 +20,8 @@
 
 from __future__ import unicode_literals
 
+from copy import deepcopy
+
 PRODUCT_LOCATION = 'http://testlocation.org/media/resources/test_user/widget.wgt'
 
 BASIC_PRODUCT = {
@@ -157,6 +159,98 @@ BASIC_PRODUCT = {
         ]
     }
 }
+
+TERMS_PRODUCT = deepcopy(BASIC_PRODUCT)
+TERMS_PRODUCT['product']['productSpecCharacteristic'].append({
+    "id": "34",
+    "name": "License",
+    "description": "Text of the license",
+    "valueType": "string",
+    "configurable": False,
+    "validFor": {
+        "startDateTime": "2013-04-19T16:42:23-04:00",
+        "endDateTime": ""
+    },
+    "productSpecCharacteristicValue": [
+        {
+            "valueType": "string",
+            "default": True,
+            "value": "license title",
+            "unitOfMeasure": "",
+            "valueFrom": "",
+            "valueTo": "",
+            "validFor": {
+                "startDateTime": "2013-04-19T16:42:23-04:00",
+                "endDateTime": ""
+            }
+        }
+    ]
+})
+
+INVALID_TERMS = deepcopy(BASIC_PRODUCT)
+INVALID_TERMS['product']['productSpecCharacteristic'].append({
+    "id": "34",
+    "name": "License",
+    "description": "Text of the license",
+    "valueType": "string",
+    "configurable": False,
+    "validFor": {
+        "startDateTime": "2013-04-19T16:42:23-04:00",
+        "endDateTime": ""
+    },
+    "productSpecCharacteristicValue": [
+        {
+            "valueType": "string",
+            "default": True,
+            "value": "license title",
+            "unitOfMeasure": "",
+            "valueFrom": "",
+            "valueTo": "",
+            "validFor": {
+                "startDateTime": "2013-04-19T16:42:23-04:00",
+                "endDateTime": ""
+            }
+        }, {
+            "valueType": "string",
+            "default": True,
+            "value": "license title",
+            "unitOfMeasure": "",
+            "valueFrom": "",
+            "valueTo": "",
+            "validFor": {
+                "startDateTime": "2013-04-19T16:42:23-04:00",
+                "endDateTime": ""
+            }
+        }
+    ]
+})
+
+MULTIPLE_TERMS = deepcopy(TERMS_PRODUCT)
+MULTIPLE_TERMS['product']['productSpecCharacteristic'].append({
+    "id": "34",
+    "name": "License",
+    "description": "Text of the license",
+    "valueType": "string",
+    "configurable": False,
+    "validFor": {
+        "startDateTime": "2013-04-19T16:42:23-04:00",
+        "endDateTime": ""
+    },
+    "productSpecCharacteristicValue": [
+        {
+            "valueType": "string",
+            "default": True,
+            "value": "license title",
+            "unitOfMeasure": "",
+            "valueFrom": "",
+            "valueTo": "",
+            "validFor": {
+                "startDateTime": "2013-04-19T16:42:23-04:00",
+                "endDateTime": ""
+            }
+        }
+    ]
+})
 
 INVALID_ACTION = {
     'action': 'invalid',
