@@ -58,7 +58,16 @@ class OfferingValidator(CatalogValidator):
     def _validate_offering_pricing(self, provider, product_offering, bundled_offerings):
         # Validate offering pricing fields
         if 'productOfferingPrice' in product_offering:
+            names = []
             for price_model in product_offering['productOfferingPrice']:
+
+                if 'name' not in price_model:
+                    raise ValueError('Missing required field name in productOfferingPrice')
+
+                if price_model['name'].lower() in names:
+                    raise ValueError('Price plans names must be unique (' + price_model['name'] + ')')
+
+                names.append(price_model['name'].lower())
 
                 # Validate price unit
                 if 'priceType' not in price_model:

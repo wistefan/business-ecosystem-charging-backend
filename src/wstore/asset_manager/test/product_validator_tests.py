@@ -423,6 +423,8 @@ class ValidatorTestCase(TestCase):
         ('missing_price', MISSING_PRICE, None, None, 'Missing required field price in productOfferingPrice'),
         ('missing_currency', MISSING_CURRENCY, None, None, 'Missing required field currencyCode in price'),
         ('invalid_currency', INVALID_CURRENCY, None, None, 'Unrecognized currency: invalid'),
+        ('missing_name', MISSING_NAME, None, None, 'Missing required field name in productOfferingPrice'),
+        ('multiple_names', MULTIPLE_NAMES, None, None, 'Price plans names must be unique (Plan)'),
         ('bundle_missing', BUNDLE_MISSING_FIELD, None, None, 'Offering bundles must contain a bundledProductOffering field'),
         ('bundle_invalid_number', BUNDLE_MISSING_ELEMS, None, None, 'Offering bundles must contain at least two bundled offerings'),
         ('bundle_inv_bundled', BUNDLE_OFFERING, None, _invalid_bundled, 'The bundled offering 6 is not registered'),

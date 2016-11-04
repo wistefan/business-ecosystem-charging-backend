@@ -831,6 +831,7 @@ BASIC_OFFERING = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "one time",
         "price": {
             "currencyCode": "EUR",
@@ -850,6 +851,7 @@ ZERO_OFFERING = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "one time",
         "price": {
             "currencyCode": "EUR",
@@ -907,6 +909,7 @@ MISSING_PRICETYPE = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "price": {
             "currencyCode": "EUR"
         }
@@ -919,6 +922,7 @@ INVALID_PRICETYPE = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "invalid",
         "price": {
             "currencyCode": "EUR"
@@ -932,6 +936,7 @@ MISSING_PERIOD = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "recurring",
         "price": {
             "currencyCode": "EUR"
@@ -945,6 +950,7 @@ INVALID_PERIOD = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "recurring",
         "recurringChargePeriod": "invalid",
         "price": {
@@ -959,6 +965,7 @@ MISSING_PRICE = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "recurring",
         "recurringChargePeriod": "monthly"
     }]
@@ -970,6 +977,7 @@ MISSING_CURRENCY = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "recurring",
         "recurringChargePeriod": "monthly",
         "price": {
@@ -983,10 +991,46 @@ INVALID_CURRENCY = {
         "href": "http://catalog.com/products/20"
     },
     "productOfferingPrice": [{
+        "name": "plan",
         "priceType": "recurring",
         "recurringChargePeriod": "monthly",
         "price": {
             "currencyCode": "invalid"
+        }
+    }]
+}
+
+MISSING_NAME = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "priceType": "recurring",
+        "recurringChargePeriod": "monthly",
+        "price": {
+        }
+    }]
+}
+
+MULTIPLE_NAMES = {
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "name": "plan",
+        "priceType": "one time",
+        "price": {
+            "currencyCode": "EUR",
+            'taxIncludedAmount': '1.0'
+        }
+    }, {
+        "name": "Plan",
+        "priceType": "one time",
+        "price": {
+            "currencyCode": "EUR",
+            'taxIncludedAmount': '1.0'
         }
     }]
 }
