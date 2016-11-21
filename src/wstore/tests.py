@@ -141,7 +141,9 @@ class ServeMediaTestCase(TestCase):
         views.Order.objects.get.side_effect = Exception('Not found')
 
     def _unauthorized(self):
-        self._user.userprofile.current_organization = MagicMock()
+        self._acquired()
+        views.Offering.objects.get.side_effect = [MagicMock(is_digital=False),
+                                                  MagicMock(is_digital=True, asset=MagicMock())]
 
     def _not_loged(self):
         self._user.is_anonymous.return_value = True
