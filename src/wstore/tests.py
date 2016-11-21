@@ -77,6 +77,17 @@ class ServeMediaTestCase(TestCase):
             call(pk='offpk2')
         ], views.Offering.objects.get.call_args_list)
 
+    def _validate_bundle_call(self):
+        self._validate_res_call()
+        self.assertEquals([
+            call(pk='offpk1'),
+            call(pk='offpk2'),
+            call(pk='offpk3'),
+            call(pk='offpk3'),
+            call(pk='offpk4'),
+            call(pk='offpk4')
+        ], views.Offering.objects.get.call_args_list)
+
     def _validate_order_call(self):
         views.Order.objects.get.assert_called_once_with(pk='111111111111111111111111')
         self.assertEquals(0, views.Resource.objects.get.call_count)
@@ -129,9 +140,20 @@ class ServeMediaTestCase(TestCase):
         self._user.userprofile.current_organization = MagicMock()
         self._user.userprofile.current_organization.acquired_offerings = ['offpk1', 'offpk2']
 
+    def _bundle_acquired(self):
+        self._acquired()
+        self._offering_inst = MagicMock(asset=None, bundled_offerings=['offpk3', 'offpk4'])
+
+        views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst,
+                                                  MagicMock(is_digital=True, asset=None),
+                                                  MagicMock(is_digital=True, asset=None),
+                                                  MagicMock(is_digital=True, asset=self._asset_inst),
+                                                  MagicMock(is_digital=True, asset=self._asset_inst)]
+
     @parameterized.expand([
         ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt'),
         ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, 'assets/test_user/widget.wgt', _acquired),
+        ('asset_in_bundle', 'assets/test_user', 'widget.wgt', _validate_bundle_call, _validate_serve, 'assets/test_user/widget.wgt', _bundle_acquired),
         ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt', _public_asset),
         ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, 'bills/111111111111111111111111_userbill.pdf', _usexfiles),
         ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
