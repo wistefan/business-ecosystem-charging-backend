@@ -140,13 +140,13 @@ class OrderingManager:
             product_price['price']['amount'] = unicode(product_price['price']['amount'])
 
             # Validate that all pricing fields matches
-            if off_price['priceType'] == product_price['priceType'] and \
+            if off_price['priceType'].lower() == product_price['priceType'].lower() and \
                 (('unitOfMeasure' not in off_price and 'unitOfMeasure' not in product_price) or
-                  ('unitOfMeasure' in off_price and 'unitOfMeasure' in product_price and off_price['unitOfMeasure'] == product_price['unitOfMeasure'])) and \
+                  ('unitOfMeasure' in off_price and 'unitOfMeasure' in product_price and off_price['unitOfMeasure'].lower() == product_price['unitOfMeasure'].lower())) and \
                     (('recurringChargePeriod' not in off_price and 'recurringChargePeriod' not in product_price) or
-                      ('recurringChargePeriod' in off_price and 'recurringChargePeriod' in product_price and off_price['recurringChargePeriod'] == product_price['recurringChargePeriod'])) and \
+                      ('recurringChargePeriod' in off_price and 'recurringChargePeriod' in product_price and off_price['recurringChargePeriod'].lower() == product_price['recurringChargePeriod'].lower())) and \
                         Decimal(off_price['price']['taxIncludedAmount']) == Decimal(product_price['price']['amount']) and \
-                          off_price['price']['currencyCode'] == product_price['price']['currency']:
+                          off_price['price']['currencyCode'].lower() == product_price['price']['currency'].lower():
 
                 matches += 1
                 price = off_price
