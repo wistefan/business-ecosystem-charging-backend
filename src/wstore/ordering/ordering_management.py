@@ -132,6 +132,9 @@ class OrderingManager:
 
     def _get_effective_pricing(self, item_id, product_price, offering_info):
         # Search the pricing chosen by the user
+        def field_included(pricing, field):
+            return field in pricing and len(pricing[field]) > 0
+
         matches = 0
         price = None
         for off_price in offering_info['productOfferingPrice']:
@@ -141,10 +144,10 @@ class OrderingManager:
 
             # Validate that all pricing fields matches
             if off_price['priceType'].lower() == product_price['priceType'].lower() and \
-                (('unitOfMeasure' not in off_price and 'unitOfMeasure' not in product_price) or
-                  ('unitOfMeasure' in off_price and 'unitOfMeasure' in product_price and off_price['unitOfMeasure'].lower() == product_price['unitOfMeasure'].lower())) and \
-                    (('recurringChargePeriod' not in off_price and 'recurringChargePeriod' not in product_price) or
-                      ('recurringChargePeriod' in off_price and 'recurringChargePeriod' in product_price and off_price['recurringChargePeriod'].lower() == product_price['recurringChargePeriod'].lower())) and \
+                ((not field_included(off_price, 'unitOfMeasure') and not field_included(product_price, 'unitOfMeasure')) or
+                  (field_included(off_price, 'unitOfMeasure') and field_included(product_price, 'unitOfMeasure') and off_price['unitOfMeasure'].lower() == product_price['unitOfMeasure'].lower())) and \
+                    ((not field_included(off_price, 'recurringChargePeriod') and not field_included(product_price, 'recurringChargePeriod')) or
+                      (field_included(off_price, 'recurringChargePeriod') and field_included(product_price, 'recurringChargePeriod') and off_price['recurringChargePeriod'].lower() == product_price['recurringChargePeriod'].lower())) and \
                         Decimal(off_price['price']['taxIncludedAmount']) == Decimal(product_price['price']['amount']) and \
                           off_price['price']['currencyCode'].lower() == product_price['price']['currency'].lower():
 
