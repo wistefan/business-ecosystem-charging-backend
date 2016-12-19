@@ -52,8 +52,6 @@ ADMIN_ROLE = 'provider'
 PROVIDER_ROLE = 'seller'
 CUSTOMER_ROLE = 'customer'
 
-SITE_ID=u''
-
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 MEDIA_DIR = 'media/'
 MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)
@@ -106,8 +104,6 @@ WSTOREMAILPASS = 'wstore_email_passwd'
 SMTPSERVER = 'wstore_smtp_server'
 SMTPPORT = 587
 
-WSTOREPROVIDERREQUEST = 'provider_requ_email'
-
 URL_MIDDLEWARE_CLASSES = {
     'default': (
         'django.middleware.common.CommonMiddleware',
@@ -136,10 +132,8 @@ ROOT_URLCONF = 'urls'
 WSGI_APPLICATION = 'wsgi.application'
 
 # Payment method determines the payment gateway to be used
-# Allowed values: paypal, fipay, None (default)
-PAYMENT_METHOD = None
-
-ACTIVATION_DAYS = 2
+# Allowed values: paypal (default), fipay, None
+PAYMENT_METHOD = 'paypal'
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
@@ -168,8 +162,6 @@ CLIENTS = {
 }
 
 PAYMENT_CLIENT = CLIENTS[PAYMENT_METHOD]
-
-RESOURCE_INDEX_DIR = path.join(BASEDIR, path.join('wstore', path.join('admin', 'indexes')))
 
 NOTIF_CERT_FILE = None
 NOTIF_CERT_KEY_FILE = None
