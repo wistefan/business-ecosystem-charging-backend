@@ -2,7 +2,7 @@
 
 Starting on version 5.4.0, you are able to run the Business API Ecosystem with Docker. In this context, the current repository contains the Docker image of the Business Ecosystem Charging Backend component, so you can run it stand alone.
 
-You can build a docker image based on this Dockerfile. This image will contain only an instance of the Business Ecosystem Charging Backend, exposing port `8004`. This requires that you have [docker](https://docs.docker.com/installation/) installed on your machine.
+You can build a docker image based on this Dockerfile. This image will contain only an instance of the Business Ecosystem Charging Backend, exposing port `8006`. This requires that you have [docker](https://docs.docker.com/installation/) installed on your machine.
 
 If you just want to have a Business Ecosystem Charging Backend instance running as quickly as possible jump to section *The Fastest Way*.
 
@@ -13,7 +13,19 @@ If you want to know what is behind the scenes of our container you can go ahead 
 To run Business Ecosystem Charging Backend using Docker, just run the following command:
 
 ```
-sudo docker run -e PAYPAL_CLIENT_ID=your-client-id -e PAYPAL_CLIENT_SECRET=your-client-secret -e BIZ_ECOSYS_PORT=ext-port -e BIZ_ECOSYS_HOST=ext-host -e WSTOREMAIL=your-email -e GLASSFISH_HOST=glassfish-host -e GLASSFISH_PORT=glassfish-port   -p your-port:8004 conwetlab/biz-ecosystem-charging-backend
+sudo docker run \
+    -e PAYPAL_CLIENT_ID=your-client-id \
+    -e PAYPAL_CLIENT_SECRET=your-client-secret \
+    -e BIZ_ECOSYS_PORT=ext-port \
+    -e BIZ_ECOSYS_HOST=ext-host \
+    -e GLASSFISH_HOST=glassfish-host \
+    -e GLASSFISH_PORT=glassfish-port \
+    -e ADMIN_EMAIL=your-email \
+    -e EMAIL_USER=your-email-user \
+    -e EMAIL_PASSWD=your-email-passwd \
+    -e EMAIL_SERVER=your-email-server \
+    -e EMAIL_SERVER_PORT=your-email-server-port
+    -p your-port:8006 conwetlab/biz-ecosystem-charging-backend
 ```
 
 Note in the previous command that it is needed to provide some environment variables. Concretely:
@@ -22,9 +34,13 @@ Note in the previous command that it is needed to provide some environment varia
 * **PAYPAL_CLIENT_SECRET**: the client secret of your application PayPal credentials used for charging users (a Sandbox account can be used for testing).
 * **BIZ_ECOSYS_PORT**: Port where the Business Ecosystem Logic proxy is running
 * **BIZ_ECOSYS_HOST**: Host where the Business Ecosystem Logic proxy is running
-* **WSTOREMAIL**: A valid email used for connecting with the Business Ecosystem RSS
 * **GLASSFISH_HOST**: Host where the Glassfish instance with the TMForum APIs is running
 * **GLASSFISH_PORT**: Port where the Glassfish instance with the TMForum APIs is running
+* **ADMIN_EMAIL**: A valid email used for connecting with the Business Ecosystem RSS
+* **EMAIL_USER** (Optional): Username of the email account provided as ADMIN_EMAIL. This setting is used for sending email notifications
+* **EMAIL_PASSWD** (Optional): Password of the email account provided as ADMIN_EMAIL. This setting is used for sending email notifications
+* **EMAIL_SERVER** (Optional): Host of the email server related to ADMIN_EMAIL. This setting is used for sending email notifications
+* **EMAIL_SERVER_PORT** (Optional): Port of the email server related to ADMIN_EMAIL. This setting is used for sending email notifications
 
 ## Build the image
 
@@ -48,7 +64,15 @@ The following line will run the container exposing port `8000`, give it a name -
 
 ```
 
-sudo docker run --name charging1 -e PAYPAL_CLIENT_ID=11111 -e PAYPAL_CLIENT_SECRET=2222 -e BIZ_ECOSYS_PORT=80 -e BIZ_ECOSYS_HOST=192.168.1.1 -e WSTOREMAIL=example@email.com -e GLASSFISH_HOST=192.168.1.1 -e GLASSFISH_PORT=8080   -p 8000:8004 conwetlab/biz-ecosystem-charging-backend
+sudo docker run --name charging1 \
+    -e PAYPAL_CLIENT_ID=11111 \
+    -e PAYPAL_CLIENT_SECRET=2222 \
+    -e BIZ_ECOSYS_PORT=80 \
+    -e BIZ_ECOSYS_HOST=192.168.1.1 \
+    -e ADMIN_EMAIL=example@email.com \
+    -e GLASSFISH_HOST=192.168.1.1 \
+    -e GLASSFISH_PORT=8080 \
+    -p 8000:8006 conwetlab/biz-ecosystem-charging-backend
 
 ```
 
@@ -57,4 +81,4 @@ As a result of this command, there is a Charging Backend listening on port 8000 
 A few points to consider:
 
 * The name `charging1` can be anything and doesn't have to be related to the name given to the docker image in the previous section.
-* In `-p 8000:8000` the first value represents the port to listen on localhost. If you want to run a second Charging Backend on your machine you should change this value to something else, for example `-p 8001:8000`.
+* In `-p 8000:8006` the first value represents the port to listen on localhost. If you want to run a second Charging Backend on your machine you should change this value to something else, for example `-p 8001:8006`.
