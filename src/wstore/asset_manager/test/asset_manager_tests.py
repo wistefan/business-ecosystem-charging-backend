@@ -83,15 +83,15 @@ class ResourceRetrievingTestCase(TestCase):
 
     @parameterized.expand([
         ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
-        ([RESOURCE_DATA1], {"start": 1, "limit": 1}),
-        ([RESOURCE_DATA2, RESOURCE_DATA3], {"start": 2, "limit": 2}),
-        ([], {"start": 6}, ValueError, "Missing required parameter in pagination"),
-        ([], {"limit": 8}, ValueError, "Missing required parameter in pagination"),
-        ([], {"start": 0, "limit": 8}, ValueError, "Invalid pagination limits"),
-        ([], {"start": 2, "limit": 0}, ValueError, "Invalid pagination limits"),
-        ([], {"start": 6, "limit": -1}, ValueError, "Invalid pagination limits"),
-        ([], {"start": -6, "limit": 2}, ValueError, "Invalid pagination limits"),
-        ([], {"start": 0, "limit": 0}, ValueError, "Invalid pagination limits")
+        ([RESOURCE_DATA1], {"offset": 0, "size": 1}),
+        ([RESOURCE_DATA2, RESOURCE_DATA3], {"offset": 1, "size": 2}),
+        ([], {"offset": 5}, ValueError, "Missing required parameter in pagination"),
+        ([], {"size": 8}, ValueError, "Missing required parameter in pagination"),
+        ([], {"offset": -1, "size": 8}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": 1, "size": 0}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": 5, "size": -1}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": -6, "size": 2}, ValueError, "Invalid pagination limits"),
+        ([], {"offset": -1, "size": 0}, ValueError, "Invalid pagination limits")
     ])
     def test_resource_retrieving(self, expected_result, pagination=None, err_type=None, err_msg=None):
 
@@ -109,13 +109,9 @@ class ResourceRetrievingTestCase(TestCase):
     def _not_found(self):
         asset_manager.Resource.objects.get.side_effect = Exception('Not found')
 
-    def _forbidden(self):
-        asset_manager.Resource.objects.get.return_value = self._mock_resource(EXISTING_INFO[0], MagicMock())
-
     @parameterized.expand([
         ('basic', RESOURCE_DATA1, ),
-        ('not_found', [], _not_found, ObjectDoesNotExist, 'The specified digital asset does not exists'),
-        ('forbidden', [], _forbidden, PermissionDenied, 'You are not authorized to retrieve digital asset information')
+        ('not_found', [], _not_found, ObjectDoesNotExist, 'The specified digital asset does not exists')
     ])
     def test_single_asset_retrieving(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
 
@@ -126,12 +122,29 @@ class ResourceRetrievingTestCase(TestCase):
         result = None
         try:
             am = asset_manager.AssetManager()
-            result = am.get_provider_asset_info(self.user, '111')
+            result = am.get_asset_info('111')
         except Exception as e:
             error = e
 
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
+    @parameterized.expand([
+        ('basic', [RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4])
+    ])
+    def test_assets_from_product(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
+        if side_effect is not None:
+            side_effect(self)
+
+        error = None
+        result = None
+        try:
+            am = asset_manager.AssetManager()
+            result = am.get_product_assets('123')
+        except Exception as e:
+            error = e
+
+        asset_manager.Resource.objects.filter.assert_called_once_with(product_id='123')
+        self.validate_response(result, expected_result, error, err_type, err_msg)
 
 class UploadAssetTestCase(TestCase):
 
@@ -153,6 +166,7 @@ class UploadAssetTestCase(TestCase):
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
         self.res_mock.get_url.return_value = "http://locationurl.com/"
+        self.res_mock.get_uri.return_value = "http://uri.com/"
         asset_manager.Resource.objects.create.return_value = self.res_mock
         asset_manager.Resource.objects.get.return_value = self.res_mock
 
@@ -210,7 +224,7 @@ class UploadAssetTestCase(TestCase):
 
         error = None
         try:
-            location = am.upload_asset(self._user, data, file_=self._file)
+            resource = am.upload_asset(self._user, data, file_=self._file)
         except Exception as e:
             error = e
 
@@ -219,7 +233,9 @@ class UploadAssetTestCase(TestCase):
             self.assertTrue(error is None)
 
             # Check calls
-            self.assertEquals("http://locationurl.com/", location)
+            self.assertEquals(self.res_mock, resource)
+            self.assertEquals("http://locationurl.com/", resource.get_url())
+            self.assertEqual("http://uri.com/", resource.get_uri())
             asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
             asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
             self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")

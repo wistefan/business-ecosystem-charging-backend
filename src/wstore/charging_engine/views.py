@@ -182,7 +182,7 @@ class PayPalConfirmation(Resource):
             order.save()
 
             charging_engine = ChargingEngine(order)
-            charging_engine.end_charging(transactions, concept)
+            charging_engine.end_charging(transactions, pending_info['free_contracts'], concept)
 
         except Exception as e:
 
@@ -283,12 +283,13 @@ class PayPalRefund(Resource):
             # Only those orders with all its order items in ack state can be refunded
             # that means that all the contracts have been refunded
             for contract in order.contracts:
-                cdr_manager = CDRManager(order, contract)
-                charge = contract.charges[-1]
+                if len(contract.charges) > 0:
+                    cdr_manager = CDRManager(order, contract)
+                    charge = contract.charges[-1]
 
-                cdr_manager.refund_cdrs(charge['cost'], charge['duty_free'], charge['date'].isoformat() + 'Z')
+                    # Create a refund CDR for each contract
+                    cdr_manager.refund_cdrs(charge['cost'], charge['duty_free'], charge['date'].isoformat() + 'Z')
 
-            # Create a refund CDR for each contract
             order.delete()
         except:
             return build_response(request, 400, 'Sales cannot be refunded')

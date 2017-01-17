@@ -24,12 +24,12 @@ from __future__ import unicode_literals
 from django.core.exceptions import PermissionDenied
 
 from wstore.asset_manager.models import ResourcePlugin, Resource
-from wstore.store_commons.utils.url import is_valid_url
 from wstore.asset_manager.errors import ProductError
-from wstore.models import Context
-
 from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment
 from wstore.asset_manager.catalog_validator import CatalogValidator
+from wstore.store_commons.utils.url import is_valid_url
+from wstore.models import Context
+from wstore.store_commons.rollback import rollback
 
 
 class ProductValidator(CatalogValidator):
@@ -63,19 +63,33 @@ class ProductValidator(CatalogValidator):
 
             if asset.content_type != media_type.lower():
                 raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
+
+            asset.has_terms = self._has_terms
+            asset.save()
         else:
             # If the asset is an URL and the resource model is created, that means that
             # the asset have been already included in another product
-            if len(Resource.objects.filter(download_link=url)):
+            resources = Resource.objects.filter(download_link=url)
+            error = False
+            for res in resources:
+                # The asset has been attached so it already exists
+                if res.product_id:
+                    error = True
+                else:
+                    res.delete()
+
+            if error:
                 raise ProductError('There is already an existing product specification defined for the given digital asset')
 
             # Create the new asset model
             asset = Resource.objects.create(
+                has_terms=self._has_terms,
                 resource_path='',
                 download_link=url,
                 provider=provider,
                 content_type=media_type
             )
+            self.rollback_logger['models'].append(asset)
 
         return asset
 
@@ -108,6 +122,7 @@ class ProductValidator(CatalogValidator):
 
         if len(assets):
             Resource.objects.create(
+                has_terms=self._has_terms,
                 resource_path='',
                 download_link='',
                 provider=provider,
@@ -115,6 +130,7 @@ class ProductValidator(CatalogValidator):
                 bundled_assets=assets
             )
 
+    @rollback()
     def attach_info(self, provider, product_spec):
         # Get the digital asset
         asset_t, media_type, url = self.parse_characteristics(product_spec)
@@ -147,9 +163,12 @@ class ProductValidator(CatalogValidator):
                         break
 
         if asset is not None:
+            self.rollback_logger['models'].append(asset)
+
             # The asset is a digital product or a bundle containing a digital product
             self._attach_product_info(asset, asset_t, product_spec)
 
+    @rollback()
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
         asset_t, media_type, url = self.parse_characteristics(product_spec)

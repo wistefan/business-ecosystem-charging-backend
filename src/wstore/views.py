@@ -51,9 +51,27 @@ class ServeMedia(API_Resource):
 
             if err_code is None and user.userprofile.current_organization != asset.provider:
                 # Check if the user has acquired the asset
-                for off in user.userprofile.current_organization.acquired_offerings:
-                    offering = Offering.objects.get(pk=off)
-                    if offering.asset == asset:
+                acquired_offerings = user.userprofile.current_organization.acquired_offerings
+
+                for offering in [Offering.objects.get(pk=off) for off in acquired_offerings]:
+                    # Process the offering in order to extract all the offering assets
+                    offering_assets = []
+                    if len(offering.bundled_offerings) > 0:
+                        offering_assets = [Offering.objects.get(pk=off).asset
+                                           for off in offering.bundled_offerings if Offering.objects.get(pk=off).is_digital]
+                    elif offering.is_digital:
+                        offering_assets = [offering.asset]
+
+                    # Process offering assets in order to expand product bundles
+                    assets = []
+                    for off_asset in offering_assets:
+                        if len(off_asset.bundled_assets) > 0:
+                            assets.extend([Resource.objects.get(pk=bundled_pk)
+                                           for bundled_pk in off_asset.bundled_assets])
+                        else:
+                            assets.append(off_asset)
+
+                    if asset in assets:
                         break
                 else:
                     err_code, err_msg = 403, 'You are not authorized to download the specified asset'

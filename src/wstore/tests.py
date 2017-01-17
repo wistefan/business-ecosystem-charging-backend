@@ -77,6 +77,30 @@ class ServeMediaTestCase(TestCase):
             call(pk='offpk2')
         ], views.Offering.objects.get.call_args_list)
 
+    def _validate_bundle_call(self):
+        self._validate_res_call()
+        self.assertEquals([
+            call(pk='offpk1'),
+            call(pk='offpk2'),
+            call(pk='offpk3'),
+            call(pk='offpk3'),
+            call(pk='offpk4'),
+            call(pk='offpk4')
+        ], views.Offering.objects.get.call_args_list)
+
+    def _validate_product_bundle_call(self):
+        self.assertEquals([
+            call(resource_path='media/assets/test_user/widget.wgt'),
+            call(pk='prodpk1'),
+            call(pk='prodpk2')
+        ], views.Resource.objects.get.call_args_list)
+        self.assertEquals(0, views.Order.objects.get.call_count)
+
+        self.assertEquals([
+            call(pk='offpk1'),
+            call(pk='offpk2')
+        ], views.Offering.objects.get.call_args_list)
+
     def _validate_order_call(self):
         views.Order.objects.get.assert_called_once_with(pk='111111111111111111111111')
         self.assertEquals(0, views.Resource.objects.get.call_count)
@@ -117,7 +141,9 @@ class ServeMediaTestCase(TestCase):
         views.Order.objects.get.side_effect = Exception('Not found')
 
     def _unauthorized(self):
-        self._user.userprofile.current_organization = MagicMock()
+        self._acquired()
+        views.Offering.objects.get.side_effect = [MagicMock(is_digital=False),
+                                                  MagicMock(is_digital=True, asset=MagicMock())]
 
     def _not_loged(self):
         self._user.is_anonymous.return_value = True
@@ -129,9 +155,27 @@ class ServeMediaTestCase(TestCase):
         self._user.userprofile.current_organization = MagicMock()
         self._user.userprofile.current_organization.acquired_offerings = ['offpk1', 'offpk2']
 
+    def _bundle_acquired(self):
+        self._acquired()
+        self._offering_inst = MagicMock(asset=None, bundled_offerings=['offpk3', 'offpk4'])
+
+        views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst,
+                                                  MagicMock(is_digital=True, asset=MagicMock()),
+                                                  MagicMock(is_digital=True, asset=MagicMock()),
+                                                  MagicMock(is_digital=True, asset=self._asset_inst),
+                                                  MagicMock(is_digital=True, asset=self._asset_inst)]
+
+    def _product_bundle_acquired(self):
+        self._acquired()
+        self._offering_inst.asset = MagicMock(bundled_assets=['prodpk1', 'prodpk2'])
+
+        views.Resource.objects.get.side_effect = [self._asset_inst, MagicMock(), self._asset_inst]
+
     @parameterized.expand([
         ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt'),
         ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, 'assets/test_user/widget.wgt', _acquired),
+        ('asset_in_bundle', 'assets/test_user', 'widget.wgt', _validate_bundle_call, _validate_serve, 'assets/test_user/widget.wgt', _bundle_acquired),
+        ('asset_in_product_bundle', 'assets/test_user', 'widget.wgt', _validate_product_bundle_call, _validate_serve, 'assets/test_user/widget.wgt', _product_bundle_acquired),
         ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt', _public_asset),
         ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, 'bills/111111111111111111111111_userbill.pdf', _usexfiles),
         ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {

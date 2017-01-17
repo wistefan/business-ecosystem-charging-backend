@@ -190,7 +190,23 @@ class ChargingEngine:
 
         return contract.charges[-1].date if len(contract.charges) > 0 else self._order.date, None
 
-    def end_charging(self, transactions, concept):
+    def _send_notification(self, concept, transactions):
+        # TODO: Improve the rollback in case of unexpected exception
+        try:
+            # Send notifications if required
+            handler = NotificationsHandler()
+            if concept == 'initial':
+                # Send customer and provider notifications
+                handler.send_acquired_notification(self._order)
+                for cont in self._order.contracts:
+                    handler.send_provider_notification(self._order, cont)
+
+            elif concept == 'recurring' or concept == 'usage':
+                handler.send_renovation_notification(self._order, transactions)
+        except:
+            pass
+
+    def end_charging(self, transactions, free_contracts, concept):
         """
         Process the second step of a payment once the customer has approved the charge
         :param transactions: List of transactions applied including the total price and the related model
@@ -242,27 +258,18 @@ class ChargingEngine:
                 # When the change concept is initial, the product has not been yet created in the inventory
                 billing_client.create_charge(charge, contract.product_id, start_date=valid_from, end_date=valid_to)
 
+        for free in free_contracts:
+            self._order.owner_organization.acquired_offerings.append(free.offering.pk)
+
+        self._order.owner_organization.save()
         self._order.save()
+        self._send_notification(concept, transactions)
 
-        # TODO: Improve the rollback in case of unexpected exception
-        try:
-            # Send notifications if required
-            handler = NotificationsHandler()
-            if concept == 'initial':
-                # Send customer and provider notifications
-                handler.send_acquired_notification(self._order)
-                for cont in self._order.contracts:
-                    handler.send_provider_notification(self._order, cont)
-
-            elif concept == 'recurring' or concept == 'usage':
-                handler.send_renovation_notification(self._order, transactions)
-        except:
-            pass
-
-    def _save_pending_charge(self, transactions):
+    def _save_pending_charge(self, transactions, free_contracts=[]):
         pending_payment = {
             'transactions': transactions,
-            'concept': self._concept
+            'concept': self._concept,
+            'free_contracts': free_contracts
         }
 
         self._order.pending_payment = pending_payment
@@ -297,6 +304,7 @@ class ChargingEngine:
         """
 
         transactions = []
+        free_contracts = []
         redirect_url = None
 
         for contract in contracts:
@@ -313,15 +321,17 @@ class ChargingEngine:
 
             if len(related_model):
                 self._append_transaction(transactions, contract, related_model)
+            else:
+                free_contracts.append(contract)
 
         if len(transactions):
             # Make the charge
             redirect_url = self._charge_client(transactions)
-            self._save_pending_charge(transactions)
+            self._save_pending_charge(transactions, free_contracts=free_contracts)
         else:
             # If it is not necessary to charge the customer, the state is set to paid
             self._order.state = 'paid'
-            self.end_charging(transactions, self._concept)
+            self.end_charging(transactions, free_contracts, self._concept)
 
         return redirect_url
 

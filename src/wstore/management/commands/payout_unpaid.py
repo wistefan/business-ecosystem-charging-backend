@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,13 +18,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
+from django.core.management.base import BaseCommand
+
+from wstore.charging_engine.payout_engine import PayoutEngine
 
 
-CATALOG = 'http://localhost:8080/DSProductCatalog'
-INVENTORY = 'http://localhost:8080/DSProductInventory'
-ORDERING = 'http://localhost:8080/DSProductOrdering'
-BILLING = 'http://localhost:8080/DSBillingManagement'
-RSS = 'http://localhost:8080/DSRevenueSharing'
-USAGE = 'http://localhost:8080/DSUsageManagement'
-AUTHORIZE_SERVICE = 'http://localhost:8004/authorizeService/apiKeys'
+class Command(BaseCommand):
+    def handle(self, *args, **kargs):
+        engine = PayoutEngine()
+        engine.process_unpaid()

@@ -27,7 +27,7 @@ from wstore.asset_manager.errors import ProductError
 class CatalogValidator:
 
     def __init__(self):
-        pass
+        self._has_terms = False
 
     def _get_characteristic_value(self, characteristic):
         if len(characteristic['productSpecCharacteristicValue']) > 1:
@@ -46,6 +46,7 @@ class CatalogValidator:
         location = None
 
         if 'productSpecCharacteristic' in product_spec:
+            terms = []
 
             # Extract the needed characteristics for processing digital assets
             is_digital = False
@@ -54,14 +55,22 @@ class CatalogValidator:
                     is_digital = True
                     expected_chars[char['name'].lower()].append(self._get_characteristic_value(char))
 
+                if char['name'].lower() == 'license':
+                    terms.append(self._get_characteristic_value(char))
+
             for char_name in expected_chars:
-                # Validate the existance of the characteristic
+                # Validate the existence of the characteristic
                 if not len(expected_chars[char_name]) and is_digital:
                     raise ProductError('Digital product specifications must contain a ' + char_name + ' characteristic')
 
                 # Validate that only a value has been provided
                 if len(expected_chars[char_name]) > 1:
                     raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
+
+            if len(terms) > 1:
+                raise ProductError('The product specification must not contain more than one license characteristic')
+
+            self._has_terms = len(terms) > 0
 
             if is_digital:
                 asset_type = expected_chars['asset type'][0]

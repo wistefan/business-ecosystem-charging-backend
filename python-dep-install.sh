@@ -5,7 +5,7 @@ if [ -d "./virtenv" ]; then
 fi
 
 # Download and install Python dependencies
-pip install "pymongo==3.0.3" "paypalrestsdk==1.11.0"
+pip install "pymongo==3.4.0" "paypalrestsdk==1.11.0"
 pip install https://github.com/django-nonrel/django/archive/nonrel-1.6.zip 
 pip install https://github.com/django-nonrel/djangotoolbox/archive/master.zip
 pip install https://github.com/django-nonrel/mongodb-engine/archive/master.zip

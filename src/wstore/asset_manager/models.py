@@ -47,6 +47,7 @@ class Resource(models.Model):
     state = models.CharField(max_length=20)
     resource_type = models.CharField(max_length=100, blank=True, null=True)
     is_public = models.BooleanField(default=False)
+    has_terms = models.BooleanField(default=False)
     meta_info = DictField()
     bundled_assets = ListField()
 
