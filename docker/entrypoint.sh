@@ -108,4 +108,6 @@ python ./manage.py createsite external http://$BIZ_ECOSYSTEM_HOST:$BIZ_ECOSYSTEM
 python ./manage.py createsite internal http://127.0.0.1:8006/
 
 echo "Starting charging server"
-python ./manage.py runserver 0.0.0.0:8006
+service apache2 restart
+
+while true; do sleep 1000; done
