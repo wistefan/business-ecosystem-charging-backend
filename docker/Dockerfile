@@ -24,8 +24,8 @@ RUN ./python-dep-install.sh
 
 # Create volumes
 VOLUME /data/db
-VOLUME ./src/media/bills
-VOLUME ./src/media/assets
+VOLUME /business-ecosystem-charging-backend/src/media/bills
+VOLUME /business-ecosystem-charging-backend/src/media/assets
 
 WORKDIR src
 
