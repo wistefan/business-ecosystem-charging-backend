@@ -17,6 +17,7 @@ RUN mkdir -p /data/db/
 RUN mkdir ./src/media
 RUN mkdir ./src/media/bills
 RUN mkdir ./src/media/assets
+RUN mkdir ./src/plugins
 
 ENV WORKSPACE=`pwd`
 
@@ -26,6 +27,7 @@ RUN ./python-dep-install.sh
 VOLUME /data/db
 VOLUME /business-ecosystem-charging-backend/src/media/bills
 VOLUME /business-ecosystem-charging-backend/src/media/assets
+VOLUME /business-ecosystem-charging-backend/src/plugins
 
 WORKDIR src
 
