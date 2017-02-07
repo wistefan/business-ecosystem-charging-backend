@@ -214,7 +214,19 @@ class PluginValidatorTestCase(TestCase):
         ('invalid_form_missing_type', INVALID_FORM_MISSING_TYPE, 'Invalid form field: Missing type in name entry'),
         ('invalid_form_inv_type', INVALID_FORM_INV_TYPE, 'Invalid form field: type invalid in name entry is not a valid type'),
         ('invalid_form_inv_name', INVALID_FORM_INVALID_NAME, 'Invalid form field: inv&name is not a valid name'),
-        ('invalid_form_checkbox_def', INVALID_FORM_CHECKBOX_DEF, 'Invalid form field: default field in check entry must be a boolean'),
+        ('invalid_form_checkbox_def', INVALID_FORM_CHECKBOX_DEF, '\nInvalid form field: default field in check entry must be a boolean'),
+        ('invalid_form_text', INVALID_FORM_TEXT, '\nInvalid form field: default field in textf entry must be an string' +
+            '\nInvalid form field: label field in textf entry must be an string\nInvalid form field: mandatory field in textf entry must be a boolean'),
+        ('invalid_form_textarea', INVALID_FORM_TEXTAREA, '\nInvalid form field: placeholder field in textf entry must be an string'),
+        ('invalid_form_select', INVALID_FORM_SELECT, '\nInvalid form field: default field in select entry must be an string' + 
+            '\nInvalid form field: label field in select entry must be an string\nInvalid form field: mandatory field in select entry must be a boolean'),
+        ('invalid_form_select_miss_opt', INVALID_FORM_SELECT_MISS_OPT, '\nInvalid form field: Missing or invalid options in select field'),
+        ('invalid_form_select_inv_opt', INVALID_FORM_SELECT_INV_OPT, '\nInvalid form field: Missing or invalid options in select field'),
+        ('invalid_form_select_empty_opt', INVALID_FORM_SELECT_EMPTY_OPT, '\nInvalid form field: Missing or invalid options in select field'),
+        ('invalid_form_select_inv_opt_val', INVALID_FORM_SELECT_INV_OPT_VAL, '\nInvalid form field: Invalid option in select field, wrong option type or missing field'),
+        #('invalid_form_select_inv_opt_val2', INVALID_FORM_SELECT_INV_OPT_VAL2, '\nInvalid form field: Invalid option in select field, wrong option type or missing field' +
+        ('invalid_form_select_inv_opt_val2', INVALID_FORM_SELECT_INV_OPT_VAL2, '\nInvalid form field: Invalid option in select field, wrong option type or missing field' + 
+            '\nInvalid form field: text field in select entry must be an string'),
         ('invalid_overrides', INVALID_OVERRIDES, 'Override values should be one of: NAME, VERSION and OPEN')
     ])
     def test_plugin_info_validation(self, name, plugin_info, validation_msg=None):
