@@ -291,6 +291,136 @@ INVALID_FORM_CHECKBOX_DEF = {
     }
 }
 
+INVALID_FORM_TEXT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "textf": {
+            "type": "text",
+            "default": True,
+            "label": {},
+            "mandatory": "true"
+        }
+    }
+}
+
+INVALID_FORM_TEXTAREA = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "textf": {
+            "type": "textarea",
+            "placeholder": 25
+        }
+    }
+}
+
+INVALID_FORM_SELECT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+            "default": 25,
+            "label": 30,
+            "mandatory": "true",
+            "options": [{
+                "text": "value",
+                "value": "value"
+            }]
+        }
+    }
+}
+
+INVALID_FORM_SELECT_MISS_OPT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+        }
+    }
+}
+
+INVALID_FORM_SELECT_INV_OPT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+            "options": "option1"
+        }
+    }
+}
+
+INVALID_FORM_SELECT_EMPTY_OPT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+            "options": []
+        }
+    }
+}
+
+INVALID_FORM_SELECT_INV_OPT_VAL = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+            "options": ["option1"]
+        }
+    }
+}
+
+INVALID_FORM_SELECT_INV_OPT_VAL2 = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "form": {
+        "select": {
+            "type": "select",
+            "options": [{}, {
+                "text": 1,
+                "value": "value"
+            }]
+        }
+    }
+}
+
 INVALID_OVERRIDES = {
     "name": "plugin name",
     "author": "test author",
