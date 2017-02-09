@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.test.utils import override_settings
 
-from mock import MagicMock, mock_open
+from mock import MagicMock, mock_open, call
 from nose_parameterized import parameterized
 
 from django.test import TestCase
@@ -146,6 +146,7 @@ class ResourceRetrievingTestCase(TestCase):
         asset_manager.Resource.objects.filter.assert_called_once_with(product_id='123')
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
+
 class UploadAssetTestCase(TestCase):
 
     tags = ('asset-manager', )
@@ -208,7 +209,11 @@ class UploadAssetTestCase(TestCase):
         ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
         ('inv_file_name', UPLOAD_INV_FILENAME, None, False, ValueError, 'Invalid file name format: Unsupported character'),
         ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset (example.wgt) already exists'),
-        ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset file has not been provided')
+        ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset has not been provided'),
+        ('inv_content_field', {
+            'contentType': 'application/x-widget',
+            'content': ['http://content.com']
+        }, None, False, TypeError, 'content field has an unsupported type, expected string or object')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
     def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None):
@@ -272,3 +277,179 @@ class UploadAssetTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(err_msg, unicode(error))
+
+    def _mock_resource_type(self, form):
+        asset_manager.ResourcePlugin = MagicMock()
+        asset_manager.Resource.objects.filter.return_value = []
+        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
+            media_types=[],
+            name='service',
+            formats=['URL'],
+            form=form
+        )]
+
+    BASIC_META = {
+        'field1': 'value',
+        'field2': True,
+        'field3': 'value2'
+    }
+
+    BASIC_FORM = {
+        'field1': {
+            'type': 'text'
+        },
+        'field2': {
+            'type': 'checkbox'
+        },
+        'field3': {
+            'type': 'select',
+            'options': [{
+                'value': 'value2'
+            }]
+        }
+    }
+    LINK = 'http://myservices.com'
+    LINK_CONTENT = {
+        'contentType': 'application/json',
+        'resourceType': 'service',
+        'content': LINK
+    }
+
+    @parameterized.expand([
+        ('no_metainfo', None, None, None),
+        ('metainfo', BASIC_META, BASIC_META, BASIC_FORM),
+        ('default_metainfo', {
+            'field1': 'value1'
+        }, {
+            'field1': 'value1',
+            'field2': 'value2'
+        }, {
+            'field1': {
+                'type': 'text'
+            },
+            'field2': {
+                'type': 'text',
+                'default': 'value2'
+            },
+        })
+    ])
+    def test_upload_asset_url_type(self, name, meta, exp_meta, form):
+        self.LINK_CONTENT['metadata'] = meta
+
+        self._mock_resource_type(form)
+
+        am = asset_manager.AssetManager()
+        am.rollback_logger = {
+            'files': [],
+            'models': []
+        }
+
+        am.upload_asset(self._user, self.LINK_CONTENT)
+
+        self.assertEquals({
+            'files': [],
+            'models': [self.res_mock]
+        }, am.rollback_logger)
+
+        # Check calls
+        asset_manager.Resource.objects.filter.assert_called_once_with(download_link=self.LINK)
+        asset_manager.ResourcePlugin.objects.filter.assert_called_once_with(name='service')
+
+        # Check resource creation
+        asset_manager.Resource.objects.create.assert_called_once_with(
+            provider=self._user.userprofile.current_organization,
+            version='',
+            download_link=self.LINK,
+            resource_path='',
+            content_type='application/json',
+            resource_type='service',
+            state='',
+            is_public=False,
+            meta_info=exp_meta
+        )
+
+    def _existing_asset(self):
+        asset_manager.Resource.objects.filter.return_value = [{}]
+
+    def _type_not_found(self):
+        asset_manager.ResourcePlugin.objects.filter.return_value = []
+
+    def _inv_content(self):
+        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
+            media_types=['text'],
+            name='service',
+            formats=['URL'],
+        )]
+
+    def _inv_format(self):
+        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
+            media_types=[],
+            name='service',
+            formats=['FILE'],
+        )]
+
+    @parameterized.expand([
+        ('conflict', LINK_CONTENT, _existing_asset, None, None, ConflictError, 'The provided digital asset already exists'),
+        ('invalid_url', {
+            'contentType': 'application/json',
+            'resourceType': 'service',
+            'content': 'invalid url'
+        }, None, None, None, ValueError, 'The provided content is not a valid URL'),
+        ('no_type_metadata', {
+            'contentType': 'application/json',
+            'content': LINK
+        }, None, BASIC_META, None, ValueError, 'You have to specify a valid asset type for providing meta data'),
+        ('type_not_found', LINK_CONTENT, _type_not_found, None, None, ObjectDoesNotExist, 'The asset type service does not exists'),
+        ('inv_content', LINK_CONTENT, _inv_content, None, None, ValueError, 'The content type application/json is not valid for the specified asset type'),
+        ('inv_format', LINK_CONTENT, _inv_format, None, None,  ValueError, 'The format used for providing the digital asset (URL) is not valid for the given asset type'),
+        ('meta_not_allowed', LINK_CONTENT, None, BASIC_META, None, ValueError, 'The specified asset type does not allow meta data'),
+        ('missing_mandatory_meta', LINK_CONTENT, None, BASIC_META, {
+            'field1': {
+                'type': 'text'
+            },
+            'field2': {
+                'type': 'checkbox'
+            },
+            'field3': {
+                'type': 'text',
+            },
+            'field4': {
+                'type': 'text',
+                'mandatory': True
+            }
+        }, ValueError, 'Missing mandatory field field4 in metadata'),
+        ('inv_meta_text_type', LINK_CONTENT, None, {
+            'field1': True,
+            'field2': True,
+            'field3': 'value2'
+        }, BASIC_FORM, TypeError, 'Metadata field field1 must be a string'),
+        ('inv_meta_bool_type', LINK_CONTENT, None, {
+            'field1': 'value',
+            'field2': 'true',
+            'field3': 'value2'
+        }, BASIC_FORM, TypeError, 'Metadata field field2 must be a boolean'),
+        ('unkown_option', LINK_CONTENT, None, {
+            'field1': 'value',
+            'field2': True,
+            'field3': 'value5'
+        }, BASIC_FORM, ValueError, 'Metadata field field3 value is not one of the available options')
+    ])
+    def test_upload_asset_url_type_error(self, name, content, side_effect, meta, form, err_type, err_msg):
+
+        content['metadata'] = meta
+        self._mock_resource_type(form)
+
+        if side_effect is not None:
+            side_effect(self)
+
+        am = asset_manager.AssetManager()
+
+        error = None
+        try:
+            am.upload_asset(self._user, content)
+        except Exception as e:
+            error = e
+
+        self.assertTrue(isinstance(error, err_type))
+        self.assertEquals(err_msg, unicode(error))
+

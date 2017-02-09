@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -39,47 +39,45 @@ class ProductValidator(CatalogValidator):
         # Search the asset type
         asset_type = ResourcePlugin.objects.get(name=asset_t)
 
-        # Validate media type
-        if len(asset_type.media_types) and media_type not in asset_type.media_types:
-            raise ProductError('The media type characteristic included in the product specification is not valid for the given asset type')
-
         # Validate location format
         if not is_valid_url(url):
             raise ProductError('The location characteristic included in the product specification is not a valid URL')
 
-        site = Context.objects.all()[0].site
+        # Use th location to retrieve the attached asset
+        assets = Resource.objects.filter(download_link=url)
 
-        # If the asset is a file it must have been uploaded
-        if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
-                ('URL' in asset_type.formats and url.startswith(site.domain))):
-
-            try:
-                asset = Resource.objects.get(download_link=url)
-            except:
-                raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+        if len(assets):
+            # The asset is already registered
+            asset = assets[0]
 
             if asset.provider != provider:
                 raise PermissionDenied('You are not authorized to use the digital asset specified in the location characteristic')
 
-            if asset.content_type != media_type.lower():
-                raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
+            if asset.product_id is not None:
+                raise ProductError('There is already an existing product specification defined for the given digital asset')
+
+            if asset.resource_type != asset_t:
+                raise ProductError('The specified asset type if different from the asset one')
+
+            if asset.content_type.lower() != media_type.lower():
+                raise ProductError('The provided media type characteristic is different from the asset one')
 
             asset.has_terms = self._has_terms
             asset.save()
         else:
-            # If the asset is an URL and the resource model is created, that means that
-            # the asset have been already included in another product
-            resources = Resource.objects.filter(download_link=url)
-            error = False
-            for res in resources:
-                # The asset has been attached so it already exists
-                if res.product_id:
-                    error = True
-                else:
-                    res.delete()
+            # The asset is not yet included, this option is only valid for URL assets without metadata
+            site = Context.objects.all()[0].site
+            if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
+                ('URL' in asset_type.formats and url.startswith(site.domain))):
 
-            if error:
-                raise ProductError('There is already an existing product specification defined for the given digital asset')
+                raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+
+            if asset_type.form is not None:
+                raise ProductError('Automatic creation of digital assets with expected metadata is not supported')
+
+            # Validate media type
+            if len(asset_type.media_types) and media_type.lower() not in [media.lower() for media in asset_type.media_types]:
+                raise ProductError('The media type characteristic included in the product specification is not valid for the given asset type')
 
             # Create the new asset model
             asset = Resource.objects.create(

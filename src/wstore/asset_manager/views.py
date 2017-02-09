@@ -42,7 +42,7 @@ class AssetCollection(Resource):
 
     def read(self, request):
         """
-        Retrives the existing digital assets associated with a given seller
+        Retrieves the existing digital assets associated with a given seller
         :param request:
         :return: JSON List containing the existing assets
         """
@@ -100,7 +100,7 @@ class AssetEntry(Resource):
 
 
 class AssetEntryFromProduct(Resource):
-    def read(selg, request, product_id):
+    def read(self, request, product_id):
         """
         Retrieves the assets from a product
         :param request:
