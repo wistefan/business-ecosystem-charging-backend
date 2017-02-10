@@ -19,10 +19,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
-from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.core.exceptions import ObjectDoesNotExist
 from django.test.utils import override_settings
 
-from mock import MagicMock, mock_open, call
+from mock import MagicMock, mock_open
 from nose_parameterized import parameterized
 
 from django.test import TestCase
@@ -197,10 +197,11 @@ class UploadAssetTestCase(TestCase):
 
     def _file_conflict(self):
         asset_manager.os.path.exists.return_value = True
+        self.res_mock.product_id = None
 
     def _file_conflict_err(self):
         asset_manager.os.path.exists.return_value = True
-        self.res_mock.state = 'Active'
+        self.res_mock.product_id = '1'
 
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
@@ -352,7 +353,7 @@ class UploadAssetTestCase(TestCase):
         }, am.rollback_logger)
 
         # Check calls
-        asset_manager.Resource.objects.filter.assert_called_once_with(download_link=self.LINK)
+        asset_manager.Resource.objects.filter.assert_called_once_with(download_link=self.LINK, provider=self._user.userprofile.current_organization)
         asset_manager.ResourcePlugin.objects.filter.assert_called_once_with(name='service')
 
         # Check resource creation
@@ -368,8 +369,30 @@ class UploadAssetTestCase(TestCase):
             meta_info=exp_meta
         )
 
+    def test_upload_asset_pending(self):
+        self.LINK_CONTENT['metadata'] = self.BASIC_META
+
+        self._mock_resource_type(self.BASIC_FORM)
+
+        am = asset_manager.AssetManager()
+        am.rollback_logger = {
+            'files': [],
+            'models': []
+        }
+
+        assets = [MagicMock(product_id=None), MagicMock(product_id=None)]
+        asset_manager.Resource.objects.filter.return_value = assets
+        am.upload_asset(self._user, self.LINK_CONTENT)
+
+        # Check calls
+        asset_manager.Resource.objects.filter.assert_called_once_with(
+            download_link=self.LINK, provider=self._user.userprofile.current_organization)
+
+        assets[0].delete.assert_called_once_with()
+        assets[1].delete.assert_called_once_with()
+
     def _existing_asset(self):
-        asset_manager.Resource.objects.filter.return_value = [{}]
+        asset_manager.Resource.objects.filter.return_value = [MagicMock(product_id='1')]
 
     def _type_not_found(self):
         asset_manager.ResourcePlugin.objects.filter.return_value = []

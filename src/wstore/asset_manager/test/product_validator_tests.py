@@ -19,7 +19,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
-from copy import deepcopy
 
 from mock import MagicMock, call
 from nose_parameterized import parameterized
@@ -30,6 +29,7 @@ from django.test.testcases import TestCase
 from wstore.asset_manager import product_validator, offering_validator
 from wstore.asset_manager.errors import ProductError
 from wstore.asset_manager.test.product_validator_test_data import *
+from wstore.store_commons.errors import ConflictError
 
 
 class ValidatorTestCase(TestCase):
@@ -48,6 +48,7 @@ class ValidatorTestCase(TestCase):
         self._asset_instance.content_type = 'application/x-widget'
         self._asset_instance.provider = self._provider
         self._asset_instance.product_id = None
+        self._asset_instance.is_public = False
 
         module.Resource.objects.filter.return_value = [self._asset_instance]
         module.Resource.objects.get.return_value = self._asset_instance
@@ -106,6 +107,9 @@ class ValidatorTestCase(TestCase):
         self._plugin_instance.formats = ["URL"]
         product_validator.Resource.objects.filter.return_value = []
 
+    def _pub_asset(self):
+        self._asset_instance.is_public = True
+
     def test_validate_creation_registered_file(self):
         self._mock_validator_imports(product_validator)
 
@@ -142,12 +146,13 @@ class ValidatorTestCase(TestCase):
         ('multiple_values', MULTIPLE_VALUES, None, ProductError, 'ProductError: The characteristic Location must not contain multiple values'),
         ('inv_location', INVALID_LOCATION, None, ProductError, 'ProductError: The location characteristic included in the product specification is not a valid URL'),
         ('unauthorized', BASIC_PRODUCT, _not_owner, PermissionDenied, 'You are not authorized to use the digital asset specified in the location characteristic'),
-        ('existing_asset', BASIC_PRODUCT, _existing_asset, ProductError, 'ProductError: There is already an existing product specification defined for the given digital asset'),
+        ('existing_asset', BASIC_PRODUCT, _existing_asset, ConflictError, 'There is already an existing product specification defined for the given digital asset'),
         ('invalid_asset_type', BASIC_PRODUCT, _invalid_type, ProductError, 'ProductError: The specified asset type if different from the asset one'),
         ('diff_media', BASIC_PRODUCT, _diff_media, ProductError, 'ProductError: The provided media type characteristic is different from the asset one'),
         ('not_asset', BASIC_PRODUCT, _not_existing, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
         ('exp_metadata', TERMS_PRODUCT, _metadata_plugin, ProductError, 'ProductError: Automatic creation of digital assets with expected metadata is not supported'),
         ('inv_media', BASIC_PRODUCT, _inv_media, ProductError, 'ProductError: The media type characteristic included in the product specification is not valid for the given asset type'),
+        ('public_asset', BASIC_PRODUCT, _pub_asset, ProductError, 'ProductError: It is not allowed to create products with public assets')
     ])
     def test_validate_creation_error(self, name, data, side_effect, err_type, err_msg):
         self._mock_validator_imports(product_validator)

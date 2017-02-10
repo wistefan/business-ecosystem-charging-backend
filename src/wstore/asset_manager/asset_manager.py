@@ -68,7 +68,7 @@ class AssetManager:
         # Check if the file already exists
         if os.path.exists(file_path):
             res = Resource.objects.get(resource_path=resource_path)
-            if len(res.state):
+            if res.product_id is not None:
                 # If the resource has state field, it means that a product
                 # spec has been created, so it cannot be overridden
                 raise ConflictError('The provided digital asset (' + file_name + ') already exists')
@@ -169,7 +169,15 @@ class AssetManager:
         if 'content' in data:
             if isinstance(data['content'], str) or isinstance(data['content'], unicode):
                 # Check that the download link is not already being used
-                if len(Resource.objects.filter(download_link=data['content'])):
+                existing_assets = Resource.objects.filter(download_link=data['content'], provider=current_organization)
+                is_conflict = False
+                for asset in existing_assets:
+                    if asset.product_id is not None:
+                        is_conflict = True
+                    else:
+                        asset.delete()
+
+                if is_conflict:
                     raise ConflictError('The provided digital asset already exists')
 
                 download_link = data['content']

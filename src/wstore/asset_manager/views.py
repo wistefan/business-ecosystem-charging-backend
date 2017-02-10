@@ -190,6 +190,8 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 400, unicode(e))
     except ProductError as e:
         return build_response(request, 400, unicode(e))
+    except ConflictError as e:
+        return build_response(request, 409, unicode(e))
     except PluginError as e:
         return build_response(request, 422, unicode(e))
     except PermissionDenied as e:
