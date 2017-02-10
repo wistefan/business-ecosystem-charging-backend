@@ -67,7 +67,7 @@ class ValidatorTestCase(TestCase):
         self._plugin_instance.media_types = ['application/x-widget']
         self._plugin_instance.formats = ["FILE"]
         self._plugin_instance.module = 'wstore.asset_manager.resource_plugins.plugin.Plugin'
-        self._plugin_instance.form = None
+        self._plugin_instance.form = {}
 
         import wstore.asset_manager.resource_plugins.decorators
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin = MagicMock()

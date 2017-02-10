@@ -19,13 +19,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
-from django.core.exceptions import ObjectDoesNotExist
-from django.test.utils import override_settings
 
+from copy import deepcopy
 from mock import MagicMock, mock_open
 from nose_parameterized import parameterized
 
 from django.test import TestCase
+from django.core.exceptions import ObjectDoesNotExist
+from django.test.utils import override_settings
 
 from wstore.asset_manager import asset_manager
 from wstore.asset_manager.test.resource_test_data import *
@@ -317,7 +318,7 @@ class UploadAssetTestCase(TestCase):
     }
 
     @parameterized.expand([
-        ('no_metainfo', None, None, None),
+        ('no_metainfo', None, {}, {}),
         ('metainfo', BASIC_META, BASIC_META, BASIC_FORM),
         ('default_metainfo', {
             'field1': 'value1'
@@ -335,7 +336,10 @@ class UploadAssetTestCase(TestCase):
         })
     ])
     def test_upload_asset_url_type(self, name, meta, exp_meta, form):
-        self.LINK_CONTENT['metadata'] = meta
+        content = deepcopy(self.LINK_CONTENT)
+
+        if meta is not None:
+            content['metadata'] = meta
 
         self._mock_resource_type(form)
 
@@ -345,7 +349,7 @@ class UploadAssetTestCase(TestCase):
             'models': []
         }
 
-        am.upload_asset(self._user, self.LINK_CONTENT)
+        am.upload_asset(self._user, content)
 
         self.assertEquals({
             'files': [],
@@ -370,7 +374,8 @@ class UploadAssetTestCase(TestCase):
         )
 
     def test_upload_asset_pending(self):
-        self.LINK_CONTENT['metadata'] = self.BASIC_META
+        content = deepcopy(self.LINK_CONTENT)
+        content['metadata'] = self.BASIC_META
 
         self._mock_resource_type(self.BASIC_FORM)
 
@@ -382,7 +387,7 @@ class UploadAssetTestCase(TestCase):
 
         assets = [MagicMock(product_id=None), MagicMock(product_id=None)]
         asset_manager.Resource.objects.filter.return_value = assets
-        am.upload_asset(self._user, self.LINK_CONTENT)
+        am.upload_asset(self._user, content)
 
         # Check calls
         asset_manager.Resource.objects.filter.assert_called_once_with(
@@ -412,21 +417,21 @@ class UploadAssetTestCase(TestCase):
         )]
 
     @parameterized.expand([
-        ('conflict', LINK_CONTENT, _existing_asset, None, None, ConflictError, 'The provided digital asset already exists'),
+        ('conflict', deepcopy(LINK_CONTENT), _existing_asset, None, {}, ConflictError, 'The provided digital asset already exists'),
         ('invalid_url', {
             'contentType': 'application/json',
             'resourceType': 'service',
             'content': 'invalid url'
-        }, None, None, None, ValueError, 'The provided content is not a valid URL'),
+        }, None, None, {}, ValueError, 'The provided content is not a valid URL'),
         ('no_type_metadata', {
             'contentType': 'application/json',
             'content': LINK
-        }, None, BASIC_META, None, ValueError, 'You have to specify a valid asset type for providing meta data'),
-        ('type_not_found', LINK_CONTENT, _type_not_found, None, None, ObjectDoesNotExist, 'The asset type service does not exists'),
-        ('inv_content', LINK_CONTENT, _inv_content, None, None, ValueError, 'The content type application/json is not valid for the specified asset type'),
-        ('inv_format', LINK_CONTENT, _inv_format, None, None,  ValueError, 'The format used for providing the digital asset (URL) is not valid for the given asset type'),
-        ('meta_not_allowed', LINK_CONTENT, None, BASIC_META, None, ValueError, 'The specified asset type does not allow meta data'),
-        ('missing_mandatory_meta', LINK_CONTENT, None, BASIC_META, {
+        }, None, BASIC_META, {}, ValueError, 'You have to specify a valid asset type for providing meta data'),
+        ('type_not_found', deepcopy(LINK_CONTENT), _type_not_found, None, {}, ObjectDoesNotExist, 'The asset type service does not exists'),
+        ('inv_content', deepcopy(LINK_CONTENT), _inv_content, None, {}, ValueError, 'The content type application/json is not valid for the specified asset type'),
+        ('inv_format', deepcopy(LINK_CONTENT), _inv_format, None, {},  ValueError, 'The format used for providing the digital asset (URL) is not valid for the given asset type'),
+        ('meta_not_allowed', deepcopy(LINK_CONTENT), None, BASIC_META, {}, ValueError, 'The specified asset type does not allow meta data'),
+        ('missing_mandatory_meta', deepcopy(LINK_CONTENT), None, BASIC_META, {
             'field1': {
                 'type': 'text'
             },
@@ -441,17 +446,17 @@ class UploadAssetTestCase(TestCase):
                 'mandatory': True
             }
         }, ValueError, 'Missing mandatory field field4 in metadata'),
-        ('inv_meta_text_type', LINK_CONTENT, None, {
+        ('inv_meta_text_type', deepcopy(LINK_CONTENT), None, {
             'field1': True,
             'field2': True,
             'field3': 'value2'
         }, BASIC_FORM, TypeError, 'Metadata field field1 must be a string'),
-        ('inv_meta_bool_type', LINK_CONTENT, None, {
+        ('inv_meta_bool_type', deepcopy(LINK_CONTENT), None, {
             'field1': 'value',
             'field2': 'true',
             'field3': 'value2'
         }, BASIC_FORM, TypeError, 'Metadata field field2 must be a boolean'),
-        ('unkown_option', LINK_CONTENT, None, {
+        ('unkown_option', deepcopy(LINK_CONTENT), None, {
             'field1': 'value',
             'field2': True,
             'field3': 'value5'
@@ -459,7 +464,9 @@ class UploadAssetTestCase(TestCase):
     ])
     def test_upload_asset_url_type_error(self, name, content, side_effect, meta, form, err_type, err_msg):
 
-        content['metadata'] = meta
+        if meta is not None:
+            content['metadata'] = meta
+
         self._mock_resource_type(form)
 
         if side_effect is not None:

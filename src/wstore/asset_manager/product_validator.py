@@ -76,7 +76,7 @@ class ProductValidator(CatalogValidator):
 
                 raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
 
-            if asset_type.form is not None:
+            if asset_type.form:
                 raise ProductError('Automatic creation of digital assets with expected metadata is not supported')
 
             # Validate media type
