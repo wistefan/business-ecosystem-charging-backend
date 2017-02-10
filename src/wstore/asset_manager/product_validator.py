@@ -27,6 +27,7 @@ from wstore.asset_manager.models import ResourcePlugin, Resource
 from wstore.asset_manager.errors import ProductError
 from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment
 from wstore.asset_manager.catalog_validator import CatalogValidator
+from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.models import Context
 from wstore.store_commons.rollback import rollback
@@ -43,7 +44,7 @@ class ProductValidator(CatalogValidator):
         if not is_valid_url(url):
             raise ProductError('The location characteristic included in the product specification is not a valid URL')
 
-        # Use th location to retrieve the attached asset
+        # Use the location to retrieve the attached asset
         assets = Resource.objects.filter(download_link=url)
 
         if len(assets):
@@ -54,13 +55,16 @@ class ProductValidator(CatalogValidator):
                 raise PermissionDenied('You are not authorized to use the digital asset specified in the location characteristic')
 
             if asset.product_id is not None:
-                raise ProductError('There is already an existing product specification defined for the given digital asset')
+                raise ConflictError('There is already an existing product specification defined for the given digital asset')
 
             if asset.resource_type != asset_t:
                 raise ProductError('The specified asset type if different from the asset one')
 
             if asset.content_type.lower() != media_type.lower():
                 raise ProductError('The provided media type characteristic is different from the asset one')
+
+            if asset.is_public:
+                raise ProductError('It is not allowed to create products with public assets')
 
             asset.has_terms = self._has_terms
             asset.save()
@@ -87,7 +91,10 @@ class ProductValidator(CatalogValidator):
                 provider=provider,
                 content_type=media_type
             )
-            self.rollback_logger['models'].append(asset)
+
+        # The asset model is included to the rollback list so if an exception is raised in the plugin post validation
+        # the asset model would be deleted
+        self.rollback_logger['models'].append(asset)
 
         return asset
 
