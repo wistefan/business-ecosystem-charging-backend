@@ -125,10 +125,10 @@ class AssetManager:
                 provided_as + ') is not valid for the given asset type')
 
         # Validate that the included metadata is valid according to the form field
-        if metadata and asset_type.form is None:
+        if metadata and not asset_type.form:
             raise ValueError('The specified asset type does not allow meta data')
 
-        if asset_type.form is not None:
+        if asset_type.form:
 
             for k, v in asset_type.form.iteritems():
                 # Validate mandatory fields
