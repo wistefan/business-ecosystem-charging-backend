@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -49,6 +49,12 @@ class PluginLoader():
         self._plugins_path = os.path.join(self._plugins_path, 'resource_plugins')
         self._plugins_path = os.path.join(self._plugins_path, 'plugins')
         self._plugins_module = 'wstore.asset_manager.resource_plugins.plugins.'
+
+    def _get_plugin_module(self, module, plugin_id):
+        module_class_name = module.split('.')[-1]
+        module_package = module.partition('.' + module_class_name)[0]
+
+        return getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
 
     @installPluginRollback
     def install_plugin(self, path, logger=None):
@@ -100,16 +106,13 @@ class PluginLoader():
 
         # Validate plugin main class
         module = self._plugins_module + plugin_id + '.' + json_info['module']
-        module_class_name = module.split('.')[-1]
-        module_package = module.partition('.' + module_class_name)[0]
-
-        module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
+        module_class = self._get_plugin_module(module, plugin_id)
 
         if Plugin not in module_class.__bases__:
             raise PluginError('No Plugin implementation has been found')
 
         # Save plugin model
-        ResourcePlugin.objects.create(
+        plugin_model = ResourcePlugin.objects.create(
             plugin_id=plugin_id,
             name=json_info['name'],
             version=json_info['version'],
@@ -118,8 +121,13 @@ class PluginLoader():
             formats=json_info['formats'],
             media_types=json_info.get('media_types', []),
             form=json_info.get('form', {}),
-            overrides=json_info.get('overrides', [])
+            overrides=json_info.get('overrides', []),
+            pull_accounting=json_info.get('pull_accounting', False)
         )
+
+        # Configure usage specifications if needed
+        if plugin_model.pull_accounting:
+            module_class(plugin_model).configure_usage_spec()
 
         return plugin_id
 
@@ -141,9 +149,13 @@ class PluginLoader():
         if len(resources) > 0:
             raise PermissionDenied('The plugin ' + plugin_id + ' is being used in some resources')
 
+        if plugin_model.pull_accounting:
+            module_class = self._get_plugin_module(plugin_model.module, plugin_id)
+            plugin = module_class(plugin_model)
+            plugin.remove_usage_specs()
+
         # Remove plugin files
         plugin_path = os.path.join(self._plugins_path, plugin_id)
-
         rmtree(plugin_path)
 
         # Remove model
