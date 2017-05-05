@@ -118,7 +118,10 @@ class Plugin:
     def get_pending_accounting(self, asset, contract, order):
         return []
 
-    def process_pending_accounting(self, asset, contract, order):
+    def on_usage_refresh(self, asset, contract, order):
+        if not self._model.pull_accounting:
+            return
+
         pending_accounting = self.get_pending_accounting(asset, contract, order)
         time_stamp = unicode(datetime.isoformat()).replace(' ', 'T')
         usage_template = {
