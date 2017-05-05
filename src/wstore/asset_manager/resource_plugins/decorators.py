@@ -40,13 +40,14 @@ def _get_plugin_model(name):
 
 
 def load_plugin_module(asset_t):
-    module = _get_plugin_model(asset_t).module
+    plugin_model = _get_plugin_model(asset_t)
+    module = plugin_model.module
     module_class_name = module.split('.')[-1]
     module_package = module.partition('.' + module_class_name)[0]
 
     module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
 
-    return module_class()
+    return module_class(plugin_model)
 
 
 def on_product_spec_validation(func):
