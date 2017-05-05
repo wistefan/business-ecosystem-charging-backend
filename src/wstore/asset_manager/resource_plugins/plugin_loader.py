@@ -81,13 +81,13 @@ class PluginLoader():
             # Validate plugin info
             validation = self._plugin_manager.validate_plugin_info(json_info)
 
+            if validation is not None:
+                raise PluginError('Invalid format in package.json file. ' + validation)
+
             # Create plugin id
             plugin_id = json_info['name'].lower().replace(' ', '-')
             if len(ResourcePlugin.objects.filter(plugin_id=plugin_id)) > 0:
                 raise PluginError('A plugin with the same id (' + plugin_id + ') already exists')
-
-            if validation is not None:
-                raise PluginError('Invalid format in package.json file. ' + validation)
 
             # Check if the directory already exists
             plugin_path = os.path.join(self._plugins_path, plugin_id)
@@ -110,6 +110,17 @@ class PluginLoader():
 
         if Plugin not in module_class.__bases__:
             raise PluginError('No Plugin implementation has been found')
+
+        # Check accounting implementations
+        if json_info.get('pull_accounting', False) and \
+                ('get_pending_accounting' not in module_class.__dict__ or 'get_usage_specs' not in module_class.__dict__):
+
+            raise PluginError('If pull accounting is true, methods get_pending_accounting and get_usage_specs must be implemented')
+
+        if not json_info.get('pull_accounting', False) and \
+                ('get_pending_accounting' in module_class.__dict__ or 'get_usage_specs' in module_class.__dict__):
+
+            raise PluginError('If pull accounting is false, methods get_pending_accounting and get_usage_specs must not be implemented')
 
         # Save plugin model
         plugin_model = ResourcePlugin.objects.create(
