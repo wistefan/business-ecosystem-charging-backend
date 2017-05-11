@@ -90,7 +90,7 @@ class Plugin:
         # Create usage specifications for supported units
         for spec in usage_specs:
             # Check if the usage spec is already registered
-            if 'usage' not in self._model.options or spec['name'] not in self._model.options['usage']:
+            if 'usage' not in self._model.options or spec['name'].lower() not in self._model.options['usage']:
                 usage_spec = deepcopy(specification_template)
                 usage_spec['name'] = spec['name']
                 usage_spec['description'] = spec['description']
@@ -100,7 +100,7 @@ class Plugin:
                     self._model.options['usage'] = {}
 
                 # Save the spec href to be used in usage documents
-                self._model.options['usage'][spec['name']] = created_spec['href']
+                self._model.options['usage'][spec['name'].lower()] = created_spec['href']
                 self._model.save()
 
     def remove_usage_specs(self):
@@ -122,10 +122,8 @@ class Plugin:
         if not self._model.pull_accounting:
             return
 
-        pending_accounting = self.get_pending_accounting(asset, contract, order)
-        time_stamp = unicode(datetime.isoformat()).replace(' ', 'T')
+        pending_accounting, last_usage = self.get_pending_accounting(asset, contract, order)
         usage_template = {
-            'date': time_stamp,
             'type': 'event',
             'status': 'Guided',
             'usageCharacteristic': [{
@@ -146,6 +144,8 @@ class Plugin:
         for usage_record in pending_accounting:
             # Generate a TMForum usage document for each usage record
             usage = deepcopy(usage_template)
+
+            usage['date'] = usage_record['date']
 
             # All the  information is known so the document is directly created in Guided state
             usage['usageSpecification'] = {
@@ -173,6 +173,6 @@ class Plugin:
             contract.correlation_number += 1
             order.save()
 
-        contract.last_usage = time_stamp
-        order.save()
-
+        if last_usage is not None:
+            contract.last_usage = last_usage
+            order.save()
