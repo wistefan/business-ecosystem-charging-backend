@@ -36,7 +36,7 @@ from wstore.models import ResourcePlugin, Resource
 from wstore.asset_manager.resource_plugins.plugin import Plugin
 
 
-class PluginLoader():
+class PluginLoader(object):
 
     _plugin_manager = None
     _plugins_path = None
@@ -135,6 +135,8 @@ class PluginLoader():
             overrides=json_info.get('overrides', []),
             pull_accounting=json_info.get('pull_accounting', False)
         )
+
+        logger.log_action('MODEL', plugin_model)
 
         # Configure usage specifications if needed
         if plugin_model.pull_accounting:

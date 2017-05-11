@@ -22,13 +22,12 @@
 from __future__ import unicode_literals
 
 from copy import deepcopy
-from datetime import datetime
 from requests.exceptions import HTTPError
 
 from wstore.charging_engine.accounting.usage_client import UsageClient
 
 
-class Plugin:
+class Plugin(object):
 
     def __init__(self, plugin_model):
         self._model = plugin_model

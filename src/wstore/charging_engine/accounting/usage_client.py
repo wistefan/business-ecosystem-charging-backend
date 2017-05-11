@@ -22,7 +22,7 @@
 from __future__ import unicode_literals
 
 import requests
-from urlparse import urljoin
+from urlparse import urljoin, urlparse
 
 from django.conf import settings
 
@@ -30,7 +30,7 @@ from wstore.charging_engine.accounting.errors import UsageError
 from wstore.models import Context
 
 
-class UsageClient:
+class UsageClient(object):
 
     def __init__(self):
         self._usage_api = settings.USAGE
@@ -55,7 +55,7 @@ class UsageClient:
     def _create_usage_item(self, url, usage_item):
         # Override the needed headers to avoid spec hrefs to be created with internal host and port
         headers = {
-            'Host': Context.objects.all()[0].site.domain
+            'Host': urlparse(Context.objects.all()[0].site.domain).netloc
         }
 
         r = requests.post(url, headers=headers, json=usage_item)
