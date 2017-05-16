@@ -70,7 +70,7 @@ class Organization(models.Model):
 
     def get_party_url(self):
         party_type = 'individual' if self.private else 'organization'
-        return Context.objects.all()[0].domain + '/partyManagement/' + party_type + '/' + self.name
+        return Context.objects.all()[0].site.domain + '/partyManagement/' + party_type + '/' + self.name
 
 
 from wstore.asset_manager.models import Resource, ResourcePlugin
