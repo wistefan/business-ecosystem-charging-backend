@@ -124,7 +124,7 @@ class Plugin(object):
         pending_accounting, last_usage = self.get_pending_accounting(asset, contract, order)
         usage_template = {
             'type': 'event',
-            'status': 'Guided',
+            'status': 'Received',
             'usageCharacteristic': [{
                 'name': 'orderId',
                 'value': order.order_id
@@ -146,7 +146,6 @@ class Plugin(object):
 
             usage['date'] = usage_record['date']
 
-            # All the  information is known so the document is directly created in Guided state
             usage['usageSpecification'] = {
                 'href': self._model.options['usage'][usage_record['unit']],
                 'name': usage_record['unit']
@@ -167,7 +166,9 @@ class Plugin(object):
                 'value': usage_record['value']
             })
 
-            usage_client.create_usage(usage)
+            usage_doc = usage_client.create_usage(usage)
+            # All the  information is known so the document is directly created in Guided state
+            usage_client.update_usage_state(usage_doc['id'], 'Guided')
 
             contract.correlation_number += 1
             order.save()
