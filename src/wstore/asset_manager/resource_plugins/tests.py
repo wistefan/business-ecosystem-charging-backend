@@ -90,12 +90,15 @@ class PluginLoaderTestCase(TestCase):
     @parameterized.expand([
         ('correct', 'test_plugin.zip', PLUGIN_INFO),
         ('correct_no_optionals', 'test_plugin_5.zip', PLUGIN_INFO2),
+        ('pull_accounting', 'test_plugin_8.zip', None, None, Exception, 'Call to configure expecs'),
         ('invalid_zip', 'test_plugin.zip', None, _inv_zip, PluginError, 'Plugin Error: Invalid package format: Not a zip file'),
         ('missing_json', 'test_plugin_2.zip', None, None, PluginError, 'Plugin Error: Missing package.json file'),
         ('not_plugin_imp', 'test_plugin_3.zip', None, None, PluginError, 'Plugin Error: No Plugin implementation has been found'),
         ('inv_json', 'test_plugin_4.zip', None, None,  PluginError, 'Plugin Error: Invalid format in package.json file. JSON cannot be parsed'),
         ('validation_err', 'test_plugin.zip', None,  _inv_plugin_info, PluginError, 'Plugin Error: Invalid format in package.json file. validation error'),
-        ('existing', 'test_plugin.zip', None,  _existing_plugin, PluginError, 'Plugin Error: A plugin with the same id (test-plugin) already exists')
+        ('existing', 'test_plugin.zip', None,  _existing_plugin, PluginError, 'Plugin Error: A plugin with the same id (test-plugin) already exists'),
+        ('pull_not_impl', 'test_plugin_6.zip', None, None, PluginError, 'Plugin Error: If pull accounting is true, methods get_pending_accounting and get_usage_specs must be implemented'),
+        ('pull_impl', 'test_plugin_7.zip', None, None, PluginError, 'Plugin Error: If pull accounting is false, methods get_pending_accounting and get_usage_specs must not be implemented')
     ])
     def test_plugin_installation(self, name, zip_file, expected=None, side_effect=None, err_type=None, err_msg=None):
         # Build plugin loader
@@ -229,6 +232,7 @@ class PluginValidatorTestCase(TestCase):
         ('invalid_media_type', INVALID_MEDIA_TYPE, 'Plugin media_types must be a list'),
         ('invalid_module_type', INVALID_MODULE_TYPE, 'Plugin module must be an string'),
         ('invalid_version', INVALID_VERSION, 'Invalid format in plugin version'),
+        ('invalid_pull_format', INVALID_ACCOUNTING, 'Plugin pull_accounting property must be a boolean'),
         ('invalid_form_type', INVALID_FORM_TYPE, 'Invalid format in form field, must be an object'),
         ('invalid_form_entry_type', INVALID_FORM_ENTRY_TYPE, 'Invalid form field: name entry is not an object'),
         ('invalid_form_missing_type', INVALID_FORM_MISSING_TYPE, 'Invalid form field: Missing type in name entry'),
