@@ -22,7 +22,6 @@ from __future__ import unicode_literals
 
 from django.conf.urls import patterns, url
 
-from wstore.admin.users import views as user_views
 from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
 from wstore.ordering import views as ordering_views
@@ -32,7 +31,6 @@ from wstore.reports import views as reports_views
 
 urlpatterns = patterns('',
     # API
-    url(r'^charging/api/userManagement/users/(?P<username>[\w -]+)/?$', user_views.UserProfileEntry(permitted_methods=('GET', 'PATCH'))),
     url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
     url(r'^charging/api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),
     url(r'^charging/api/assetManagement/assets/offeringJob/?$', offering_views.ValidateOfferingCollection(permitted_methods=('POST',))),
