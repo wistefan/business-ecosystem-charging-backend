@@ -21,13 +21,15 @@
 from __future__ import unicode_literals
 
 import os
-from mock import MagicMock
+from mock import MagicMock, call
 from nose_parameterized import parameterized
+from requests.exceptions import HTTPError
 from shutil import rmtree
 
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
+from wstore.asset_manager.resource_plugins import plugin
 from wstore.asset_manager.resource_plugins.plugin_validator import PluginValidator
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins import plugin_loader
@@ -253,3 +255,288 @@ class PluginValidatorTestCase(TestCase):
 
         reason = plugin_manager.validate_plugin_info(plugin_info)
         self.assertEquals(reason, validation_msg)
+
+
+class PluginTestCase(TestCase):
+
+    tags = ("plugin", )
+
+    _characteristics = [{
+        'name': 'orderId',
+        'description': 'Order identifier',
+        'configurable': False,
+        'usageSpecCharacteristicValue': [{
+            'valueType': 'string',
+            'default': False,
+            'value': ''
+        }]
+    }, {
+        'name': 'productId',
+        'description': 'Product identifier',
+        'configurable': False,
+        'usageSpecCharacteristicValue': [{
+            'valueType': 'string',
+            'default': False,
+            'value': ''
+        }]
+    }, {
+        'name': 'correlationNumber',
+        'description': 'Accounting correlation number',
+        'configurable': False,
+        'usageSpecCharacteristicValue': [{
+            'valueType': 'number',
+            'default': False,
+            'value': ''
+        }]
+    }, {
+        'name': 'unit',
+        'description': 'Accounting unit',
+        'configurable': False,
+        'usageSpecCharacteristicValue': [{
+            'valueType': 'string',
+            'default': False,
+            'value': ''
+        }]
+    }, {
+        'name': 'value',
+        'description': 'Accounting value',
+        'configurable': False,
+        'usageSpecCharacteristicValue': [{
+            'valueType': 'number',
+            'default': False,
+            'value': ''
+        }]
+    }]
+
+    _call_spec = {
+        'name': 'api call',
+        'description': 'api calls'
+    }
+
+    _call_specification = {
+        'name': 'api call',
+        'description': 'api calls',
+        'usageSpecCharacteristic': deepcopy(_characteristics)
+    }
+
+    _second_spec = {
+        'name': 'second',
+        'description': 'seconds of usage'
+    }
+
+    _second_specification = {
+        'name': 'second',
+        'description': 'seconds of usage',
+        'usageSpecCharacteristic': deepcopy(_characteristics)
+    }
+
+    _option = {
+        'usage': {
+            'api call': 'http://uploadedspec.com/spec/1',
+        }
+    }
+
+    _order_id = '20'
+    _product_id = '10'
+    _org_name = 'TestCustomer'
+    _org_url = 'http://exampleserver/party1'
+    _date = '2017-06-06'
+
+    _usage_record = {
+        'type': 'event',
+        'status': 'Received',
+        'date': _date,
+        'usageSpecification': {
+            'href': 'http://uploadedspec.com/spec/1',
+            'name': 'api call'
+        },
+        'usageCharacteristic': [{
+            'name': 'orderId',
+            'value': _order_id
+        }, {
+            'name': 'productId',
+            'value': _product_id
+        }, {
+           'name': 'unit',
+            'value': 'api call'
+        }, {
+            'name': 'correlationNumber',
+            'value': 0
+        }, {
+            'name': 'value',
+            'value': 130
+        }],
+        'relatedParty': [{
+            'role': 'customer',
+            'id': _org_name,
+            'href': _org_url
+        }]
+    }
+
+    def setUp(self):
+        self._model = MagicMock()
+        self._model.options = {}
+
+        self._usage_client = MagicMock()
+        plugin.UsageClient = MagicMock(return_value=self._usage_client)
+
+    def _call_configured(self):
+        self._model.options = self._option
+
+    def _not_called(self):
+        self.assertEqual(0, self._usage_client.create_usage_spec.call_count)
+        self.assertEquals({}, self._model.options)
+
+    def _not_called_conf(self):
+        self.assertEqual(0, self._usage_client.create_usage_spec.call_count)
+        self.assertEquals(self._option, self._model.options)
+
+    def _specs_created(self):
+        self.assertEquals([
+            call(self._call_specification),
+            call(self._second_specification)], self._usage_client.create_usage_spec.call_args_list)
+
+    @parameterized.expand([
+        ('empty_specs', [], _not_called),
+        ('already_config', [_call_spec], _not_called_conf, _call_configured),
+        ('spec_created', [_call_spec, _second_spec], _specs_created, None)
+    ])
+    def test_usage_spec_conf(self, name, specs, validator, side_effect=None):
+
+        if side_effect is not None:
+            side_effect(self)
+
+        plugin_handler = plugin.Plugin(self._model)
+        plugin_handler.get_usage_specs = MagicMock(return_value=specs)
+
+        plugin_handler.configure_usage_spec()
+
+        plugin.UsageClient.assert_called_once_with()
+        validator(self)
+
+    def test_usage_spec_error(self):
+        plugin_handler = plugin.Plugin(self._model)
+        plugin_handler.get_usage_specs = MagicMock(return_value=[{}])
+
+        try:
+            plugin_handler.configure_usage_spec()
+        except PluginError as e:
+            self.assertEquals(
+                'Plugin Error: Invalid product specification configuration, must include name and description', unicode(e))
+
+    def _not_found_spec(self):
+        error = HTTPError()
+        error.response = MagicMock(status_code=404)
+        self._usage_client.delete_usage_spec.side_effect = error
+
+    def _delete_not_called(self):
+        self.assertEquals(0, plugin.UsageClient.call_count)
+        self.assertEquals(0, self._usage_client.delete_usage_spec.call_count)
+
+    def _delete_called(self):
+        plugin.UsageClient.assert_called_once_with()
+        self.assertEquals([call('1'), call('2')], self._usage_client.delete_usage_spec.call_args_list)
+
+    def _already_deleted(self):
+        plugin.UsageClient.assert_called_once_with()
+        self._usage_client.delete_usage_spec.assert_called_once_with('1')
+
+    @parameterized.expand([
+        ('not_usage', {}, _delete_not_called),
+        ('multiple_units', {
+            'usage': {
+                'api call': 'http://uploadedspec.com/spec/1',
+                'second': 'http://uploadedspec.com/spec/2'
+            }
+        }, _delete_called),
+        ('already_deleted', _option, _already_deleted, _not_found_spec)
+    ])
+    def test_remove_usage_specs(self, name, options, validator, side_effect=None):
+        self._model.options = options
+
+        if side_effect:
+            side_effect(self)
+
+        plugin_handler = plugin.Plugin(self._model)
+
+        plugin_handler.remove_usage_specs()
+
+        validator(self)
+
+    def test_remove_usage_spec_error(self):
+        self._model.options = self._option
+
+        error = HTTPError()
+        error.response = MagicMock(status_code=500)
+        self._usage_client.delete_usage_spec.side_effect = error
+
+        plugin_handler = plugin.Plugin(self._model)
+
+        try:
+            plugin_handler.remove_usage_specs()
+        except HTTPError as e:
+            self.assertEquals(500, e.response.status_code)
+
+    def _mock_order(self):
+        asset = MagicMock()
+        contract = MagicMock(product_id=self._product_id, correlation_number=0)
+
+        order = MagicMock(order_id=self._order_id)
+        order.owner_organization.name = self._org_name
+        order.owner_organization.get_party_url.return_value = self._org_url
+
+        return asset, contract, order
+
+    @parameterized.expand([
+        ('empty_uses', ([], None)),
+        ('pending_usage', ([{
+            'date': _date,
+            'unit': 'api call',
+            'value': 130
+        }], '2017-06-06'))
+    ])
+    def test_usage_refresh(self, name, usages):
+        self._model.options = self._option
+        self._model.pull_accounting = True
+
+        self._usage_client.create_usage.return_value = {
+            'id': '1'
+        }
+
+        plugin_handler = plugin.Plugin(self._model)
+        plugin_handler.get_pending_accounting = MagicMock(return_value=usages)
+
+        asset, contract, order = self._mock_order()
+
+        plugin_handler.on_usage_refresh(asset, contract, order)
+
+        plugin_handler.get_pending_accounting.assert_called_once_with(asset, contract, order)
+        plugin.UsageClient.assert_called_once_with()
+
+        if len(usages[0]):
+            # Check calls
+            self._usage_client.create_usage.assert_called_once_with(self._usage_record)
+            self._usage_client.update_usage_state.assert_called_once_with('1', 'Guided')
+
+            self.assertEquals(1, contract.correlation_number)
+            self.assertEquals(usages[1], contract.last_usage)
+            self.assertEquals([call(), call()], order.save.call_args_list)
+
+    def test_usage_refresh_error(self):
+        plugin_handler = plugin.Plugin(self._model)
+        plugin_handler.get_pending_accounting = MagicMock(return_value=([{}], None))
+
+        asset, contract, order = self._mock_order()
+        try:
+            plugin_handler.on_usage_refresh(asset, contract, order)
+        except PluginError as e:
+            self.assertEquals(
+                'Plugin Error: Invalid usage record, it must include date, unit and value', unicode(e))
+
+    def test_usage_refresh_not_pull(self):
+        self._model.pull_accounting = False
+        plugin_handler = plugin.Plugin(self._model)
+        plugin_handler.get_pending_accounting = MagicMock(return_value=([], None))
+
+        plugin_handler.on_usage_refresh(None, None, None)
+        self.assertEquals(0, plugin_handler.get_pending_accounting.call_count)

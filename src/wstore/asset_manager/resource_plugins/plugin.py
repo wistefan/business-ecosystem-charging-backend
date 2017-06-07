@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 from copy import deepcopy
 from requests.exceptions import HTTPError
 
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.charging_engine.accounting.usage_client import UsageClient
 
 
@@ -88,6 +89,9 @@ class Plugin(object):
 
         # Create usage specifications for supported units
         for spec in usage_specs:
+            if 'name' not in spec or 'description' not in spec:
+                raise PluginError('Invalid product specification configuration, must include name and description')
+
             # Check if the usage spec is already registered
             if 'usage' not in self._model.options or spec['name'].lower() not in self._model.options['usage']:
                 usage_spec = deepcopy(specification_template)
@@ -141,6 +145,9 @@ class Plugin(object):
 
         usage_client = UsageClient()
         for usage_record in pending_accounting:
+            if 'date' not in usage_record or 'unit' not in usage_record or 'value' not in usage_record:
+                raise PluginError('Invalid usage record, it must include date, unit and value')
+
             # Generate a TMForum usage document for each usage record
             usage = deepcopy(usage_template)
 
