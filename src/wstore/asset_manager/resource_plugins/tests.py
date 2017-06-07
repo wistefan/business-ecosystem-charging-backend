@@ -1,7 +1,6 @@
-
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -34,6 +33,14 @@ from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins import plugin_loader
 from wstore.models import ResourcePlugin
 from wstore.asset_manager.resource_plugins.test_data import *
+
+
+class TestPlugin(object):
+    def __init__(self, plugin_model):
+        self._plugin_model = plugin_model
+
+    def remove_usage_specs(self):
+        self._plugin_model.usage_called = True
 
 
 class PluginLoaderTestCase(TestCase):
@@ -149,19 +156,27 @@ class PluginLoaderTestCase(TestCase):
 
     @parameterized.expand([
         ('correct', ),
-        ('plugin_used', _plugin_in_use, PermissionDenied, 'The plugin test_plugin is being used in some resources'),
-        ('not_exists', _plugin_not_exists, ObjectDoesNotExist, 'The plugin test_plugin is not registered')
+        ('pull_accounting', True),
+        ('plugin_used', False, _plugin_in_use, PermissionDenied, 'The plugin test_plugin is being used in some resources'),
+        ('not_exists', False, _plugin_not_exists, ObjectDoesNotExist, 'The plugin test_plugin is not registered')
     ])
-    def test_plugin_removal(self, name, side_effect=None, err_type=None, err_msg=None):
+    def test_plugin_removal(self, name, pull=False, side_effect=None, err_type=None, err_msg=None):
+        plugin_name = 'Test Plugin'
 
-        # Mock libreries
+        # Mock libraries
         plugin_loader.Resource = MagicMock(name="Resource")
 
         self.resources_mock = MagicMock()
         plugin_loader.Resource.objects.filter.return_value = []
 
         plugin_loader.ResourcePlugin = MagicMock(name="ResourcePlugin")
+
         plugin_mock = MagicMock()
+        plugin_mock.name = plugin_name
+        plugin_mock.pull_accounting = pull
+        plugin_mock.module = 'wstore.asset_manager.resource_plugins.tests.TestPlugin'
+        plugin_mock.usage_called = False
+
         plugin_loader.ResourcePlugin.objects.get.return_value = plugin_mock
 
         plugin_loader.rmtree = MagicMock(name="rmtree")
@@ -182,8 +197,11 @@ class PluginLoaderTestCase(TestCase):
             self.assertEquals(error, None)
             # Check calls
             plugin_loader.ResourcePlugin.objects.get.assert_called_once_with(plugin_id='test_plugin')
+            plugin_loader.Resource.objects.filter.assert_called_once_with(resource_type=plugin_name)
             plugin_loader.rmtree.assert_called_once_with(os.path.join(plugin_l._plugins_path, 'test_plugin'))
             plugin_mock.delete.assert_called_once_with()
+
+            self.assertEquals(pull, plugin_mock.usage_called)
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(unicode(e), err_msg)
