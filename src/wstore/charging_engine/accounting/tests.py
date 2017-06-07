@@ -437,10 +437,14 @@ class SDRCollectionTestCase(TestCase):
             'error': 'The SDR document could not be processed due to an unexpected error'
         }, _exception)
     ])
-    def test_feed_sdr(self, name, data, exp_code, exp_response, side_effect=None):
+    def test_feed_sdr(self, name, prov_data, exp_code, exp_response, side_effect=None):
 
-        if isinstance(data, dict):
+        if isinstance(prov_data, dict):
+            data = deepcopy(prov_data)
+            data['id'] = '1'
             data = json.dumps(data)
+        else:
+            data = prov_data
 
         self.request.body = data
 
