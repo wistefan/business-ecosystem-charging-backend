@@ -30,6 +30,7 @@ from django.test import TestCase
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.asset_manager.resource_plugins import plugin
+from wstore.asset_manager.resource_plugins import decorators
 from wstore.asset_manager.resource_plugins.plugin_validator import PluginValidator
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins import plugin_loader
@@ -544,3 +545,76 @@ class PluginTestCase(TestCase):
 
         plugin_handler.on_usage_refresh(None, None, None)
         self.assertEquals(0, plugin_handler.get_pending_accounting.call_count)
+
+
+class DecoratorsTestCase(TestCase):
+
+    tags = ('decorators', )
+
+    def setUp(self):
+        self._module = MagicMock()
+        decorators.load_plugin_module = MagicMock(return_value=self._module)
+        self._order = MagicMock()
+        self._contract = MagicMock()
+
+    def tearDown(self):
+        reload(decorators)
+
+    def _get_offering_mock(self, bundle_asset=False):
+        offering = MagicMock(is_digital=True)
+        asset = MagicMock(resource_type='asset')
+
+        if bundle_asset:
+            asset.bundled_assets = ['3', '4']
+        else:
+            asset.bundled_assets = []
+
+        offering.asset = asset
+        return offering
+
+    def test_product_acquired(self):
+        # Include order and contract info
+        offering1 = self._get_offering_mock()
+        offering2 = self._get_offering_mock()
+        offering3 = self._get_offering_mock(bundle_asset=True)
+
+        decorators.Offering = MagicMock()
+        decorators.Offering.objects.get.side_effect = [offering1, offering1, offering2, offering2, offering3, offering3]
+
+        decorators.Resource = MagicMock()
+        asset1 = MagicMock(resource_type='asset3')
+        asset2 = MagicMock(resource_type='asset4')
+        decorators.Resource.objects.get.side_effect = [asset1, asset2]
+
+        self._contract.offering.bundled_offerings = ['1', '2', '3']
+
+        decorators.on_product_acquired(self._order, self._contract)
+
+        # Check calls
+        self.assertEquals(
+            [call('asset'), call('asset'), call('asset3'), call('asset4')], decorators.load_plugin_module.call_args_list)
+
+        self.assertEquals([
+            call(offering1.asset, self._contract, self._order),
+            call(offering2.asset, self._contract, self._order),
+            call(asset1, self._contract, self._order),
+            call(asset2, self._contract, self._order)],
+            self._module.on_product_acquisition.call_args_list)
+
+    def test_product_suspended(self):
+        self._contract.offering = self._get_offering_mock()
+
+        decorators.on_product_suspended(self._order, self._contract)
+
+        decorators.load_plugin_module.assert_called_once_with('asset')
+        self._module.on_product_suspension.assert_called_once_with(
+            self._contract.offering.asset, self._contract, self._order)
+
+    def test_usage_refreshed(self):
+        self._contract.offering = self._get_offering_mock()
+
+        decorators.on_usage_refreshed(self._order, self._contract)
+
+        decorators.load_plugin_module.assert_called_once_with('asset')
+        self._module.on_usage_refresh.assert_called_once_with(
+            self._contract.offering.asset, self._contract, self._order)
