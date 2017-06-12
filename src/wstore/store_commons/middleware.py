@@ -137,7 +137,7 @@ def get_api_user(request):
         display_name = request.META['HTTP_X_DISPLAY_NAME']
         email = request.META['HTTP_X_EMAIL']
         roles = request.META['HTTP_X_ROLES'].split(',')
-        user_name = request.META['HTTP_X_Actor']
+        user_name = request.META['HTTP_X_ACTOR']
     except:
         return AnonymousUser()
 
