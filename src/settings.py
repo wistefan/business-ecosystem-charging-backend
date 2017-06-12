@@ -99,7 +99,7 @@ MIDDLEWARE_CLASSES = (
 )
 
 WSTOREMAILUSER = 'email_user'
-WSTOREMAIL = 'wstore_email'
+WSTOREMAIL = 'wstore@email.com'
 WSTOREMAILPASS = 'wstore_email_passwd'
 SMTPSERVER = 'wstore_smtp_server'
 SMTPPORT = 587
