@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -82,10 +82,16 @@ class CatalogValidator:
     def validate_creation(self, provider, catalog_element):
         pass
 
+    def rollback_create(self, provider, catalog_element):
+        pass
+
     def validate_update(self, provider, catalog_element):
         pass
 
     def validate_upgrade(self, provider, catalog_element):
+        pass
+
+    def rollback_upgrade(self, provider, catalog_element):
         pass
 
     def validate_deletion(self, provider, catalog_element):
@@ -97,8 +103,10 @@ class CatalogValidator:
     def validate(self, action, provider, catalog_element):
         validators = {
             'create': self.validate_creation,
+            'rollback_create': self.rollback_create,
             'update': self.validate_update,
             'upgrade': self.validate_upgrade,
+            'rollback_upgrade': self.rollback_upgrade,
             'delete': self.validate_deletion,
             'attach': self.attach_info
         }

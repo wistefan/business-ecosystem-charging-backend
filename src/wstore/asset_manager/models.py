@@ -33,7 +33,8 @@ from wstore.models import Organization, Context
 class ResourceVersion(models.Model):
     version = models.CharField(max_length=20)
     resource_path = models.CharField(max_length=100)
-    download_link = models.CharField(max_length=200)
+    download_link = models.URLField()
+    meta_info = DictField()
 
 
 class Resource(models.Model):

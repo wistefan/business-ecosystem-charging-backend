@@ -73,7 +73,7 @@ class Organization(models.Model):
         return Context.objects.all()[0].site.domain + '/partyManagement/' + party_type + '/' + self.name
 
 
-from wstore.asset_manager.models import Resource, ResourcePlugin
+from wstore.asset_manager.models import Resource, ResourceVersion, ResourcePlugin
 
 
 class UserProfile(models.Model):

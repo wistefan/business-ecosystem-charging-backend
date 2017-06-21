@@ -27,9 +27,9 @@ from urlparse import urljoin
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
-from wstore.models import Resource, ResourcePlugin, Context
+from wstore.models import Resource, ResourceVersion, ResourcePlugin, Context
 from wstore.store_commons.errors import ConflictError
-from wstore.store_commons.rollback import rollback
+from wstore.store_commons.rollback import rollback, downgrade_asset
 from wstore.store_commons.utils.name import is_valid_file
 from wstore.store_commons.utils.url import is_valid_url
 
@@ -69,9 +69,9 @@ class AssetManager:
         if os.path.exists(file_path):
             res = Resource.objects.get(resource_path=resource_path)
             if res.product_id is not None:
-                # If the resource has state field, it means that a product
+                # If the resource has product_id field, it means that a product
                 # spec has been created, so it cannot be overridden
-                raise ConflictError('The provided digital asset (' + file_name + ') already exists')
+                raise ConflictError('The provided digital asset file (' + file_name + ') already exists')
             res.delete()
 
         # Create file
@@ -149,7 +149,23 @@ class AssetManager:
                 if k not in metadata and 'default' in v:
                     metadata[k] = v['default']
 
+    def _check_url_conflict(self, data, current_organization):
+        # Check that the download link is not already being used
+        existing_assets = Resource.objects.filter(download_link=data['content'], provider=current_organization)
+        is_conflict = False
+        for asset in existing_assets:
+            if asset.product_id is not None:
+                is_conflict = True
+            else:
+                asset.delete()
+
+        if is_conflict:
+            raise ConflictError('The provided digital asset already exists')
+
     def _load_resource_info(self, provider, data, file_=None):
+
+        if 'contentType' not in data:
+            raise ValueError('Missing required field: contentType')
 
         resource_data = {
             'content_type': data['contentType'],
@@ -168,17 +184,7 @@ class AssetManager:
         provided_as = 'FILE'
         if 'content' in data:
             if isinstance(data['content'], str) or isinstance(data['content'], unicode):
-                # Check that the download link is not already being used
-                existing_assets = Resource.objects.filter(download_link=data['content'], provider=current_organization)
-                is_conflict = False
-                for asset in existing_assets:
-                    if asset.product_id is not None:
-                        is_conflict = True
-                    else:
-                        asset.delete()
-
-                if is_conflict:
-                    raise ConflictError('The provided digital asset already exists')
+                self._check_url_conflict(data, current_organization)
 
                 download_link = data['content']
                 provided_as = 'URL'
@@ -217,13 +223,60 @@ class AssetManager:
         :return: The href of the digital asset
         """
 
-        if 'contentType' not in data:
-            raise ValueError('Missing required field: contentType')
-
         resource_data, current_organization = self._load_resource_info(provider, data, file_=file_)
         resource = self._create_resource_model(current_organization, resource_data)
 
         return resource
+
+    def _save_current_asset_version(self, asset):
+        # Save current version info
+        curr_version = ResourceVersion(
+            version=asset.version,
+            resource_path=asset.resource_path,
+            download_link=asset.download_link,
+            meta_info=asset.meta_info
+        )
+        asset.old_versions.append(curr_version)
+        asset.version = ''
+        asset.download_link = ''
+        asset.meta_info = {}
+
+        asset.save()
+
+    @rollback(downgrade_asset)
+    def upgrade_asset(self, asset_id, provider, data, file_=None):
+        """
+        Upgrades a digital asset in order to enable the creation of a new product version
+        :param asset_id: Id of the asset to be upgraded
+        :param provider: User upgrading the digital asset
+        :param data:
+        :param file_:
+        :return:
+        """
+
+        assets = Resource.objects.filter(pk=asset_id)
+
+        if not len(assets):
+            raise ObjectDoesNotExist('The specified asset does not exists')
+
+        asset = assets[0]
+
+        if asset.is_public or data.get('isPublic', False):
+            raise ValueError('It is not allowed to upgrade public assets, create a new one instead')
+
+        if asset.product_id is None:
+            raise ValueError('It is not possible to upgrade an asset not included in a product specification')
+
+        self._save_current_asset_version(asset)
+        self._to_downgrade = asset
+
+        resource_data, current_organization = self._load_resource_info(provider, data, file_=file_)
+
+        asset.download_link = resource_data['link']
+        asset.resource_path = resource_data['content_path']
+        asset.meta_info = resource_data['metadata']
+        asset.state = 'upgrading'
+        asset.save()
 
     def get_resource_info(self, resource):
         return {
