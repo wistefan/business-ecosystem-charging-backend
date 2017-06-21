@@ -37,6 +37,8 @@ if [ -z $GLASSFISH_PORT ]; then
     exit 1
 fi
 
+sleep 20
+
 service mongodb start
 
 # Configure settings
@@ -84,30 +86,50 @@ exec 10<>/dev/tcp/127.0.0.1/27017
 MONGOST=$?
 I=0
 
-while [[ $MONGOST -ne 0 && $I -lt 50 ]]; do
-    echo "Mongo is not responding yet"
-    echo "Retrying in a few seconds..."
-    sleep 5
+exec 9<>/dev/tcp/$GLASSFISH_HOST/$GLASSFISH_PORT
+glassfishStatus=$?
 
-    exec 10<>/dev/tcp/127.0.0.1/27017
-    MONGOST=$?
+while [[  ( $MONGOST -ne 0 || $glassfishStatus -ne 0 )  && $I -lt 50 ]]; do
+    echo "Mongo: $MONGOST"
+    echo "Glassfish: $glassfishStatus"
+    echo "Retrying in a few seconds..."
+    echo "Intento $I de 50"
+    sleep 10
+
+    if [[ $MONGOST -ne 0 ]]; then
+        exec 10<>/dev/tcp/127.0.0.1/27017
+        MONGOST=$?
+        
+    fi
+
+    if [[ $glassfishStatus -ne 0 ]]; then
+        exec 9<>/dev/tcp/$GLASSFISH_HOST/$GLASSFISH_PORT
+        glassfishStatus=$?
+    fi
     I=$I+1
+    
 done
+
+echo $I
 
 exec 10>&- # close output connection
 exec 10<&- # close input connection
+exec 9<&-
+exec 9>&-
 
 if [[ $I -eq 50 ]]; then
     echo "It has not been posible to connect to the database"
     exit 1
 fi
 
-echo "Connected to Mongo"
+echo "Connected to Databases"
 
 python ./manage.py createsite external http://$BIZ_ECOSYSTEM_HOST:$BIZ_ECOSYSTEM_PORT/
 python ./manage.py createsite internal http://127.0.0.1:8006/
 
 echo "Starting charging server"
 service apache2 restart
+
+
 
 while true; do sleep 1000; done
