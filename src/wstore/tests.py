@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 import json
 from mock import call
 
@@ -32,6 +34,9 @@ from wstore import views
 class ServeMediaTestCase(TestCase):
     tags = ('media', )
 
+    _resource_path = 'media/assets/test_user/widget.wgt'
+    _expected_file = 'assets/test_user/widget.wgt'
+
     def setUp(self):
         # Mock user
         self._user = MagicMock()
@@ -39,13 +44,16 @@ class ServeMediaTestCase(TestCase):
         self._org = MagicMock()
         self._user.userprofile.current_organization = self._org
 
+        views.Organization = MagicMock()
+        views.Organization.objects.get.return_value = self._org
+
         # Mock Resource model
         views.Resource = MagicMock()
         self._asset_inst = MagicMock()
         self._asset_inst.is_public = False
         self._asset_inst.provider = self._org
 
-        views.Resource.objects.get.return_value = self._asset_inst
+        views.Resource.objects.filter.return_value = [self._asset_inst]
 
         # Mock serve and smart_str
         views.serve = MagicMock()
@@ -68,7 +76,7 @@ class ServeMediaTestCase(TestCase):
         views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst]
 
     def _validate_res_call(self):
-        views.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/widget.wgt')
+        views.Resource.objects.filter.assert_called_once_with(resource_path=self._resource_path)
         self.assertEquals(0, views.Order.objects.get.call_count)
 
     def _validate_off_call(self):
@@ -90,8 +98,8 @@ class ServeMediaTestCase(TestCase):
         ], views.Offering.objects.get.call_args_list)
 
     def _validate_product_bundle_call(self):
+        views.Resource.objects.filter.assert_called_once_with(resource_path=self._resource_path)
         self.assertEquals([
-            call(resource_path='media/assets/test_user/widget.wgt'),
             call(pk='prodpk1'),
             call(pk='prodpk2')
         ], views.Resource.objects.get.call_args_list)
@@ -101,6 +109,14 @@ class ServeMediaTestCase(TestCase):
             call(pk='offpk1'),
             call(pk='offpk2')
         ], views.Offering.objects.get.call_args_list)
+
+    def _validate_upgrading_call(self):
+        self.assertEquals([
+            call(resource_path=self._resource_path),
+            call(state='upgrading', provider=self._org)
+        ], views.Resource.objects.filter.call_args_list)
+
+        views.Organization.objects.get.assert_called_once_with(name='test_user')
 
     def _validate_order_call(self):
         views.Order.objects.get.assert_called_once_with(pk='111111111111111111111111')
@@ -136,7 +152,7 @@ class ServeMediaTestCase(TestCase):
         views.settings.MEDIA_DIR = 'media/'
 
     def _asset_error(self):
-        views.Resource.objects.get.side_effect = Exception('Not found')
+        views.Resource.objects.filter.return_value = []
 
     def _order_error(self):
         views.Order.objects.get.side_effect = Exception('Not found')
@@ -172,14 +188,19 @@ class ServeMediaTestCase(TestCase):
 
         views.Resource.objects.get.side_effect = [self._asset_inst, MagicMock(), self._asset_inst]
 
+    def _upgrading(self):
+        self._asset_inst.old_versions = [MagicMock(resource_path=self._resource_path)]
+        views.Resource.objects.filter.side_effect = [[], [MagicMock(old_versions=[]), self._asset_inst]]
+
     @parameterized.expand([
-        ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt'),
-        ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, 'assets/test_user/widget.wgt', _acquired),
-        ('asset_in_bundle', 'assets/test_user', 'widget.wgt', _validate_bundle_call, _validate_serve, 'assets/test_user/widget.wgt', _bundle_acquired),
-        ('asset_in_product_bundle', 'assets/test_user', 'widget.wgt', _validate_product_bundle_call, _validate_serve, 'assets/test_user/widget.wgt', _product_bundle_acquired),
-        ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, 'assets/test_user/widget.wgt', _public_asset),
+        ('asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, _expected_file),
+        ('asset_acquired', 'assets/test_user', 'widget.wgt', _validate_off_call, _validate_serve, _expected_file, _acquired),
+        ('asset_in_bundle', 'assets/test_user', 'widget.wgt', _validate_bundle_call, _validate_serve, _expected_file, _bundle_acquired),
+        ('asset_in_product_bundle', 'assets/test_user', 'widget.wgt', _validate_product_bundle_call, _validate_serve, _expected_file, _product_bundle_acquired),
+        ('public_asset', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_serve, _expected_file, _public_asset),
+        ('upgrading_asset', 'assets/test_user', 'widget.wgt', _validate_upgrading_call, _validate_serve, _expected_file, _upgrading),
         ('invoice', 'bills', '111111111111111111111111_userbill.pdf', _validate_order_call, _validate_xfile, 'bills/111111111111111111111111_userbill.pdf', _usexfiles),
-        ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_res_call, _validate_error, (404, {
+        ('asset_not_found', 'assets/test_user', 'widget.wgt', _validate_upgrading_call, _validate_error, (404, {
             'result': 'error',
             'error': 'The specified asset does not exists'
         }), _asset_error),

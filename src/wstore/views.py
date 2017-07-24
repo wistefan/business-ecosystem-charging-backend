@@ -30,7 +30,7 @@ from django.http import HttpResponse
 from store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
 
-from wstore.models import Resource
+from wstore.models import Resource, Organization
 from wstore.ordering.models import Order, Offering
 
 
@@ -41,8 +41,13 @@ class ServeMedia(API_Resource):
         asset = None
 
         if not len(assets):
+            # Get the name of the potential asset provider from the resource_path
+            owner_name = resource_path.split('/')[-2]
+            org = Organization.objects.get(name=owner_name)
+
             # Check if the resource path refers to an asset that is being upgraded
-            assets = Resource.objects.filter(state='upgrading')
+            # Get only those upgrading assets belonging to the same provider
+            assets = Resource.objects.filter(state='upgrading', provider=org)
 
             for upgrading_asset in assets:
                 if len(upgrading_asset.old_versions) and upgrading_asset.old_versions[-1].resource_path == resource_path:
