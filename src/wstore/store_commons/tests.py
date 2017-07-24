@@ -197,9 +197,10 @@ class RollbackTestCase(TestCase):
         wrap = rollback.rollback(post_action=post_action)
         wrapper = wrap(called_method)
 
+        wrapper_ref = MagicMock()
         error = False
         try:
-            wrapper(MagicMock())
+            wrapper(wrapper_ref)
         except ValueError as e:
             error = True
             self.assertEquals('Value error', unicode(e))
@@ -209,4 +210,4 @@ class RollbackTestCase(TestCase):
         model.delete.assert_called_once_with()
 
         if has_post:
-            post_action.assert_called_once_with()
+            post_action.assert_called_once_with(wrapper_ref)
