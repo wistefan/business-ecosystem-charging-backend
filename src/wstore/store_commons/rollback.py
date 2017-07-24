@@ -30,6 +30,8 @@ def downgrade_asset(self):
         self._to_downgrade.version = prev_version.version
         self._to_downgrade.download_link = prev_version.download_link
         self._to_downgrade.meta_info = prev_version.meta_info
+        self._to_downgrade.state = 'attached'
+        self._to_downgrade.save()
 
 
 def rollback(post_action=None):

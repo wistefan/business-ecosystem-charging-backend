@@ -220,7 +220,7 @@ class ProductValidator(CatalogValidator):
                 if asset.product_id != product_spec['id']:
                     raise ProductError('The specified digital asset is included in other product spec')
 
-                self._to_downgrade(asset)
+                self._to_downgrade = asset
 
                 self._validate_product_characteristics(asset, provider, asset_t, media_type)
                 self._validate_product_upgrade(asset, asset_t, product_spec)

@@ -34,6 +34,7 @@ class ResourceVersion(models.Model):
     version = models.CharField(max_length=20)
     resource_path = models.CharField(max_length=100)
     download_link = models.URLField()
+    content_type = models.CharField(max_length=100)
     meta_info = DictField()
 
 
@@ -41,7 +42,7 @@ class Resource(models.Model):
     product_id = models.CharField(max_length=100, blank=True, null=True)
     version = models.CharField(max_length=20)  # This field maps the Product Spec version
     provider = models.ForeignKey(Organization)
-    content_type = models.CharField(max_length=50)
+    content_type = models.CharField(max_length=100)
     download_link = models.URLField()
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))

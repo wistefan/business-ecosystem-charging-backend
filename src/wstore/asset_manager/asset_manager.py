@@ -234,6 +234,7 @@ class AssetManager:
             version=asset.version,
             resource_path=asset.resource_path,
             download_link=asset.download_link,
+            content_type=asset.content_type,
             meta_info=asset.meta_info
         )
         asset.old_versions.append(curr_version)
@@ -275,8 +276,11 @@ class AssetManager:
         asset.download_link = resource_data['link']
         asset.resource_path = resource_data['content_path']
         asset.meta_info = resource_data['metadata']
+        asset.content_type = resource_data['content_type']
         asset.state = 'upgrading'
         asset.save()
+
+        return asset
 
     def get_resource_info(self, resource):
         return {
