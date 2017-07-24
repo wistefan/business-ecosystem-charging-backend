@@ -205,6 +205,12 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.exists.return_value = True
         self.res_mock.product_id = '1'
 
+    def _check_file_calls(self):
+        asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
+        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
+        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")
+        self.open_mock().write.assert_called_once_with("Test data content")
+
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
         ('file', {'contentType': 'application/x-widget'}, _use_file),
@@ -244,10 +250,7 @@ class UploadAssetTestCase(TestCase):
             self.assertEquals(self.res_mock, resource)
             self.assertEquals("http://locationurl.com/", resource.get_url())
             self.assertEqual("http://uri.com/", resource.get_uri())
-            asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
-            asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
-            self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")
-            self.open_mock().write.assert_called_once_with("Test data content")
+            self._check_file_calls()
 
             # Check rollback logger
             self.assertEquals({
@@ -478,6 +481,100 @@ class UploadAssetTestCase(TestCase):
         error = None
         try:
             am.upload_asset(self._user, content)
+        except Exception as e:
+            error = e
+
+        self.assertTrue(isinstance(error, err_type))
+        self.assertEquals(err_msg, unicode(error))
+
+    @override_settings(MEDIA_ROOT='/home/test/media')
+    def test_upgrade_asset(self):
+
+        asset_id = '1'
+        prev_path = 'media/assets/test_user/example1.wgt'
+        prev_link = 'http://testdomain.com/charging/media/assets/test_user/example1.wgt'
+        prev_type = 'application/x-widget-old'
+        prev_version = '1.0'
+
+        asset = MagicMock(
+            product_id='2',
+            is_public=False,
+            resource_path=prev_path,
+            download_link=prev_link,
+            content_type=prev_type,
+            version=prev_version,
+            state='attached',
+            old_versions=[]
+        )
+
+        asset_manager.Resource.objects.filter.return_value = [asset]
+
+        am = asset_manager.AssetManager()
+        am.rollback_logger = {
+            'files': [],
+            'models': []
+        }
+
+        resource = am.upgrade_asset(asset_id, self._user, UPLOAD_CONTENT, file_=None)
+
+        # Check calls
+        asset_manager.Resource.objects.filter.assert_called_once_with(pk=asset_id)
+        self.assertEquals(asset, resource)
+        self._check_file_calls()
+
+        # Check rollback logger
+        self.assertEquals({
+            'files': ["/home/test/media/assets/test_user/example.wgt"],
+            'models': []
+        }, am.rollback_logger)
+
+        self.assertEquals(asset, am._to_downgrade)
+
+        # Check resource creation
+        self.assertEquals('media/assets/test_user/example.wgt', asset.resource_path)
+        self.assertEquals('http://testdomain.com/charging/media/assets/test_user/example.wgt', asset.download_link)
+        self.assertEquals('application/x-widget', asset.content_type)
+        self.assertEquals('upgrading', asset.state)
+        self.assertEquals('', asset.version)
+
+        self.assertEquals(1, len(asset.old_versions))
+
+        old_version = asset.old_versions[0]
+
+        self.assertEquals(prev_path, old_version.resource_path)
+        self.assertEquals(prev_link, old_version.download_link)
+        self.assertEquals(prev_type, old_version.content_type)
+        self.assertEquals(prev_version, old_version.version)
+
+    def _asset_empty(self):
+        return []
+
+    def _public_asset(self):
+        return [MagicMock(
+            product_id='2',
+            is_public=True
+        )]
+
+    def _not_attached_asset(self):
+        return [MagicMock(
+            product_id=None,
+            is_public=False
+        )]
+
+    @parameterized.expand([
+        ('not_found', _asset_empty, ObjectDoesNotExist, 'The specified asset does not exists'),
+        ('public_asset', _public_asset, ValueError, 'It is not allowed to upgrade public assets, create a new one instead'),
+        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification')
+    ])
+    def test_upgrade_asset_error(self, name, asset_mock, err_type, err_msg):
+
+        asset_resp = asset_mock(self)
+        asset_manager.Resource.objects.filter.return_value = asset_resp
+
+        error = None
+        try:
+            am = asset_manager.AssetManager()
+            am.upgrade_asset('1', self._user, UPLOAD_CONTENT, file_=None)
         except Exception as e:
             error = e
 

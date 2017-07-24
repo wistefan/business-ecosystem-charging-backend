@@ -24,12 +24,13 @@ import os
 
 
 def downgrade_asset(self):
-    if len(self._to_downgrade.old_versions):
+    if hasattr(self, '_to_downgrade') and self._to_downgrade is not None and len(self._to_downgrade.old_versions):
         prev_version = self._to_downgrade.old_versions.pop()
         self._to_downgrade.resource_path = prev_version.resource_path
         self._to_downgrade.version = prev_version.version
         self._to_downgrade.download_link = prev_version.download_link
         self._to_downgrade.meta_info = prev_version.meta_info
+        self._to_downgrade.content_type = prev_version.content_type
         self._to_downgrade.state = 'attached'
         self._to_downgrade.save()
 
