@@ -211,7 +211,7 @@ class UploadAssetTestCase(TestCase):
         ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
         ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
         ('inv_file_name', UPLOAD_INV_FILENAME, None, False, ValueError, 'Invalid file name format: Unsupported character'),
-        ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset (example.wgt) already exists'),
+        ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset file (example.wgt) already exists'),
         ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset has not been provided'),
         ('inv_content_field', {
             'contentType': 'application/x-widget',

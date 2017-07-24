@@ -148,7 +148,7 @@ class ValidatorTestCase(TestCase):
         ('inv_location', INVALID_LOCATION, None, ProductError, 'ProductError: The location characteristic included in the product specification is not a valid URL'),
         ('unauthorized', BASIC_PRODUCT, _not_owner, PermissionDenied, 'You are not authorized to use the digital asset specified in the location characteristic'),
         ('existing_asset', BASIC_PRODUCT, _existing_asset, ConflictError, 'There is already an existing product specification defined for the given digital asset'),
-        ('invalid_asset_type', BASIC_PRODUCT, _invalid_type, ProductError, 'ProductError: The specified asset type if different from the asset one'),
+        ('invalid_asset_type', BASIC_PRODUCT, _invalid_type, ProductError, 'ProductError: The specified asset type is different from the asset one'),
         ('diff_media', BASIC_PRODUCT, _diff_media, ProductError, 'ProductError: The provided media type characteristic is different from the asset one'),
         ('not_asset', BASIC_PRODUCT, _not_existing, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
         ('exp_metadata', TERMS_PRODUCT, _metadata_plugin, ProductError, 'ProductError: Automatic creation of digital assets with expected metadata is not supported'),
@@ -307,7 +307,7 @@ class ValidatorTestCase(TestCase):
             self.assertEquals(product_spec['id'], self._asset_instance.product_id)
             self.assertEquals(product_spec['version'], self._asset_instance.version)
             self.assertEquals(digital_chars[0], self._asset_instance.resource_type)
-            self.assertEquals(product_spec['lifecycleStatus'], self._asset_instance.state)
+            self.assertEquals('attached', self._asset_instance.state)
 
             self._asset_instance.save.assert_called_once_with()
         else:
