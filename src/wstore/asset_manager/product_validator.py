@@ -225,7 +225,7 @@ class ProductValidator(CatalogValidator):
                 self._validate_product_characteristics(asset, provider, asset_t, media_type)
                 self._validate_product_upgrade(asset, asset_t, product_spec)
 
-    def rollback_create(self, provider, product_spec):
+    def _rollback_handler(self, provider, product_spec, rollback_method):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
@@ -234,23 +234,22 @@ class ProductValidator(CatalogValidator):
 
             asset = assets[0]
             self._validate_product_characteristics(asset, provider, asset_t, media_type)
+            rollback_method(asset)
 
+    def rollback_create(self, provider, product_spec):
+        def rollback_method(asset):
             if asset.product_id is None:
                 asset.delete()
 
+        self._rollback_handler(provider, product_spec, rollback_method)
+
     def rollback_upgrade(self, provider, product_spec):
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
-        is_digital = asset_t is not None and media_type is not None and url is not None
-
-        if is_digital:
-            asset_type, assets = self._get_asset_resouces(asset_t, url)
-
-            asset = assets[0]
-            self._validate_product_characteristics(asset, provider, asset_t, media_type)
-
+        def rollback_method(asset):
             if asset.product_id == product_spec['id']:
                 self._to_downgrade = asset
                 downgrade_asset(self)
+
+        self._rollback_handler(provider, product_spec, rollback_method)
 
     @rollback()
     def validate_creation(self, provider, product_spec):

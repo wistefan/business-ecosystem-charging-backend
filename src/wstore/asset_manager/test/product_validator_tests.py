@@ -522,3 +522,57 @@ class ValidatorTestCase(TestCase):
             error = e
 
         self.assertEquals('The specified offering has not been registered', unicode(error))
+
+    def _mock_non_attached(self):
+        self._asset_instance.product_id = None
+
+    def _mock_non_upgraded(self):
+        self._asset_instance.product_id = BASIC_PRODUCT['product']['id']
+        self._asset_instance.old_versions = [MagicMock(
+            version='1.0',
+            content_type='type',
+            resource_path='/old/path',
+            download_link='http://host/old/path'
+        )]
+
+    def _mock_attached(self):
+        self._asset_instance.product_id = BASIC_PRODUCT['product']['id']
+
+    def _mock_wrong_product(self):
+        self._asset_instance.product_id = '10'
+        self._asset_instance.resource_path = '/new/path'
+
+    def _validate_non_attached(self):
+        self._asset_instance.delete.assert_called_once_with()
+
+    def _validate_non_upgraded(self):
+        self.assertEquals('1.0', self._asset_instance.version)
+        self.assertEquals('type', self._asset_instance.content_type)
+        self.assertEquals('/old/path', self._asset_instance.resource_path)
+        self.assertEquals('http://host/old/path', self._asset_instance.download_link)
+        self._asset_instance.save.assert_called_once_with()
+
+    def _validate_not_called(self):
+        self.assertEquals(0, self._asset_instance.delete.call_count)
+
+    def _validate_non_downgraded(self):
+        self.assertEquals('/new/path', self._asset_instance.resource_path)
+
+    @parameterized.expand([
+        ('create_non_att', 'rollback_create', BASIC_PRODUCT['product'], _mock_non_attached, _validate_non_attached),
+        ('upgrade_saved', 'rollback_upgrade', BASIC_PRODUCT['product'], _mock_non_upgraded, _validate_non_upgraded),
+        ('create_non_dig', 'rollback_create', {}, None, _validate_not_called),
+        ('create_attached', 'rollback_create', BASIC_PRODUCT['product'], _mock_attached, _validate_not_called),
+        ('upgrade_wrong_id', 'rollback_upgrade', BASIC_PRODUCT['product'], _mock_wrong_product, _validate_non_downgraded)
+    ])
+    def test_rollback_handler(self, name, action, data, mocker, test_validator):
+        self._mock_validator_imports(product_validator)
+
+        if mocker is not None:
+            mocker(self)
+
+        validator = product_validator.ProductValidator()
+        validator.validate(action, self._provider, data)
+
+        test_validator(self)
+
