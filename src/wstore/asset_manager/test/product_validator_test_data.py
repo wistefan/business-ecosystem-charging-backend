@@ -160,6 +160,116 @@ BASIC_PRODUCT = {
     }
 }
 
+UPGRADE_PRODUCT = {
+    'action': 'upgrade',
+    'product': {
+        "id": "2",
+        "version": "2.0",
+        "productSpecCharacteristic": [
+            {
+                "id": "42",
+                "name": "Custom char",
+                "description": "Custom characteristic of the product",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "Custom value",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "42",
+                "name": "media type",
+                "description": "Media type of the product",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "application/x-widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset type",
+                "description": "Type of digital asset being provided",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "Widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Location",
+                "description": "URL pointing to the digital asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": PRODUCT_LOCATION,
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+UPGRADE_PRODUCT_INV_VERSION = deepcopy(UPGRADE_PRODUCT)
+UPGRADE_PRODUCT_INV_VERSION['product']['version'] = 'inv'
+
 TERMS_PRODUCT = deepcopy(BASIC_PRODUCT)
 TERMS_PRODUCT['product']['productSpecCharacteristic'].append({
     "id": "34",

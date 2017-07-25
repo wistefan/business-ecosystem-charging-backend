@@ -137,6 +137,21 @@ class ValidatorTestCase(TestCase):
             content_type='application/x-widget'
         )
 
+    def _attached(self):
+        self._asset_instance.state = 'attached'
+
+    def _inv_product_id(self):
+        self._asset_instance.state = 'upgrading'
+        self._asset_instance.product_id = '10'
+
+    def _set_asset_params(self):
+        self._asset_instance.state = 'upgrading'
+        self._asset_instance.product_id = UPGRADE_PRODUCT['product']['id']
+
+    def _high_asset_version(self):
+        self._set_asset_params()
+        self._asset_instance.old_versions = [MagicMock(version='3.0')]
+
     @parameterized.expand([
         ('invalid_action', INVALID_ACTION, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, attach, update, upgrade, and delete'),
         ('missing_media', MISSING_MEDIA, None, ProductError, 'ProductError: Digital product specifications must contain a media type characteristic'),
@@ -153,9 +168,14 @@ class ValidatorTestCase(TestCase):
         ('not_asset', BASIC_PRODUCT, _not_existing, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
         ('exp_metadata', TERMS_PRODUCT, _metadata_plugin, ProductError, 'ProductError: Automatic creation of digital assets with expected metadata is not supported'),
         ('inv_media', BASIC_PRODUCT, _inv_media, ProductError, 'ProductError: The media type characteristic included in the product specification is not valid for the given asset type'),
-        ('public_asset', BASIC_PRODUCT, _pub_asset, ProductError, 'ProductError: It is not allowed to create products with public assets')
+        ('public_asset', BASIC_PRODUCT, _pub_asset, ProductError, 'ProductError: It is not allowed to create products with public assets'),
+        ('upgrade_asset_not_found', UPGRADE_PRODUCT, _not_existing, ProductError, 'ProductError: The URL specified in the location characteristic does not point to a valid digital asset'),
+        ('upgrade_attached_asset', UPGRADE_PRODUCT, _attached, ProductError, 'ProductError: There is not a new version of the specified digital asset'),
+        ('upgrade_invalid_product_id', UPGRADE_PRODUCT, _inv_product_id, ProductError, 'ProductError: The specified digital asset is included in other product spec'),
+        ('upgrade_asset_inv_version', UPGRADE_PRODUCT_INV_VERSION, _set_asset_params, ProductError, 'ProductError: The field version does not have a valid format'),
+        ('upgrade_low_version', UPGRADE_PRODUCT, _high_asset_version, ProductError, 'ProductError: The provided version is not higher that the previous one')
     ])
-    def test_validate_creation_error(self, name, data, side_effect, err_type, err_msg):
+    def test_validate_error(self, name, data, side_effect, err_type, err_msg):
         self._mock_validator_imports(product_validator)
 
         if side_effect is not None:
@@ -170,6 +190,34 @@ class ValidatorTestCase(TestCase):
 
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
+
+    def test_validate_upgrade(self):
+        self._mock_validator_imports(product_validator)
+        self._asset_instance.state = 'upgrading'
+        self._asset_instance.product_id = UPGRADE_PRODUCT['product']['id']
+        self._asset_instance.version = ''
+        self._asset_instance.old_versions = [MagicMock(version='1.0')]
+
+        validator = product_validator.ProductValidator()
+        validator.validate('upgrade', self._provider, UPGRADE_PRODUCT['product'])
+
+        self.assertEquals(UPGRADE_PRODUCT['product']['version'], self._asset_instance.version)
+        self.assertEquals('attached', self._asset_instance.state)
+        self._asset_instance.save.assert_called_once_with()
+
+    @parameterized.expand([
+        ('missing_version', {}),
+        ('missing_charact', {'version': '1.0'}),
+        ('non_digital', {'version': '1.0', 'productSpecCharacteristic':[]})
+    ])
+    def test_validate_upgrade_missing_info(self, name, data):
+        self._mock_validator_imports(product_validator)
+        self._asset_instance.state = 'upgrading'
+
+        validator = product_validator.ProductValidator()
+        validator.validate('upgrade', self._provider, data)
+
+        self.assertEquals('upgrading', self._asset_instance.state)
 
     def _non_digital(self):
         return [[], []]
