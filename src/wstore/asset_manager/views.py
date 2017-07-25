@@ -65,7 +65,7 @@ class AssetCollection(Resource):
                 user_search = User.objects.get(username=user)
                 user = UserProfile.objects.get(user=user_search)
             except Exception as e:
-                return build_response(request, 404, "User {} not exist, error: {}".format(user, unicode(e)))
+                return build_response(request, 404, "User {} does not exist, error: {}".format(user, unicode(e)))
 
         try:
             asset_manager = AssetManager()

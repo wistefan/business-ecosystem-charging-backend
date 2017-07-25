@@ -31,6 +31,7 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.asset_manager import views
 from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.models import UserProfile
 from wstore.store_commons.errors import ConflictError
 
@@ -95,6 +96,9 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception(self):
         self.am_instance.get_provider_assets_info.side_effect = Exception('Getting resources error')
 
+    def _user_not_found(self):
+        views.User.objects.get.side_effect = Exception('error')
+
     @parameterized.expand([
         ([{
             'name': 'test_resource',
@@ -115,7 +119,8 @@ class AssetCollectionTestCase(TestCase):
             'size': '1'
         }),
         ([], _anonymous, 401, 'Authentication required'),
-        ([], _call_exception, 400, 'Getting resources error')
+        ([], _call_exception, 400, 'Getting resources error'),
+        ([], _user_not_found, 404, 'User user does not exist, error: error', None, 'user')
     ])
     def test_get_assets(self, return_value, side_effect=None, code=200, error_msg=None, pagination=None, user=None):
 
@@ -136,12 +141,12 @@ class AssetCollectionTestCase(TestCase):
 
         request.user = self.user
 
+        views.User.reset_mock()
+        views.UserProfile.reset_mock()
+
         # Create the side effect if needed
         if side_effect:
             side_effect(self)
-
-        views.User.reset_mock()
-        views.UserProfile.reset_mock()
 
         # Call the view
         response = resource_collection.read(request)
@@ -170,6 +175,9 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception_single(self):
         self.am_instance.get_asset_info.side_effect = Exception('Getting resources error')
 
+    def _forbidden_asset(self):
+        self.am_instance.get_asset_info.side_effect = PermissionDenied('Forbidden')
+
     @parameterized.expand([
         ('basic', {
             'id': '1111'
@@ -181,7 +189,11 @@ class AssetCollectionTestCase(TestCase):
         ('exception', {
             'error': 'An unexpected error occurred',
             'result': 'error'
-        }, 500, _call_exception_single)
+        }, 500, _call_exception_single),
+        ('forbidden', {
+            'error': 'Forbidden',
+            'result': 'error'
+        }, 403, _forbidden_asset)
     ])
     def test_get_asset(self, name, exp_value, exp_code, side_effect=None, called=True):
         resource_entry = views.AssetEntry(permitted_methods=('GET',))
@@ -208,12 +220,19 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception_product(self):
         self.am_instance.get_product_assets.side_effect = Exception("Getting resources error")
 
+    def _forbidden_product(self):
+        self.am_instance.get_product_assets.side_effect = PermissionDenied('Forbidden')
+
     @parameterized.expand([
         ('basic', [{'id': '2345'}], 200),
         ('exception', {
             'error': 'An unexpected error occurred',
             'result': 'error'
-        }, 500, _call_exception_product)
+        }, 500, _call_exception_product),
+        ('forbidden', {
+            'error': 'Forbidden',
+            'result': 'error'
+        }, 403, _forbidden_product)
     ])
     def test_get_assets_product(self, name, exp_value, exp_code, side_effect=None, called=True):
         resource_entry = views.AssetEntryFromProduct(permitted_methods=('GET',))
@@ -389,6 +408,12 @@ class AssetCollectionTestCase(TestCase):
     def _prod_val_permission_denied(self):
         self.validator_instance.validate.side_effect = PermissionDenied('Permission denied')
 
+    def _prod_val_conflict(self):
+        self.validator_instance.validate.side_effect = ConflictError('Conflict')
+
+    def _prod_val_plugin_error(self):
+        self.validator_instance.validate.side_effect = PluginError('error')
+
     def _prod_val_exception(self):
         self.validator_instance.validate.side_effect = Exception('Unexpected error')
 
@@ -401,6 +426,8 @@ class AssetCollectionTestCase(TestCase):
         ('value_error', BASIC_PRODUCT, _prod_val_value_error, True, 400, 'Invalid value in product'),
         ('product_error', BASIC_PRODUCT, _prod_val_product_error, True, 400, 'ProductError: Missing product information'),
         ('permission_denied', BASIC_PRODUCT, _prod_val_permission_denied, True, 403, 'Permission denied'),
+        ('conflict', BASIC_PRODUCT, _prod_val_conflict, True, 409, 'Conflict'),
+        ('plugin_error', BASIC_PRODUCT, _prod_val_plugin_error, True, 422, 'Plugin Error: error'),
         ('exception', BASIC_PRODUCT, _prod_val_exception, True, 500, 'An unexpected error has occurred')
     ])
     def test_validate_resource(self, name, data, side_effect=None, error=False, code=200, msg='OK'):
