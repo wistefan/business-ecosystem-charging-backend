@@ -178,24 +178,43 @@ class ProductValidator(CatalogValidator):
                         break
 
         if asset is not None:
+            # TODO: Drop the product object from the catalog in case of error
             self.rollback_logger['models'].append(asset)
 
             # The asset is a digital product or a bundle containing a digital product
             self._attach_product_info(asset, asset_t, product_spec)
 
     @on_product_spec_upgrade
-    def _validate_product_upgrade(self, asset, asset_t, product_spec):
-        # Check product version
-        if not is_valid_version(product_spec['version']):
-            raise ProductError('The field version does not have a valid format')
+    def _notify_product_upgrade(self, asset, asset_t, product_spec):
+        # Update existing inventory products to include new version asset info
 
-        if not is_lower_version(asset.old_versions[-1].version, product_spec['version']):
-            raise ProductError('The provided version is not higher that the previous one')
-
-        # Attach new info
-        asset.version = product_spec['version']
+        # Set the asset status to attached
         asset.state = 'attached'
         asset.save()
+
+    def _get_upgrading_asset(self, asset_t, url, product_id):
+        asset_type, assets = self._get_asset_resouces(asset_t, url)
+
+        if not len(assets):
+            raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+
+        asset = assets[0]
+        # Check that the asset is in upgrading state
+        if asset.state != 'upgrading':
+            raise ProductError('There is not a new version of the specified digital asset')
+
+        if asset.product_id != product_id:
+            raise ProductError('The specified digital asset is included in other product spec')
+
+        return asset
+
+    def attach_upgrade(self, provider, product_spec):
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
+
+        if is_digital:
+            asset = self._get_upgrading_asset(asset_t, url, product_spec['id'])
+            self._notify_product_upgrade(asset, asset_t, product_spec)
 
     @rollback(downgrade_asset)
     def validate_upgrade(self, provider, product_spec):
@@ -206,24 +225,22 @@ class ProductValidator(CatalogValidator):
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
-                asset_type, assets = self._get_asset_resouces(asset_t, url)
-
-                if not len(assets):
-                    raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
-
-                asset = assets[0]
-
-                # Check that the asset is in upgrading state
-                if asset.state != 'upgrading':
-                    raise ProductError('There is not a new version of the specified digital asset')
-
-                if asset.product_id != product_spec['id']:
-                    raise ProductError('The specified digital asset is included in other product spec')
+                asset = self._get_upgrading_asset(asset_t, url, product_spec['id'])
 
                 self._to_downgrade = asset
 
                 self._validate_product_characteristics(asset, provider, asset_t, media_type)
-                self._validate_product_upgrade(asset, asset_t, product_spec)
+
+                # Check product version
+                if not is_valid_version(product_spec['version']):
+                    raise ProductError('The field version does not have a valid format')
+
+                if not is_lower_version(asset.old_versions[-1].version, product_spec['version']):
+                    raise ProductError('The provided version is not higher that the previous one')
+
+                # Attach new info
+                asset.version = product_spec['version']
+                asset.save()
 
     def _rollback_handler(self, provider, product_spec, rollback_method):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
@@ -245,7 +262,7 @@ class ProductValidator(CatalogValidator):
 
     def rollback_upgrade(self, provider, product_spec):
         def rollback_method(asset):
-            if asset.product_id == product_spec['id']:
+            if asset.product_id == product_spec['id'] and asset.state == 'upgrading':
                 self._to_downgrade = asset
                 downgrade_asset(self)
 
@@ -257,7 +274,7 @@ class ProductValidator(CatalogValidator):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
-        # Product spec bundles are intended for create composed products, it cannot contain its own asset
+        # Product spec bundles are intended for creating composed products, it cannot contain its own asset
         if product_spec['isBundle'] and is_digital:
             raise ProductError('Product spec bundles cannot define digital assets')
 

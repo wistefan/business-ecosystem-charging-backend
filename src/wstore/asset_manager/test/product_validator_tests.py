@@ -202,7 +202,7 @@ class ValidatorTestCase(TestCase):
         validator.validate('upgrade', self._provider, UPGRADE_PRODUCT['product'])
 
         self.assertEquals(UPGRADE_PRODUCT['product']['version'], self._asset_instance.version)
-        self.assertEquals('attached', self._asset_instance.state)
+        self.assertEquals('upgrading', self._asset_instance.state)
         self._asset_instance.save.assert_called_once_with()
 
     @parameterized.expand([
@@ -528,6 +528,7 @@ class ValidatorTestCase(TestCase):
 
     def _mock_non_upgraded(self):
         self._asset_instance.product_id = BASIC_PRODUCT['product']['id']
+        self._asset_instance.state = 'upgrading'
         self._asset_instance.old_versions = [MagicMock(
             version='1.0',
             content_type='type',

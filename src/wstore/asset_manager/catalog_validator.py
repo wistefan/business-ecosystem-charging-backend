@@ -82,6 +82,9 @@ class CatalogValidator:
     def validate_creation(self, provider, catalog_element):
         pass
 
+    def attach_info(self, provider, catalog_element):
+        pass
+
     def rollback_create(self, provider, catalog_element):
         pass
 
@@ -94,21 +97,22 @@ class CatalogValidator:
     def rollback_upgrade(self, provider, catalog_element):
         pass
 
-    def validate_deletion(self, provider, catalog_element):
+    def attach_upgrade(self, provider, catalog_element):
         pass
 
-    def attach_info(self, provider, catalog_element):
+    def validate_deletion(self, provider, catalog_element):
         pass
 
     def validate(self, action, provider, catalog_element):
         validators = {
             'create': self.validate_creation,
+            'attach': self.attach_info,
             'rollback_create': self.rollback_create,
             'update': self.validate_update,
             'upgrade': self.validate_upgrade,
             'rollback_upgrade': self.rollback_upgrade,
-            'delete': self.validate_deletion,
-            'attach': self.attach_info
+            'attach_upgrade': self.attach_upgrade,
+            'delete': self.validate_deletion
         }
 
         if action not in validators:
