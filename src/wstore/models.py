@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -36,8 +36,6 @@ class Context(models.Model):
 
     site = models.OneToOneField(Site, related_name='site')
     local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
-    top_rated = ListField()
-    newest = ListField()
     user_refs = DictField()
     failed_cdrs = ListField()
     payouts_n = models.IntegerField(default=0)

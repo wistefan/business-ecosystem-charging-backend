@@ -25,6 +25,7 @@ from django.core.exceptions import PermissionDenied
 
 from wstore.asset_manager.models import ResourcePlugin, Resource
 from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
 from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment, on_product_spec_upgrade
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.store_commons.errors import ConflictError
@@ -187,6 +188,8 @@ class ProductValidator(CatalogValidator):
     @on_product_spec_upgrade
     def _notify_product_upgrade(self, asset, asset_t, product_spec):
         # Update existing inventory products to include new version asset info
+        upgrader = InventoryUpgrader(asset)
+        upgrader.start()
 
         # Set the asset status to attached
         asset.state = 'attached'

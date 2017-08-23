@@ -77,34 +77,56 @@ class InventoryClient:
 
         return r.json()
 
+    def get_products(self, query={}):
+        """
+        Retrieves a set of products that can be filtered providing a query dict
+        :param query: Dict containing the query used to filter the products
+        :return: List of resulting products
+        """
+
+        qs = '?'
+        for k, v in query.iteritems():
+            qs += '{}={}&'.format(k, v)
+
+        url = self._inventory_api + '/api/productInventory/v2/product' + qs[:-1]
+
+        r = requests.get(url)
+        r.raise_for_status()
+
+        return r.json()
+
+    def patch_product(self, product_id, patch_body):
+        """
+        Patch a given product according to the provided patch values
+        :param product_id: Id if the product to be patched
+        :param patch_body: New values for the product fields to be patched
+        """
+        # Build product url
+        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
+
+        r = requests.patch(url, json=patch_body)
+        r.raise_for_status()
+
     def activate_product(self, product_id):
         """
         Activates a given product by changing its state to Active and providing a startDate
         :param product_id: Id of the product to be activated
         """
-        # Build product url
-        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Active',
             'startDate': datetime.utcnow().isoformat() + 'Z'
         }
-
-        r = requests.patch(url, json=patch_body)
-        r.raise_for_status()
+        self.patch_product(product_id, patch_body)
 
     def suspend_product(self, product_id):
         """
         Suspends a given product by changing its state to Suspended
         :param product_id: Id of the product to be suspended
         """
-        # Build product url
-        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Suspended'
         }
-
-        r = requests.patch(url, json=patch_body)
-        r.raise_for_status()
+        self.patch_product(product_id, patch_body)
 
     def terminate_product(self, product_id):
         """
@@ -118,12 +140,8 @@ class InventoryClient:
         except:
             pass
 
-        # Build product url
-        url = self._inventory_api + '/api/productInventory/v2/product/' + unicode(product_id)
         patch_body = {
             'status': 'Terminated',
             'terminationDate': datetime.utcnow().isoformat() + 'Z'
         }
-
-        r = requests.patch(url, json=patch_body)
-        r.raise_for_status()
+        self.patch_product(product_id, patch_body)
