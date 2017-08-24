@@ -21,9 +21,11 @@
 from __future__ import unicode_literals
 
 import math
+from requests.exceptions import HTTPError
 from threading import Thread
 
-from ordering.inventory_client import InventoryClient
+from wstore.models import Context
+from wstore.ordering.inventory_client import InventoryClient
 
 
 class InventoryUpgrader(Thread):
@@ -33,28 +35,44 @@ class InventoryUpgrader(Thread):
         self._asset = asset
 
     def run(self):
+        context = Context.objects.all()[0]
         client = InventoryClient()
 
         # Get all the product ids related to the given product specification
-        product_ids = client.get_products(query={
-            'productSpecification.id': self._asset.product_id,
-            'fields': 'id'
-        })
+        try:
+            product_ids = client.get_products(query={
+                'productSpecification.id': self._asset.product_id,
+                'fields': 'id'
+            })
+        except HTTPError:
+            # Failure reading the available product ids, all upgrades pending
+            context.failed_upgrades.append({
+                'asset_id': self._asset.pk,
+                'pending_products': []
+            })
+            context.save()
+            return
 
         # Paginate all the products to avoid too large requests
         n_pages = int(math.ceil(len(product_ids)/100.0))
 
         # TODO: Handle bundles
+        missing_upgrades = []
         for page in range(0, n_pages):
             # Get the ids related to the current product page
             offset = page * 100
-            ids = ','.join([p_id['id'] for p_id in product_ids[offset: offset+100]])
+            page_ids = [p_id['id'] for p_id in product_ids[offset: offset+100]]
+            ids = ','.join(page_ids)
 
             # Get product characteristics field
-            products = client.get_products(query={
-                'id': ids,
-                'fields': 'id, productCharacteristic'
-            })
+            try:
+                products = client.get_products(query={
+                    'id': ids,
+                    'fields': 'id, productCharacteristic'
+                })
+            except HTTPError:
+                missing_upgrades.extend(page_ids)
+                continue
 
             # Patch product to include new asset information
             for product in products:
@@ -76,6 +94,16 @@ class InventoryUpgrader(Thread):
                     'value': self._asset.download_link
                 })
 
-                client.patch_product(product['id'], {
-                    'productCharacteristic': new_characteristics
-                })
+                try:
+                    client.patch_product(product['id'], {
+                        'productCharacteristic': new_characteristics
+                    })
+                except HTTPError:
+                    missing_upgrades.append(product['id'])
+
+        if len(missing_upgrades) > 0:
+            context.failed_upgrades.append({
+                'asset_id': self._asset.pk,
+                'pending_products': missing_upgrades
+            })
+            context.save()

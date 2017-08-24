@@ -38,6 +38,7 @@ class Context(models.Model):
     local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
     user_refs = DictField()
     failed_cdrs = ListField()
+    failed_upgrades = ListField()
     payouts_n = models.IntegerField(default=0)
 
     def is_valid_currency(self, currency):
