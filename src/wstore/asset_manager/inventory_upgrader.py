@@ -27,6 +27,8 @@ from threading import Thread
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
 
+PAGE_LEN = 100.0
+
 
 class InventoryUpgrader(Thread):
 
@@ -54,14 +56,14 @@ class InventoryUpgrader(Thread):
             return
 
         # Paginate all the products to avoid too large requests
-        n_pages = int(math.ceil(len(product_ids)/100.0))
+        n_pages = int(math.ceil(len(product_ids)/PAGE_LEN))
 
         # TODO: Handle bundles
         missing_upgrades = []
         for page in range(0, n_pages):
             # Get the ids related to the current product page
-            offset = page * 100
-            page_ids = [p_id['id'] for p_id in product_ids[offset: offset+100]]
+            offset = page * int(PAGE_LEN)
+            page_ids = [p_id['id'] for p_id in product_ids[offset: offset + int(PAGE_LEN)]]
             ids = ','.join(page_ids)
 
             # Get product characteristics field
