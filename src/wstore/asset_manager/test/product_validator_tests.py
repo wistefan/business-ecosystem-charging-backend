@@ -191,12 +191,15 @@ class ValidatorTestCase(TestCase):
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
 
-    def test_validate_upgrade(self):
-        self._mock_validator_imports(product_validator)
+    def _mock_upgrading_asset(self, version):
         self._asset_instance.state = 'upgrading'
         self._asset_instance.product_id = UPGRADE_PRODUCT['product']['id']
-        self._asset_instance.version = ''
+        self._asset_instance.version = version
         self._asset_instance.old_versions = [MagicMock(version='1.0')]
+
+    def test_validate_upgrade(self):
+        self._mock_validator_imports(product_validator)
+        self._mock_upgrading_asset('')
 
         validator = product_validator.ProductValidator()
         validator.validate('upgrade', self._provider, UPGRADE_PRODUCT['product'])
@@ -204,6 +207,32 @@ class ValidatorTestCase(TestCase):
         self.assertEquals(UPGRADE_PRODUCT['product']['version'], self._asset_instance.version)
         self.assertEquals('upgrading', self._asset_instance.state)
         self._asset_instance.save.assert_called_once_with()
+
+    def test_attach_upgrade(self):
+        self._mock_validator_imports(product_validator)
+        self._mock_upgrading_asset(UPGRADE_PRODUCT['product']['version'])
+
+        # Mock inventory upgrader class
+        product_validator.InventoryUpgrader = MagicMock()
+
+        validator = product_validator.ProductValidator()
+        validator.validate('attach_upgrade', self._provider, UPGRADE_PRODUCT['product'])
+
+        self.assertEquals('attached', self._asset_instance.state)
+
+        product_validator.InventoryUpgrader.assert_called_once_with(self._asset_instance)
+        product_validator.InventoryUpgrader().start.assert_called_once_with()
+
+        self._asset_instance.save.assert_called_once_with()
+
+    def test_attach_upgrade_non_digital(self):
+        self._mock_validator_imports(product_validator)
+
+        validator = product_validator.ProductValidator()
+        validator.validate('attach_upgrade', self._provider, {'version': '1.0', 'productSpecCharacteristic':[]})
+
+        # The method did nothing
+        self.assertEquals(0, product_validator.ResourcePlugin.objects.get.call_count)
 
     @parameterized.expand([
         ('missing_version', {}),
