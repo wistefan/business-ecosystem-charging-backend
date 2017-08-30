@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,92 +21,15 @@
 
 from __future__ import unicode_literals
 
-import os
-
-from mock import MagicMock
+from bson import ObjectId
+from mock import MagicMock, call, ANY
 from nose_parameterized import parameterized
 
 from django.test import TestCase
-from django.conf import settings
 from django.core.management import call_command
+from django.core.management.base import CommandError
 
-from wstore.management.commands import configureproject, loadplugin, removeplugin
-
-
-__test__ = False
-
-class ConfigureProjectTestCase(TestCase):
-    tags = ('management', )
-
-    def setUp(self):
-        # Mock stdin
-        configureproject.stdin = MagicMock()
-        TestCase.setUp(self)
-
-    def tearDown(self):
-        reload(configureproject)
-        TestCase.tearDown(self)
-
-    @parameterized.expand([
-        ('basic', )
-    ])
-    def test_configure_proyect(self, name):
-        pass
-
-
-class IndexTestCase(TestCase):
-
-    def setUp(self):
-        # Mock the standard input
-        self.tested_mod.stdin = MagicMock()
-        self.tested_mod.stdin.readline.return_value = 'y '
-        # Mock rmtree
-        self.tested_mod.rmtree = MagicMock()
-        TestCase.setUp(self)
-
-    def _invalid_option(self):
-        def mock_rl():
-            self.tested_mod.stdin.readline = MagicMock()
-            self.tested_mod.stdin.readline.return_value = 'y '
-            return 't '
-
-        self.tested_mod.stdin.readline = mock_rl
-
-    def _canceled(self):
-        self.tested_mod.stdin.readline.return_value = 'n '
-
-    def manager_assertion(self):
-        pass
-
-    def _index_tst(self, info, input_=True, side_effect=None, completed=True):
-
-        args = []
-        opts = {}
-        if not input_:
-            args.append('--no-input')
-
-        if side_effect:
-            side_effect(self)
-
-        call_command(info['command'], *args, **opts)
-
-        if completed:
-            index_path = os.path.join(settings.BASEDIR, 'wstore')
-            index_path = os.path.join(index_path, info['module'])
-            index_path = os.path.join(index_path, 'indexes')
-
-            # Check calls
-            self.tested_mod.rmtree.assert_called_once_with(index_path, True)
-
-            self.manager_assertion()
-        else:
-            called = True
-            try:
-                self.tested_mod.rmtree.assert_any_call()
-            except:
-                called = False
-
-            self.assertFalse(called)
+from wstore.management.commands import loadplugin, removeplugin, resend_upgrade
 
 
 class FakeCommandError(Exception):
@@ -171,3 +94,112 @@ class PluginManagementTestCase(TestCase):
     ])
     def test_remove_plugin(self, name, args, checker=None, side_effect=None, err_msg=None):
         self._test_plugin_command(removeplugin, 'removeplugin', args, checker, side_effect, err_msg)
+
+
+class ResendUpgradeTestCase(TestCase):
+    tags = ('management', 'upgrades')
+
+    _ctx_pk = '58a447608e05ac5752d96d98'
+
+    def setUp(self):
+        # Mock context
+        self._ctx_inst = MagicMock(pk=self._ctx_pk)
+        resend_upgrade.Context = MagicMock()
+        resend_upgrade.Context.objects.all.return_value = [self._ctx_inst]
+        resend_upgrade.Context.objects.get.return_value = self._ctx_inst
+
+        # Mock db connection
+        self._db = MagicMock()
+        resend_upgrade.get_database_connection = MagicMock(return_value=self._db)
+
+        self._upg_inst = MagicMock()
+        resend_upgrade.InventoryUpgrader = MagicMock(return_value=self._upg_inst)
+
+        resend_upgrade.Resource = MagicMock()
+
+    def _check_context_calls(self):
+        resend_upgrade.Context.objects.all.assert_called_once_with()
+        resend_upgrade.Context.objects.get.assert_called_once_with(pk=self._ctx_pk)
+        self._ctx_inst.save.assert_called_once_with()
+
+    def test_resend_upgrades_no_pending_unlocked(self):
+        self._ctx_inst.failed_upgrades = []
+        self._db.wstore_context.find_one_and_update.return_value = False
+
+        call_command('resend_upgrade')
+
+        self._check_context_calls()
+
+        self.assertEquals(0, resend_upgrade.InventoryUpgrader.call_count)
+
+        self.assertEquals([
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
+        ], self._db.wstore_context.find_one_and_update.call_args_list)
+
+    def test_resend_upgrades_pending_locked(self):
+        self._ctx_inst.failed_upgrades = [{
+            'asset_id': '1',
+            'pending_products': []
+        }, {
+            'asset_id': '2',
+            'pending_products': ['1', '2', '3']
+        }]
+
+        asset1 = MagicMock(pk='1')
+        asset2 = MagicMock(pk='2')
+
+        resend_upgrade.Resource.objects.get.side_effect = [asset1, asset2]
+
+        self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
+
+        self._upg_inst.upgrade_asset_products.return_value = None
+
+        self._passed_method = None
+
+        def upgrade_mock(prod, method):
+            self._passed_method = method
+            return ['2']
+
+        self._upg_inst.upgrade_products.side_effect = upgrade_mock
+
+        call_command('resend_upgrade')
+
+        self._check_context_calls()
+        self.assertEquals([{
+            'asset_id': '2',
+            'pending_products': ['2']
+        }], self._ctx_inst.failed_upgrades)
+
+        self.assertEquals([
+            call(pk='1'),
+            call(pk='2')
+        ], resend_upgrade.Resource.objects.get.call_args_list)
+
+        self.assertEquals([
+            call(asset1),
+            call(asset2)
+        ], resend_upgrade.InventoryUpgrader.call_args_list)
+
+        self._upg_inst.upgrade_asset_products.assert_called_once_with()
+        self._upg_inst.upgrade_products.assert_called_once_with(['1', '2', '3'], ANY)
+
+        # Validate that the lambda method passed to the upgrader is working properly
+        self.assertEquals('1', self._passed_method('1'))
+
+        self.assertEquals([
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
+        ], self._db.wstore_context.find_one_and_update.call_args_list)
+
+    def test_pending_upgrades_no_context(self):
+        resend_upgrade.Context.objects.all.return_value = []
+
+        try:
+            call_command('resend_upgrade')
+        except CommandError as e:
+            msg = unicode(e)
+
+        self.assertEquals('Context object is not yet created', msg)

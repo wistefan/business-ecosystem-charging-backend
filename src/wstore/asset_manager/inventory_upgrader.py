@@ -38,6 +38,7 @@ class InventoryUpgrader(Thread):
     def __init__(self, asset):
         Thread.__init__(self)
         self._asset = asset
+        self._client = InventoryClient()
 
     def _save_failed(self, pending):
         # The failed upgrades list may be upgraded by other threads or other server instances
@@ -69,21 +70,7 @@ class InventoryUpgrader(Thread):
             {'$set': {'_lock_upg': False}}
         )
 
-    def run(self):
-        client = InventoryClient()
-
-        # Get all the product ids related to the given product specification
-        try:
-            product_ids = client.get_products(query={
-                'productSpecification.id': self._asset.product_id,
-                'fields': 'id'
-            })
-        except HTTPError:
-            # Failure reading the available product ids, all upgrades pending
-            self._save_failed([])
-            return
-
-        # Paginate all the products to avoid too large requests
+    def upgrade_products(self, product_ids, id_filter):
         n_pages = int(math.ceil(len(product_ids)/PAGE_LEN))
 
         # TODO: Handle bundles
@@ -91,12 +78,13 @@ class InventoryUpgrader(Thread):
         for page in range(0, n_pages):
             # Get the ids related to the current product page
             offset = page * int(PAGE_LEN)
-            page_ids = [p_id['id'] for p_id in product_ids[offset: offset + int(PAGE_LEN)]]
+
+            page_ids = [id_filter(p_id) for p_id in product_ids[offset: offset + int(PAGE_LEN)]]
             ids = ','.join(page_ids)
 
             # Get product characteristics field
             try:
-                products = client.get_products(query={
+                products = self._client.get_products(query={
                     'id': ids,
                     'fields': 'id, productCharacteristic'
                 })
@@ -125,11 +113,31 @@ class InventoryUpgrader(Thread):
                 })
 
                 try:
-                    client.patch_product(product['id'], {
+                    self._client.patch_product(product['id'], {
                         'productCharacteristic': new_characteristics
                     })
                 except HTTPError:
                     missing_upgrades.append(product['id'])
 
-        if len(missing_upgrades) > 0:
+        return missing_upgrades if len(missing_upgrades) > 0 else None
+
+    def upgrade_asset_products(self):
+        # Get all the product ids related to the given product specification
+        try:
+            product_ids = self._client.get_products(query={
+                'productSpecification.id': self._asset.product_id,
+                'fields': 'id'
+            })
+        except HTTPError:
+            # Failure reading the available product ids, all upgrades pending
+            return []
+
+        # TODO: Handle bundles
+        return self.upgrade_products(product_ids, lambda p_id: p_id['id'])
+
+    def run(self):
+        # Upgrade all the products related to the provided asset
+        missing_upgrades = self.upgrade_asset_products()
+
+        if missing_upgrades is not None:
             self._save_failed(missing_upgrades)
