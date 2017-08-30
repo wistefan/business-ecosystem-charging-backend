@@ -20,6 +20,7 @@
 
 from __future__ import unicode_literals
 
+from bson import ObjectId
 from copy import deepcopy
 from mock import MagicMock, call
 from requests.exceptions import HTTPError
@@ -79,6 +80,7 @@ class InventoryUpgraderTestCase(TestCase):
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
+    _ctx_pk = '58a447608e05ac5752d96d98'
     _asset_pk = '1111'
     _product_spec_id = '10'
     _new_media_type = 'application/json'
@@ -98,12 +100,18 @@ class InventoryUpgraderTestCase(TestCase):
     def setUp(self):
         # Mock Context
         self._ctx_instance = MagicMock(failed_upgrades=[])
+        self._ctx_instance.pk = self._ctx_pk
+
         inventory_upgrader.Context = MagicMock()
         inventory_upgrader.Context.objects.all.return_value = [self._ctx_instance]
 
         # Mock Inventory client
         self._client_instance = MagicMock()
         inventory_upgrader.InventoryClient = MagicMock(return_value=self._client_instance)
+
+        # Mock database connector
+        self._db = MagicMock()
+        inventory_upgrader.get_database_connection = MagicMock(return_value=self._db)
 
         inventory_upgrader.PAGE_LEN = 2.0
 
@@ -199,6 +207,7 @@ class InventoryUpgraderTestCase(TestCase):
 
     def test_inventory_upgrader_ids_error(self):
         self._client_instance.get_products.side_effect = HTTPError()
+        self._db.wstore_context.find_one_and_update.return_value = False
 
         # Execute the tested method
         upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
@@ -209,6 +218,11 @@ class InventoryUpgraderTestCase(TestCase):
             'asset_id': self._asset_pk,
             'pending_products': []
         }], self._ctx_instance.failed_upgrades)
+
+        self.assertEquals([
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
+        ], self._db.wstore_context.find_one_and_update.call_args_list)
 
         self._ctx_instance.save.assert_called_once_with()
         self._check_single_get_call()
@@ -221,6 +235,8 @@ class InventoryUpgraderTestCase(TestCase):
             [self._product3, self._product4],  # Last call
         ]
 
+        self._db.wstore_context.find_one_and_update.return_value = False
+
         # Execute the tested method
         upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
         upgrader.run()
@@ -231,6 +247,11 @@ class InventoryUpgraderTestCase(TestCase):
             'pending_products': ['1', '2']
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
+
+        self.assertEquals([
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
+        ], self._db.wstore_context.find_one_and_update.call_args_list)
 
         self.assertEquals([
             call(query={
@@ -262,6 +283,8 @@ class InventoryUpgraderTestCase(TestCase):
             [self._product3, self._product4],  # Last call
         ]
 
+        self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
+
         self._client_instance.patch_product.side_effect = [None, HTTPError()]
 
         # Execute the tested method
@@ -274,6 +297,13 @@ class InventoryUpgraderTestCase(TestCase):
             'pending_products': ['4']
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
+
+        self.assertEquals([
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
+            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
+        ], self._db.wstore_context.find_one_and_update.call_args_list)
 
         self.assertEquals([
             call(query={

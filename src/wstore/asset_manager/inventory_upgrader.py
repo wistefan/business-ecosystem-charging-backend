@@ -21,11 +21,14 @@
 from __future__ import unicode_literals
 
 import math
+from bson import ObjectId
 from requests.exceptions import HTTPError
 from threading import Thread
 
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
+from wstore.store_commons.database import get_database_connection
+
 
 PAGE_LEN = 100.0
 
@@ -36,8 +39,37 @@ class InventoryUpgrader(Thread):
         Thread.__init__(self)
         self._asset = asset
 
-    def run(self):
+    def _save_failed(self, pending):
+        # The failed upgrades list may be upgraded by other threads or other server instances
+        # In this case context must be accessed as a shared resource
+        context_id = Context.objects.all()[0].pk
+
+        db = get_database_connection()
+        locked = db.wstore_context.find_one_and_update(
+            {'_id': ObjectId(context_id)},
+            {'$set': {'_lock_upg': True}}
+        )
+
+        while locked:
+            locked = db.wstore_context.find_one_and_update(
+                {'_id': ObjectId(context_id)},
+                {'$set': {'_lock_upg': True}}
+            )
+
+        # At this point only the current thread can modify the list of pending upgrades
         context = Context.objects.all()[0]
+        context.failed_upgrades.append({
+            'asset_id': self._asset.pk,
+            'pending_products': pending
+        })
+        context.save()
+
+        db.wstore_context.find_one_and_update(
+            {'_id': ObjectId(context_id)},
+            {'$set': {'_lock_upg': False}}
+        )
+
+    def run(self):
         client = InventoryClient()
 
         # Get all the product ids related to the given product specification
@@ -48,11 +80,7 @@ class InventoryUpgrader(Thread):
             })
         except HTTPError:
             # Failure reading the available product ids, all upgrades pending
-            context.failed_upgrades.append({
-                'asset_id': self._asset.pk,
-                'pending_products': []
-            })
-            context.save()
+            self._save_failed([])
             return
 
         # Paginate all the products to avoid too large requests
@@ -104,8 +132,4 @@ class InventoryUpgrader(Thread):
                     missing_upgrades.append(product['id'])
 
         if len(missing_upgrades) > 0:
-            context.failed_upgrades.append({
-                'asset_id': self._asset.pk,
-                'pending_products': missing_upgrades
-            })
-            context.save()
+            self._save_failed(missing_upgrades)
