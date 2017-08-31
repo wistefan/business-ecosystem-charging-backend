@@ -80,9 +80,16 @@ class InventoryUpgraderTestCase(TestCase):
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
+    _product6 = {
+        'id': '6',
+        'productCharacteristic': deepcopy(_prev_asset_chars)
+    }
+
     _ctx_pk = '58a447608e05ac5752d96d98'
     _asset_pk = '1111'
     _product_spec_id = '10'
+    _product_off_id = '123'
+    _product_off_id2 = '456'
     _new_media_type = 'application/json'
     _new_location = 'https://myservice.com/v2'
 
@@ -105,6 +112,8 @@ class InventoryUpgraderTestCase(TestCase):
         inventory_upgrader.Context = MagicMock()
         inventory_upgrader.Context.objects.all.return_value = [self._ctx_instance]
 
+        inventory_upgrader.Offering = MagicMock()
+
         # Mock Inventory client
         self._client_instance = MagicMock()
         inventory_upgrader.InventoryClient = MagicMock(return_value=self._client_instance)
@@ -124,13 +133,24 @@ class InventoryUpgraderTestCase(TestCase):
 
     def _check_single_get_call(self):
         self._client_instance.get_products.assert_called_once_with(query={
-            'productSpecification.id': self._product_spec_id,
+            'productOffering.id': self._product_off_id,
             'fields': 'id'
         })
 
         self.assertEquals(0, self._client_instance.patch_product.call_count)
 
+    def test_inventory_upgrader_no_offerings(self):
+        inventory_upgrader.Offering.objects.filter.return_value = []
+
+        upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
+        upgrader.run()
+
+        inventory_upgrader.Offering.objects.filter.assert_called_once_with(asset=self._asset)
+        self.assertEquals([], self._ctx_instance.failed_upgrades)
+        self.assertEquals(0, self._client_instance.get_products.call_count)
+
     def test_inventory_upgrader_no_products(self):
+        inventory_upgrader.Offering.objects.filter.return_value = [MagicMock(off_id=self._product_off_id)]
         self._client_instance.get_products.return_value = []
 
         # Execute the tested method
@@ -143,11 +163,16 @@ class InventoryUpgraderTestCase(TestCase):
 
     def test_inventory_upgrader(self):
         # Mock inventory client methods
+        inventory_upgrader.Offering.objects.filter.return_value = [
+            MagicMock(off_id=self._product_off_id), MagicMock(off_id=self._product_off_id2)]
+
         self._client_instance.get_products.side_effect = [
             [{'id': unicode(i)} for i in range(1, 6)],  # First call
             [self._product1, self._product2],  # Second call
             [self._product3, self._product4],  # Third call
-            [self._product5]  # Last call
+            [self._product5],  # Last call
+            [{'id': unicode(i)} for i in range(6, 7)],  # First call
+            [self._product6]  # Last call
         ]
 
         # Execute the tested method
@@ -159,7 +184,7 @@ class InventoryUpgraderTestCase(TestCase):
 
         self.assertEquals([
             call(query={
-                'productSpecification.id': self._product_spec_id,
+                'productOffering.id': self._product_off_id,
                 'fields': 'id'
             }),
             call(query={
@@ -174,6 +199,14 @@ class InventoryUpgraderTestCase(TestCase):
                 'id': '5',
                 'fields': 'id, productCharacteristic'
             }),
+            call(query={
+                'productOffering.id': self._product_off_id2,
+                'fields': 'id'
+            }),
+            call(query={
+                'id': '6',
+                'fields': 'id, productCharacteristic'
+            })
         ], self._client_instance.get_products.call_args_list)
 
         exp_charp1 = deepcopy(self._new_asset_chars)
@@ -202,37 +235,22 @@ class InventoryUpgraderTestCase(TestCase):
             }),
             call('5', {
                 'productCharacteristic': self._new_asset_chars
+            }),
+            call('6', {
+                'productCharacteristic': self._new_asset_chars
             })
         ], self._client_instance.patch_product.call_args_list)
 
-    def test_inventory_upgrader_ids_error(self):
-        self._client_instance.get_products.side_effect = HTTPError()
-        self._db.wstore_context.find_one_and_update.return_value = False
-
-        # Execute the tested method
-        upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
-        upgrader.run()
-
-        # Check calls
-        self.assertEquals([{
-            'asset_id': self._asset_pk,
-            'pending_products': []
-        }], self._ctx_instance.failed_upgrades)
-
-        self.assertEquals([
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
-        ], self._db.wstore_context.find_one_and_update.call_args_list)
-
-        self._ctx_instance.save.assert_called_once_with()
-        self._check_single_get_call()
-
     def test_inventory_upgrader_page_error(self):
+        inventory_upgrader.Offering.objects.filter.return_value = [
+            MagicMock(off_id=self._product_off_id), MagicMock(off_id=self._product_off_id2)]
+
         # Mock inventory client methods
         self._client_instance.get_products.side_effect = [
-            [{'id': unicode(i)} for i in range(1, 5)],  # First call
+            [{'id': unicode(i)} for i in range(1, 5)],  # First call off1
             HTTPError(),  # Second call - HTTPError retrieving page
-            [self._product3, self._product4],  # Last call
+            [self._product3, self._product4],  # Last call off1
+            HTTPError()  # Error retrieving second offering
         ]
 
         self._db.wstore_context.find_one_and_update.return_value = False
@@ -244,6 +262,7 @@ class InventoryUpgraderTestCase(TestCase):
         # Check calls
         self.assertEquals([{
             'asset_id': self._asset_pk,
+            'pending_offerings': [self._product_off_id2],
             'pending_products': ['1', '2']
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
@@ -255,7 +274,7 @@ class InventoryUpgraderTestCase(TestCase):
 
         self.assertEquals([
             call(query={
-                'productSpecification.id': self._product_spec_id,
+                'productOffering.id': self._product_off_id,
                 'fields': 'id'
             }),
             call(query={
@@ -265,6 +284,10 @@ class InventoryUpgraderTestCase(TestCase):
             call(query={
                 'id': '3,4',
                 'fields': 'id, productCharacteristic'
+            }),
+            call(query={
+                'productOffering.id': self._product_off_id2,
+                'fields': 'id'
             })
         ], self._client_instance.get_products.call_args_list)
 
@@ -278,6 +301,8 @@ class InventoryUpgraderTestCase(TestCase):
         ], self._client_instance.patch_product.call_args_list)
 
     def test_inventory_upgrader_patch_error(self):
+        inventory_upgrader.Offering.objects.filter.return_value = [MagicMock(off_id=self._product_off_id)]
+
         self._client_instance.get_products.side_effect = [
             [{'id': unicode(i)} for i in range(3, 5)],  # First call
             [self._product3, self._product4],  # Last call
@@ -294,6 +319,7 @@ class InventoryUpgraderTestCase(TestCase):
         # Check calls
         self.assertEquals([{
             'asset_id': self._asset_pk,
+            'pending_offerings': [],
             'pending_products': ['4']
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
@@ -307,7 +333,7 @@ class InventoryUpgraderTestCase(TestCase):
 
         self.assertEquals([
             call(query={
-                'productSpecification.id': self._product_spec_id,
+                'productOffering.id': self._product_off_id,
                 'fields': 'id'
             }),
             call(query={

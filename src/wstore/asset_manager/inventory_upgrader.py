@@ -27,6 +27,7 @@ from threading import Thread
 
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
+from wstore.ordering.models import Offering
 from wstore.store_commons.database import get_database_connection
 
 
@@ -40,7 +41,7 @@ class InventoryUpgrader(Thread):
         self._asset = asset
         self._client = InventoryClient()
 
-    def _save_failed(self, pending):
+    def _save_failed(self, pending_off, pending_products):
         # The failed upgrades list may be upgraded by other threads or other server instances
         # In this case context must be accessed as a shared resource
         context_id = Context.objects.all()[0].pk
@@ -61,7 +62,8 @@ class InventoryUpgrader(Thread):
         context = Context.objects.all()[0]
         context.failed_upgrades.append({
             'asset_id': self._asset.pk,
-            'pending_products': pending
+            'pending_offerings': pending_off,
+            'pending_products': pending_products
         })
         context.save()
 
@@ -113,31 +115,40 @@ class InventoryUpgrader(Thread):
                 })
 
                 try:
-                    self._client.patch_product(product['id'], {
+                    # The inventory API returns the product after patching
+                    patched_product = self._client.patch_product(product['id'], {
                         'productCharacteristic': new_characteristics
                     })
                 except HTTPError:
                     missing_upgrades.append(product['id'])
 
-        return missing_upgrades if len(missing_upgrades) > 0 else None
+        return missing_upgrades
 
-    def upgrade_asset_products(self):
-        # Get all the product ids related to the given product specification
-        try:
-            product_ids = self._client.get_products(query={
-                'productSpecification.id': self._asset.product_id,
-                'fields': 'id'
-            })
-        except HTTPError:
-            # Failure reading the available product ids, all upgrades pending
-            return []
+    def upgrade_asset_products(self, offering_ids):
+        # Get all the product ids related to the given product offering
+        missing_off = []
+        missing_products = []
+        for off_id in offering_ids:
+            try:
+                product_ids = self._client.get_products(query={
+                    'productOffering.id': off_id,
+                    'fields': 'id'
+                })
+            except HTTPError:
+                # Failure reading the available product ids, all upgrades pending
+                missing_off.append(off_id)
+                continue
 
-        # TODO: Handle bundles
-        return self.upgrade_products(product_ids, lambda p_id: p_id['id'])
+            missing_products.extend(self.upgrade_products(product_ids, lambda p_id: p_id['id']))
+
+        return missing_off, missing_products
 
     def run(self):
-        # Upgrade all the products related to the provided asset
-        missing_upgrades = self.upgrade_asset_products()
+        # Get all the offerings that contain the provided product
+        offerings = Offering.objects.filter(asset=self._asset)
 
-        if missing_upgrades is not None:
-            self._save_failed(missing_upgrades)
+        # Upgrade all the products related to the provided asset
+        missing_off, missing_products = self.upgrade_asset_products([offering.off_id for offering in offerings])
+
+        if len(missing_off) > 0 or len(missing_products) > 0:
+            self._save_failed(missing_off, missing_products)

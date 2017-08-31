@@ -107,6 +107,8 @@ class InventoryClient:
         r = requests.patch(url, json=patch_body)
         r.raise_for_status()
 
+        return r.json()
+
     def activate_product(self, product_id):
         """
         Activates a given product by changing its state to Active and providing a startDate

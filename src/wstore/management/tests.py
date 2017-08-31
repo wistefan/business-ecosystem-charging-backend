@@ -140,9 +140,11 @@ class ResendUpgradeTestCase(TestCase):
     def test_resend_upgrades_pending_locked(self):
         self._ctx_inst.failed_upgrades = [{
             'asset_id': '1',
+            'pending_offerings': ['1'],
             'pending_products': []
         }, {
             'asset_id': '2',
+            'pending_offerings': [],
             'pending_products': ['1', '2', '3']
         }]
 
@@ -153,7 +155,7 @@ class ResendUpgradeTestCase(TestCase):
 
         self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
 
-        self._upg_inst.upgrade_asset_products.return_value = None
+        self._upg_inst.upgrade_asset_products.return_value = [], []
 
         self._passed_method = None
 
@@ -168,6 +170,7 @@ class ResendUpgradeTestCase(TestCase):
         self._check_context_calls()
         self.assertEquals([{
             'asset_id': '2',
+            'pending_offerings': [],
             'pending_products': ['2']
         }], self._ctx_inst.failed_upgrades)
 
@@ -181,7 +184,7 @@ class ResendUpgradeTestCase(TestCase):
             call(asset2)
         ], resend_upgrade.InventoryUpgrader.call_args_list)
 
-        self._upg_inst.upgrade_asset_products.assert_called_once_with()
+        self._upg_inst.upgrade_asset_products.assert_called_once_with(['1'])
         self._upg_inst.upgrade_products.assert_called_once_with(['1', '2', '3'], ANY)
 
         # Validate that the lambda method passed to the upgrader is working properly

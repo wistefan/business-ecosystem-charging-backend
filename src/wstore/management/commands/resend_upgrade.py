@@ -66,15 +66,20 @@ class Command(BaseCommand):
             upgrader = InventoryUpgrader(asset)
 
             # Check if there is a list of products or if it is needed to upgrade all
+            missing_products = []
+            missing_off = []
             if len(upgrade['pending_products']) > 0:
-                missing_upgrades = upgrader.upgrade_products(upgrade['pending_products'], lambda p_id: p_id)
-            else:
-                missing_upgrades = upgrader.upgrade_asset_products()
+                missing_products.extend(upgrader.upgrade_products(upgrade['pending_products'], lambda p_id: p_id))
 
-            if missing_upgrades is not None:
+            if len(upgrade['pending_offerings']) > 0:
+                missing_off, partial_prods = upgrader.upgrade_asset_products(upgrade['pending_offerings'])
+                missing_products.extend(partial_prods)
+
+            if len(missing_products) > 0 or len(missing_off) > 0:
                 failed_upgrades.append({
                     'asset_id': asset.pk,
-                    'pending_products': missing_upgrades
+                    'pending_offerings': missing_off,
+                    'pending_products': missing_products
                 })
 
         context.failed_upgrades = failed_upgrades
