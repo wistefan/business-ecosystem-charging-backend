@@ -95,7 +95,7 @@ class InventoryUpgrader(Thread):
                 order = Order.objects.get(order_id=patched_product['name'].split('=')[-1])
 
                 not_handler.send_product_upgraded_notification(
-                    order, order.get_product_contract(patched_product['id']), self._product_name)
+                    order, order.get_product_contract(unicode(patched_product['id'])), self._product_name)
 
             except:
                 # A failure in the email notification is not relevant
@@ -110,14 +110,14 @@ class InventoryUpgrader(Thread):
             # Get the ids related to the current product page
             offset = page * int(PAGE_LEN)
 
-            page_ids = [id_filter(p_id) for p_id in product_ids[offset: offset + int(PAGE_LEN)]]
+            page_ids = [unicode(id_filter(p_id)) for p_id in product_ids[offset: offset + int(PAGE_LEN)]]
             ids = ','.join(page_ids)
 
             # Get product characteristics field
             try:
                 products = self._client.get_products(query={
                     'id': ids,
-                    'fields': 'id, productCharacteristic'
+                    'fields': 'id,productCharacteristic'
                 })
             except HTTPError:
                 missing_upgrades.extend(page_ids)
@@ -125,6 +125,7 @@ class InventoryUpgrader(Thread):
 
             # Patch product to include new asset information
             for product in products:
+                product_id = unicode(product['id'])
                 new_characteristics = [char for char in product['productCharacteristic']
                                        if char['name'].lower() not in ['asset type', 'media type', 'location']]
 
@@ -145,11 +146,11 @@ class InventoryUpgrader(Thread):
 
                 try:
                     # The inventory API returns the product after patching
-                    patched_product = self._client.patch_product(product['id'], {
+                    patched_product = self._client.patch_product(product_id, {
                         'productCharacteristic': new_characteristics
                     })
                 except HTTPError:
-                    missing_upgrades.append(product['id'])
+                    missing_upgrades.append(product_id)
                     continue
 
                 self._notify_user(patched_product)

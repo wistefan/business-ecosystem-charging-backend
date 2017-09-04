@@ -46,7 +46,7 @@ class InventoryUpgraderTestCase(TestCase):
     }]
 
     _product1 = {
-        'id': '1',
+        'id': 1,
         'name': ' oid=11',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
@@ -57,7 +57,7 @@ class InventoryUpgraderTestCase(TestCase):
     })
 
     _product2 = {
-        'id': '2',
+        'id': 2,
         'name': ' oid=22',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
@@ -68,25 +68,25 @@ class InventoryUpgraderTestCase(TestCase):
     })
 
     _product3 = {
-        'id': '3',
+        'id': 3,
         'name': ' oid=33',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product4 = {
-        'id': '4',
+        'id': 4,
         'name': ' oid=44',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product5 = {
-        'id': '5',
+        'id': 5,
         'name': ' oid=55',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product6 = {
-        'id': '6',
+        'id': 6,
         'name': ' oid=66',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
@@ -233,15 +233,15 @@ class InventoryUpgraderTestCase(TestCase):
             }),
             call(query={
                 'id': '1,2',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             }),
             call(query={
                 'id': '3,4',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             }),
             call(query={
                 'id': '5',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             }),
             call(query={
                 'productOffering.id': self._product_off_id2,
@@ -249,7 +249,7 @@ class InventoryUpgraderTestCase(TestCase):
             }),
             call(query={
                 'id': '6',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             })
         ], self._client_instance.get_products.call_args_list)
 
@@ -348,11 +348,11 @@ class InventoryUpgraderTestCase(TestCase):
             }),
             call(query={
                 'id': '1,2',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             }),
             call(query={
                 'id': '3,4',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             }),
             call(query={
                 'productOffering.id': self._product_off_id2,
@@ -425,7 +425,7 @@ class InventoryUpgraderTestCase(TestCase):
             }),
             call(query={
                 'id': '3,4',
-                'fields': 'id, productCharacteristic'
+                'fields': 'id,productCharacteristic'
             })
         ], self._client_instance.get_products.call_args_list)
 
