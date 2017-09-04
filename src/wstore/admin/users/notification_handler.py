@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -109,6 +109,18 @@ class NotificationsHandler:
         bills = self.extract_bills_paths(order)
 
         self._send_multipart_email(text, recipients, 'Product order accepted', bills)
+
+    def send_product_upgraded_notification(self, order, contract, product_name):
+        org = order.owner_organization
+        recipients = [User.objects.get(pk=pk).email for pk in org.managers]
+        domain = Context.objects.all()[0].site.domain
+
+        product_url = urljoin(domain, '/#/inventory/product/{}'.format(contract.product_id))
+
+        text = 'There is a new version available for your acquired product {}\n'.format(product_name)
+        text += 'You can review your new product version at {}\n'.format(product_url)
+
+        self._send_text_email(text, recipients, 'Product upgraded')
 
     def send_provider_notification(self, order, contract):
         # Get destination email

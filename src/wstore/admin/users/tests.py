@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 from django.core.exceptions import ImproperlyConfigured
 
 from mock import MagicMock, mock_open, call
@@ -49,6 +51,7 @@ class NotificationsTestCase(TestCase):
 
         # Mock contracts
         contract1 = MagicMock()
+        contract1.product_id = '11'
         contract1.offering.name = 'Offering1'
         contract1.offering.off_id = '1'
         contract1.offering.owner_organization.managers = ['33333', '44444']
@@ -286,3 +289,14 @@ class NotificationsTestCase(TestCase):
         notification_handler.MIMEText.assert_called_once_with(text)
 
         self._validate_mime_text_info('Offering1 subscription is about to expire')
+
+    def test_product_upgrade_notification(self):
+        handler = notification_handler.NotificationsHandler()
+        handler.send_product_upgraded_notification(self._order, self._order.contracts[0], 'product name')
+
+        text = 'There is a new version available for your acquired product product name\n'
+        text += 'You can review your new product version at http://localhost:8000/#/inventory/product/11\n'
+
+        notification_handler.MIMEText.assert_called_once_with(text)
+
+        self._validate_mime_text_info('Product upgraded')

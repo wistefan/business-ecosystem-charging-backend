@@ -21,13 +21,17 @@
 from __future__ import unicode_literals
 
 import math
+import requests
 from bson import ObjectId
 from requests.exceptions import HTTPError
 from threading import Thread
 
+from django.conf import settings
+
+from wstore.admin.users.notification_handler import NotificationsHandler
 from wstore.models import Context
 from wstore.ordering.inventory_client import InventoryClient
-from wstore.ordering.models import Offering
+from wstore.ordering.models import Order, Offering
 from wstore.store_commons.database import get_database_connection
 
 
@@ -40,6 +44,18 @@ class InventoryUpgrader(Thread):
         Thread.__init__(self)
         self._asset = asset
         self._client = InventoryClient()
+
+        # Get product name
+        try:
+            prod_url = '{}/api/catalogManagement/v2/productSpecification/{}?fields=name'\
+                .format(settings.CATALOG, self._asset.product_id)
+
+            resp = requests.get(prod_url)
+            resp.raise_for_status()
+
+            self._product_name = resp.json()['name']
+        except HTTPError:
+            self._product_name = None
 
     def _save_failed(self, pending_off, pending_products):
         # The failed upgrades list may be upgraded by other threads or other server instances
@@ -71,6 +87,19 @@ class InventoryUpgrader(Thread):
             {'_id': ObjectId(context_id)},
             {'$set': {'_lock_upg': False}}
         )
+
+    def _notify_user(self, patched_product):
+        if self._product_name is not None:
+            try:
+                not_handler = NotificationsHandler()
+                order = Order.objects.get(order_id=patched_product['name'].split('=')[-1])
+
+                not_handler.send_product_upgraded_notification(
+                    order, order.get_product_contract(patched_product['id']), self._product_name)
+
+            except:
+                # A failure in the email notification is not relevant
+                pass
 
     def upgrade_products(self, product_ids, id_filter):
         n_pages = int(math.ceil(len(product_ids)/PAGE_LEN))
@@ -121,6 +150,9 @@ class InventoryUpgrader(Thread):
                     })
                 except HTTPError:
                     missing_upgrades.append(product['id'])
+                    continue
+
+                self._notify_user(patched_product)
 
         return missing_upgrades
 

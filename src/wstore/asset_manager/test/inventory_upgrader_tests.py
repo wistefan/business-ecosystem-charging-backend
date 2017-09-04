@@ -47,6 +47,7 @@ class InventoryUpgraderTestCase(TestCase):
 
     _product1 = {
         'id': '1',
+        'name': ' oid=11',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
@@ -57,6 +58,7 @@ class InventoryUpgraderTestCase(TestCase):
 
     _product2 = {
         'id': '2',
+        'name': ' oid=22',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
@@ -67,27 +69,32 @@ class InventoryUpgraderTestCase(TestCase):
 
     _product3 = {
         'id': '3',
+        'name': ' oid=33',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product4 = {
         'id': '4',
+        'name': ' oid=44',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product5 = {
         'id': '5',
+        'name': ' oid=55',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _product6 = {
         'id': '6',
+        'name': ' oid=66',
         'productCharacteristic': deepcopy(_prev_asset_chars)
     }
 
     _ctx_pk = '58a447608e05ac5752d96d98'
     _asset_pk = '1111'
     _product_spec_id = '10'
+    _product_spec_name = 'product'
     _product_off_id = '123'
     _product_off_id2 = '456'
     _new_media_type = 'application/json'
@@ -103,6 +110,9 @@ class InventoryUpgraderTestCase(TestCase):
         'name': 'Location',
         'value': _new_location
     }]
+
+    _catalog_url = 'http://localhost:8080/catalog'
+    _product_spec_url = '{}/api/catalogManagement/v2/productSpecification/{}?fields=name'.format(_catalog_url, _product_spec_id)
 
     def setUp(self):
         # Mock Context
@@ -122,6 +132,13 @@ class InventoryUpgraderTestCase(TestCase):
         self._db = MagicMock()
         inventory_upgrader.get_database_connection = MagicMock(return_value=self._db)
 
+        inventory_upgrader.requests = MagicMock()
+        self._resp = MagicMock()
+        self._resp.json.return_value = {
+            'name': self._product_spec_name
+        }
+        inventory_upgrader.requests.get.return_value = self._resp
+
         inventory_upgrader.PAGE_LEN = 2.0
 
         self._asset = MagicMock()
@@ -130,6 +147,26 @@ class InventoryUpgraderTestCase(TestCase):
         self._asset.content_type = self._new_media_type
         self._asset.resource_type = 'Service'
         self._asset.download_link = self._new_location
+
+        self._cat_url = inventory_upgrader.settings.CATALOG
+        inventory_upgrader.settings.CATALOG = self._catalog_url
+
+        # Mock Orders
+        self._order_int = MagicMock()
+        inventory_upgrader.Order = MagicMock()
+        inventory_upgrader.Order.objects.get.return_value = self._order_int
+
+        # Mock user notifier
+        self._not_handler = MagicMock()
+        inventory_upgrader.NotificationsHandler = MagicMock(return_value=self._not_handler)
+
+    def tearDown(self):
+        inventory_upgrader.settings.CATALOG = self._cat_url
+
+    def _check_product_spec_retrieved(self):
+        inventory_upgrader.requests.get.assert_called_once_with(self._product_spec_url)
+        self._resp.raise_for_status.assert_called_once_with()
+        self._resp.json.assert_called_once_with()
 
     def _check_single_get_call(self):
         self._client_instance.get_products.assert_called_once_with(query={
@@ -149,6 +186,8 @@ class InventoryUpgraderTestCase(TestCase):
         self.assertEquals([], self._ctx_instance.failed_upgrades)
         self.assertEquals(0, self._client_instance.get_products.call_count)
 
+        self._check_product_spec_retrieved()
+
     def test_inventory_upgrader_no_products(self):
         inventory_upgrader.Offering.objects.filter.return_value = [MagicMock(off_id=self._product_off_id)]
         self._client_instance.get_products.return_value = []
@@ -160,6 +199,8 @@ class InventoryUpgraderTestCase(TestCase):
         # Check calls
         self.assertEquals([], self._ctx_instance.failed_upgrades)
         self._check_single_get_call()
+
+        self._check_product_spec_retrieved()
 
     def test_inventory_upgrader(self):
         # Mock inventory client methods
@@ -174,6 +215,9 @@ class InventoryUpgraderTestCase(TestCase):
             [{'id': unicode(i)} for i in range(6, 7)],  # First call
             [self._product6]  # Last call
         ]
+
+        self._client_instance.patch_product.side_effect = [self._product1, self._product2, self._product3,
+                                                           self._product4, self._product5, self._product6]
 
         # Execute the tested method
         upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
@@ -241,6 +285,27 @@ class InventoryUpgraderTestCase(TestCase):
             })
         ], self._client_instance.patch_product.call_args_list)
 
+        self.assertEquals([
+            call(order_id='11'),
+            call(order_id='22'),
+            call(order_id='33'),
+            call(order_id='44'),
+            call(order_id='55'),
+            call(order_id='66')
+        ], inventory_upgrader.Order.objects.get.call_args_list)
+
+        self.assertEquals([
+            call('1'), call('2'), call('3'), call('4'), call('5'), call('6')
+        ], self._order_int.get_product_contract.call_args_list)
+
+        self.assertEquals([call() for i in range(0, 6)], inventory_upgrader.NotificationsHandler.call_args_list)
+
+        self.assertEquals([
+            call(self._order_int, self._order_int.get_product_contract(), self._product_spec_name) for i in range(0, 6)
+        ], self._not_handler.send_product_upgraded_notification.call_args_list)
+
+        self._check_product_spec_retrieved()
+
     def test_inventory_upgrader_page_error(self):
         inventory_upgrader.Offering.objects.filter.return_value = [
             MagicMock(off_id=self._product_off_id), MagicMock(off_id=self._product_off_id2)]
@@ -254,6 +319,10 @@ class InventoryUpgraderTestCase(TestCase):
         ]
 
         self._db.wstore_context.find_one_and_update.return_value = False
+
+        self._client_instance.patch_product.side_effect = [self._product3, self._product4]
+
+        self._not_handler.send_product_upgraded_notification.side_effect = Exception()
 
         # Execute the tested method
         upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
@@ -300,6 +369,22 @@ class InventoryUpgraderTestCase(TestCase):
             })
         ], self._client_instance.patch_product.call_args_list)
 
+        self.assertEquals([
+            call(order_id='33'),
+            call(order_id='44'),
+        ], inventory_upgrader.Order.objects.get.call_args_list)
+
+        self.assertEquals([call('3'), call('4')], self._order_int.get_product_contract.call_args_list)
+
+        self.assertEquals([call(), call()], inventory_upgrader.NotificationsHandler.call_args_list)
+
+        self.assertEquals([
+            call(self._order_int, self._order_int.get_product_contract(), self._product_spec_name),
+            call(self._order_int, self._order_int.get_product_contract(), self._product_spec_name),
+        ], self._not_handler.send_product_upgraded_notification.call_args_list)
+
+        self._check_product_spec_retrieved()
+
     def test_inventory_upgrader_patch_error(self):
         inventory_upgrader.Offering.objects.filter.return_value = [MagicMock(off_id=self._product_off_id)]
 
@@ -311,6 +396,8 @@ class InventoryUpgraderTestCase(TestCase):
         self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
 
         self._client_instance.patch_product.side_effect = [None, HTTPError()]
+
+        inventory_upgrader.requests.get.side_effect = HTTPError()
 
         # Execute the tested method
         upgrader = inventory_upgrader.InventoryUpgrader(self._asset)
@@ -350,3 +437,9 @@ class InventoryUpgraderTestCase(TestCase):
                 'productCharacteristic': self._new_asset_chars
             })
         ], self._client_instance.patch_product.call_args_list)
+
+        inventory_upgrader.requests.get.assert_called_once_with(self._product_spec_url)
+        self.assertEquals(0, self._resp.raise_for_status.call_count)
+        self.assertEquals(0, self._resp.json.call_count)
+
+        self.assertEquals(0, inventory_upgrader.NotificationsHandler.call_count)
