@@ -29,7 +29,7 @@ from threading import Thread
 from django.conf import settings
 
 from wstore.admin.users.notification_handler import NotificationsHandler
-from wstore.models import Context
+from wstore.models import Context, Resource
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.models import Order, Offering
 from wstore.store_commons.database import get_database_connection
@@ -102,9 +102,47 @@ class InventoryUpgrader(Thread):
                 pass
 
     def upgrade_products(self, product_ids, id_filter):
+
+        def is_digital_char(characteristic):
+            # Return whether a characteristics is defining asset info for the given one
+            def is_product(id_):
+                sp = id_.split(':')
+                return len(sp) == 2 and sp[0] == 'product' and sp[1] == self._asset.product_id
+
+            def is_offering(id_):
+                sp = id_.split(':')
+                offerings = []
+
+                if len(sp) == 2 and sp[0] == 'offering':
+                    offerings = Offering.objects.filter(off_id=sp[1])
+
+                return len(offerings) == 1 and \
+                        (offerings[0].asset == self._asset or self._asset.pk in offerings[0].asset.bundled_assets)
+
+            dig_char = False
+            id_str = ''
+
+            name = characteristic['name'].lower()
+
+            if name.endswith('asset type') or name.endswith('media type') or name.endswith('location'):
+                # There are several formats for asset characteristics within the inventory products depending on
+                # the number and the structure of the involved bundles
+                # name: Asset Type  , For single offering with single product
+                # name: offering:123 Asset Type   , For bundle offering with single product
+                # name: product:123 Asset Type    , For single offering with bundle product
+                # name: offering:123 product:345 Asset Type  , For bundle offering with bundle product
+
+                id_str = name.replace('asset type', '').replace('media type', '').replace('location', '')
+                bundle_ids = id_str.split(' ')
+
+                dig_char = len(bundle_ids) == 1 or \
+                           (len(bundle_ids) == 2 and (is_product(bundle_ids[0]) or is_offering(bundle_ids[0]))) or \
+                           (len(bundle_ids) == 3 and is_offering(bundle_ids[0]) and is_product(bundle_ids[1]))
+
+            return dig_char, id_str
+
         n_pages = int(math.ceil(len(product_ids)/PAGE_LEN))
 
-        # TODO: Handle bundles
         missing_upgrades = []
         for page in range(0, n_pages):
             # Get the ids related to the current product page
@@ -125,22 +163,29 @@ class InventoryUpgrader(Thread):
 
             # Patch product to include new asset information
             for product in products:
+                pre_ids = ''
                 product_id = unicode(product['id'])
-                new_characteristics = [char for char in product['productCharacteristic']
-                                       if char['name'].lower() not in ['asset type', 'media type', 'location']]
+
+                new_characteristics = []
+                for char in product['productCharacteristic']:
+                    is_dig, ids_str = is_digital_char(char)
+                    if not is_dig:
+                        new_characteristics.append(char)
+                    else:
+                        pre_ids = ids_str
 
                 new_characteristics.append({
-                    'name': 'Media Type',
+                    'name': '{}Media Type'.format(pre_ids),
                     'value': self._asset.content_type
                 })
 
                 new_characteristics.append({
-                    'name': 'Asset Type',
+                    'name': '{}Asset Type'.format(pre_ids),
                     'value': self._asset.resource_type
                 })
 
                 new_characteristics.append({
-                    'name': 'Location',
+                    'name': '{}Location'.format(pre_ids),
                     'value': self._asset.download_link
                 })
 
@@ -176,9 +221,27 @@ class InventoryUpgrader(Thread):
 
         return missing_off, missing_products
 
+    def _get_providing_offerings(self):
+        # Get product bundles that contain the included asset
+        assets = [self._asset]
+        assets.extend(Resource.objects.filter(bundled_assets=self._asset.pk))
+
+        # Get all the offerings that include the asset or one of the bundles
+        offerings = []
+        for asset in assets:
+            offerings.extend(Offering.objects.filter(asset=asset))
+
+        # Get all the offering bundles which include the previous offerings
+        bundles = []
+        for off in offerings:
+            bundles.extend(Offering.objects.filter(bundled_offerings=off.pk))
+
+        offerings.extend(bundles)
+        return offerings
+
     def run(self):
-        # Get all the offerings that contain the provided product
-        offerings = Offering.objects.filter(asset=self._asset)
+        # Get all the offerings that give access to the provided digital asset
+        offerings = self._get_providing_offerings()
 
         # Upgrade all the products related to the provided asset
         missing_off, missing_products = self.upgrade_asset_products([offering.off_id for offering in offerings])
