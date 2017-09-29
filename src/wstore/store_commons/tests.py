@@ -197,9 +197,10 @@ class RollbackTestCase(TestCase):
         wrap = rollback.rollback(post_action=post_action)
         wrapper = wrap(called_method)
 
+        wrapper_ref = MagicMock()
         error = False
         try:
-            wrapper(MagicMock())
+            wrapper(wrapper_ref)
         except ValueError as e:
             error = True
             self.assertEquals('Value error', unicode(e))
@@ -209,4 +210,45 @@ class RollbackTestCase(TestCase):
         model.delete.assert_called_once_with()
 
         if has_post:
-            post_action.assert_called_once_with()
+            post_action.assert_called_once_with(wrapper_ref)
+
+    def test_downgrade_post_action(self):
+        asset = MagicMock(
+            resource_path='new/path',
+            download_link='http://host/new/path',
+            content_type='new_type',
+            version='2.0',
+            state='upgrading',
+            old_versions=[MagicMock(
+                resource_path='old/path',
+                download_link='http://host/old/path',
+                content_type='old_type',
+                version='1.0'
+            )]
+        )
+        downgrade_object = MagicMock(
+            _to_downgrade=asset
+        )
+
+        rollback.downgrade_asset(downgrade_object)
+
+        self.assertEquals('old/path', asset.resource_path)
+        self.assertEquals('http://host/old/path', asset.download_link)
+        self.assertEquals('old_type', asset.content_type)
+        self.assertEquals('1.0', asset.version)
+        self.assertEquals([], asset.old_versions)
+
+        asset.save.assert_called_once_with()
+
+    def test_downgrade_post_action_none(self):
+        downgrade_object = MagicMock(
+            _to_downgrade=None
+        )
+
+        rollback.downgrade_asset(downgrade_object)
+
+    def test_downgrade_post_action_not_defined(self):
+        class manager:
+            pass
+
+        rollback.downgrade_asset(manager())

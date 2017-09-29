@@ -31,6 +31,7 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.asset_manager import views
 from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.models import UserProfile
 from wstore.store_commons.errors import ConflictError
 
@@ -95,6 +96,9 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception(self):
         self.am_instance.get_provider_assets_info.side_effect = Exception('Getting resources error')
 
+    def _user_not_found(self):
+        views.User.objects.get.side_effect = Exception('error')
+
     @parameterized.expand([
         ([{
             'name': 'test_resource',
@@ -115,7 +119,8 @@ class AssetCollectionTestCase(TestCase):
             'size': '1'
         }),
         ([], _anonymous, 401, 'Authentication required'),
-        ([], _call_exception, 400, 'Getting resources error')
+        ([], _call_exception, 400, 'Getting resources error'),
+        ([], _user_not_found, 404, 'User user does not exist, error: error', None, 'user')
     ])
     def test_get_assets(self, return_value, side_effect=None, code=200, error_msg=None, pagination=None, user=None):
 
@@ -136,12 +141,12 @@ class AssetCollectionTestCase(TestCase):
 
         request.user = self.user
 
+        views.User.reset_mock()
+        views.UserProfile.reset_mock()
+
         # Create the side effect if needed
         if side_effect:
             side_effect(self)
-
-        views.User.reset_mock()
-        views.UserProfile.reset_mock()
 
         # Call the view
         response = resource_collection.read(request)
@@ -170,6 +175,9 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception_single(self):
         self.am_instance.get_asset_info.side_effect = Exception('Getting resources error')
 
+    def _forbidden_asset(self):
+        self.am_instance.get_asset_info.side_effect = PermissionDenied('Forbidden')
+
     @parameterized.expand([
         ('basic', {
             'id': '1111'
@@ -181,7 +189,11 @@ class AssetCollectionTestCase(TestCase):
         ('exception', {
             'error': 'An unexpected error occurred',
             'result': 'error'
-        }, 500, _call_exception_single)
+        }, 500, _call_exception_single),
+        ('forbidden', {
+            'error': 'Forbidden',
+            'result': 'error'
+        }, 403, _forbidden_asset)
     ])
     def test_get_asset(self, name, exp_value, exp_code, side_effect=None, called=True):
         resource_entry = views.AssetEntry(permitted_methods=('GET',))
@@ -208,12 +220,19 @@ class AssetCollectionTestCase(TestCase):
     def _call_exception_product(self):
         self.am_instance.get_product_assets.side_effect = Exception("Getting resources error")
 
+    def _forbidden_product(self):
+        self.am_instance.get_product_assets.side_effect = PermissionDenied('Forbidden')
+
     @parameterized.expand([
         ('basic', [{'id': '2345'}], 200),
         ('exception', {
             'error': 'An unexpected error occurred',
             'result': 'error'
-        }, 500, _call_exception_product)
+        }, 500, _call_exception_product),
+        ('forbidden', {
+            'error': 'Forbidden',
+            'result': 'error'
+        }, 403, _forbidden_product)
     ])
     def test_get_assets_product(self, name, exp_value, exp_code, side_effect=None, called=True):
         resource_entry = views.AssetEntryFromProduct(permitted_methods=('GET',))
@@ -236,13 +255,37 @@ class AssetCollectionTestCase(TestCase):
         else:
             self.assertEquals(self.am_instance.get_product_assets.call_count, 0)
 
-    def _creation_exception(self):
-        self.am_instance.upload_asset.side_effect = Exception('Resource creation exception')
+    def _no_provider_method(self, method):
+        def side(ref):
+           self._no_provider()
+        return side
 
-    def _existing(self):
-        self.am_instance.upload_asset.side_effect = ConflictError('Resource exists')
+    def _creation_exception(self, method):
+        def side(ref):
+            method.side_effect = Exception('Resource creation exception')
+        return side
 
-    def _test_post_api(self, collection, content, content_type, side_effect=None, code=201, validator=None):
+    def _existing(self, method):
+        def side(ref):
+            method.side_effect = ConflictError('Resource exists')
+        return side
+
+    def _value_error(self, method):
+        def side(ref):
+            method.side_effect = ValueError('Error in some value')
+        return side
+
+    def _not_found(self, method):
+        def side(ref):
+            method.side_effect = ObjectDoesNotExist('Object not found')
+        return side
+
+    def _unauthorized(self, method):
+        def side(ref):
+            method.side_effect = PermissionDenied('Forbidden')
+        return side
+
+    def _test_post_api(self, collection, content, content_type, side_effect=None, code=201, validator=None, param=None):
 
         resource_collection = collection(permitted_methods=('POST', ))
 
@@ -259,8 +302,11 @@ class AssetCollectionTestCase(TestCase):
         if side_effect:
             side_effect(self)
 
-        # Call the view
-        response = resource_collection.create(request)
+        # Call the views
+        if param is None:
+            response = resource_collection.create(request)
+        else:
+            response = resource_collection.create(request, param)
 
         self.assertEqual(response.status_code, code)
         self.assertEqual(response.get('Content-type'), 'application/json; charset=utf-8')
@@ -269,17 +315,7 @@ class AssetCollectionTestCase(TestCase):
         self.assertEqual(type(body_response), dict)
         validator(request, body_response)
 
-    @parameterized.expand([
-        (RESOURCE_DATA,),
-        (RESOURCE_DATA, True),
-        (RESOURCE_DATA, False, _no_provider, True, 403, "You don't have the seller role"),
-        (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
-        (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists')
-    ])
-    def test_upload_asset(self, data, file_=False, side_effect=None, error=False, code=200, msg='Created'):
-
+    def _test_upload(self, mock_method, collection, data, file_, side_effect, error, code, msg, asset_id=None):
         content_type = 'application/json'
 
         if file_:
@@ -298,16 +334,19 @@ class AssetCollectionTestCase(TestCase):
         resource.pk = "123456"
         resource.get_url.return_value = 'http://locationurl.com/'
         resource.get_uri.return_value = 'http://uri.com/'
-        self.am_instance.upload_asset.return_value = resource
+        mock_method.return_value = resource
 
         def validator(request, body_response):
             if not error:
                 # Check correct call
+                argv = (self.user, data) if asset_id is None else (asset_id, self.user, data)
+
                 if not file_:
-                    self.am_instance.upload_asset.assert_called_once_with(self.user, data)
+                    mock_method.assert_called_once_with(*argv)
                 else:
                     expected_file = request.FILES['file']
-                    self.am_instance.upload_asset.assert_called_once_with(self.user, data, file_=expected_file)
+                    mock_method.assert_called_once_with(*argv, file_=expected_file)
+
                 self.assertEquals(body_response, {
                     'contentType': 'application/zip',
                     'content': 'http://locationurl.com/',
@@ -320,7 +359,45 @@ class AssetCollectionTestCase(TestCase):
                     'result': 'error'
                 })
 
-        self._test_post_api(views.UploadCollection, content, content_type, side_effect, code, validator)
+        self._test_post_api(collection, content, content_type, side_effect, code, validator, asset_id)
+
+    @parameterized.expand([
+        (RESOURCE_DATA,),
+        (RESOURCE_DATA, True),
+        (RESOURCE_DATA, False, _no_provider_method, True, 403, "You don't have the seller role"),
+        (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _value_error, True, 422, 'Error in some value'),
+        (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists'),
+        (RESOURCE_DATA, True, _not_found, True, 404, 'Object not found'),
+        (RESOURCE_DATA, True, _unauthorized, True, 403, 'Forbidden'),
+    ])
+    def test_upload_asset(self, data, file_=False, side_effect=None, error=False, code=200, msg='Created'):
+        method_side_effect = None
+        if side_effect is not None:
+            method_side_effect = side_effect(self, self.am_instance.upload_asset)
+
+        self._test_upload(self.am_instance.upload_asset, views.UploadCollection, data, file_, method_side_effect, error, code, msg)
+
+    @parameterized.expand([
+        (RESOURCE_DATA,),
+        (RESOURCE_DATA, True),
+        (RESOURCE_DATA, False, _no_provider_method, True, 403, "You don't have the seller role"),
+        (RESOURCE_DATA, False, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _creation_exception, True, 400, 'Resource creation exception'),
+        (RESOURCE_DATA, True, _value_error, True, 422, 'Error in some value'),
+        (RESOURCE_DATA, True, _existing, True, 409, 'Resource exists'),
+        (RESOURCE_DATA, True, _not_found, True, 404, 'Object not found'),
+        (RESOURCE_DATA, True, _unauthorized, True, 403, 'Forbidden'),
+    ])
+    def test_upgrade_asset(self, data, file_=False, side_effect=None, error=False, code=200, msg='Created'):
+        method_side_effect = None
+        if side_effect is not None:
+            method_side_effect = side_effect(self, self.am_instance.upgrade_asset)
+
+        self._test_upload(self.am_instance.upgrade_asset, views.UpgradeCollection, data, file_, method_side_effect, error, code, msg, '1')
 
     def _prod_val_value_error(self):
         self.validator_instance.validate.side_effect = ValueError('Invalid value in product')
@@ -330,6 +407,12 @@ class AssetCollectionTestCase(TestCase):
 
     def _prod_val_permission_denied(self):
         self.validator_instance.validate.side_effect = PermissionDenied('Permission denied')
+
+    def _prod_val_conflict(self):
+        self.validator_instance.validate.side_effect = ConflictError('Conflict')
+
+    def _prod_val_plugin_error(self):
+        self.validator_instance.validate.side_effect = PluginError('error')
 
     def _prod_val_exception(self):
         self.validator_instance.validate.side_effect = Exception('Unexpected error')
@@ -343,6 +426,8 @@ class AssetCollectionTestCase(TestCase):
         ('value_error', BASIC_PRODUCT, _prod_val_value_error, True, 400, 'Invalid value in product'),
         ('product_error', BASIC_PRODUCT, _prod_val_product_error, True, 400, 'ProductError: Missing product information'),
         ('permission_denied', BASIC_PRODUCT, _prod_val_permission_denied, True, 403, 'Permission denied'),
+        ('conflict', BASIC_PRODUCT, _prod_val_conflict, True, 409, 'Conflict'),
+        ('plugin_error', BASIC_PRODUCT, _prod_val_plugin_error, True, 422, 'Plugin Error: error'),
         ('exception', BASIC_PRODUCT, _prod_val_exception, True, 500, 'An unexpected error has occurred')
     ])
     def test_validate_resource(self, name, data, side_effect=None, error=False, code=200, msg='OK'):

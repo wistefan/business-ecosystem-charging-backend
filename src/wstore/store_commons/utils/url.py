@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,19 +18,22 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
 import urllib
 import urlparse
 
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
+
 
 def is_valid_url(url):
-    return re.match(re.compile(
-        r'^https?://'
-        r'(?:(?:[\w0-9](?:[\w0-9-]{0,61}[\w0-9])?\.)+[\w]{2,6}\.?|'
-        r'localhost|'
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
-        r'(?::\d+)?'
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE), url)
+    valid = True
+    validator = URLValidator()
+    try:
+        validator(url)
+    except ValidationError:
+        valid = False
+
+    return valid
 
 
 def url_fix(s, charset='utf-8'):

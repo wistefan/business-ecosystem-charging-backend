@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -144,7 +144,8 @@ TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 # Daily job that checks pending pay-per-use charges
 CRONJOBS = [
     ('0 5 * * *', 'django.core.management.call_command', ['pending_charges_daemon']),
-    ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs'])
+    ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs']),
+    ('0 4 * * *', 'django.core.management.call_command', ['resend_upgrade'])
 ]
 
 # Hack to ignore `site` instance creation

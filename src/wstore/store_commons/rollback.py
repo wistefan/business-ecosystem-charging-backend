@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,6 +21,18 @@
 from __future__ import unicode_literals
 
 import os
+
+
+def downgrade_asset(self):
+    if hasattr(self, '_to_downgrade') and self._to_downgrade is not None and len(self._to_downgrade.old_versions):
+        prev_version = self._to_downgrade.old_versions.pop()
+        self._to_downgrade.resource_path = prev_version.resource_path
+        self._to_downgrade.version = prev_version.version
+        self._to_downgrade.download_link = prev_version.download_link
+        self._to_downgrade.meta_info = prev_version.meta_info
+        self._to_downgrade.content_type = prev_version.content_type
+        self._to_downgrade.state = 'attached'
+        self._to_downgrade.save()
 
 
 def rollback(post_action=None):
@@ -57,7 +69,7 @@ def rollback(post_action=None):
                     _remove_model(model)
 
                 if post_action is not None:
-                    post_action()
+                    post_action(self)
 
                 raise e
 

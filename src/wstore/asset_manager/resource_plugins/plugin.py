@@ -45,6 +45,12 @@ class Plugin(object):
     def on_post_product_spec_attachment(self, asset, asset_t, product_spec):
         pass
 
+    def on_pre_product_spec_upgrade(self, asset, asset_t, product_spec):
+        pass
+
+    def on_post_product_spec_upgrade(self, asset, asset_t, product_spec):
+        pass
+
     def on_pre_product_offering_validation(self, asset, product_offering):
         pass
 

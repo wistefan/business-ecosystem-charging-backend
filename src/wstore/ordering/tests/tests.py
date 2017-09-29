@@ -796,3 +796,16 @@ class InventoryClientTestCase(TestCase):
 
         inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1')
         inventory_client.requests.get().raise_for_status.assert_called_once_with()
+
+    @parameterized.expand([
+        ('all', {}, ''),
+        ('filtered', {'id': '1,2,3'}, '?id=1,2,3')
+    ])
+    def test_get_products(self, name, query, qs):
+        client = inventory_client.InventoryClient()
+        products = client.get_products(query=query)
+
+        inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product' + qs)
+        inventory_client.requests.get().raise_for_status.assert_called_once_with()
+
+        self.assertEquals(inventory_client.requests.get().json(), products)

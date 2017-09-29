@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -36,10 +36,9 @@ class Context(models.Model):
 
     site = models.OneToOneField(Site, related_name='site')
     local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
-    top_rated = ListField()
-    newest = ListField()
     user_refs = DictField()
     failed_cdrs = ListField()
+    failed_upgrades = ListField()
     payouts_n = models.IntegerField(default=0)
 
     def is_valid_currency(self, currency):
@@ -73,7 +72,7 @@ class Organization(models.Model):
         return Context.objects.all()[0].site.domain + '/partyManagement/' + party_type + '/' + self.name
 
 
-from wstore.asset_manager.models import Resource, ResourcePlugin
+from wstore.asset_manager.models import Resource, ResourceVersion, ResourcePlugin
 
 
 class UserProfile(models.Model):
