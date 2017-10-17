@@ -83,7 +83,7 @@ class ProductValidator(CatalogValidator):
             # The asset is not yet included, this option is only valid for URL assets without metadata
             site = settings.SITE
             if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
-                ('URL' in asset_type.formats and url.startswith(site.domain))):
+                ('URL' in asset_type.formats and url.startswith(site))):
 
                 raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
 
