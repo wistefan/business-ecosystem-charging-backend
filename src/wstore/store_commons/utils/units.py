@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -20,6 +20,9 @@
 
 from __future__ import unicode_literals
 
+from django.conf import settings
+
+
 recurring_periods = {
     'daily': 1,  # One day
     'weekly': 7,  # One week
@@ -29,10 +32,12 @@ recurring_periods = {
     'quinquennial': 1825  # Five years
 }
 
-supported_currencies = (
-    'AUD', 'BRL', 'CAD', 'CZK', 'DKK',
-    'EUR', 'HKD', 'HUF', 'ILS', 'JPY',
-    'MYR', 'MXN', 'TWD', 'NZD', 'NOK',
-    'PHP', 'PLN', 'GBP', 'RUB', 'SGD',
-    'SEK', 'CHF', 'THB', 'TRY', 'USD'
-)
+class CurrencyCode(object):
+
+    @staticmethod
+    def contains(value):
+        return value.upper() in [v for v, t in settings.CURRENCY_CODES]
+
+    @staticmethod
+    def to_dict():
+        return [{'title': t, 'value': v} for v, t in settings.CURRENCY_CODES]

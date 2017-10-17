@@ -26,9 +26,9 @@ from decimal import Decimal
 
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.models import Resource
-from wstore.store_commons.utils.units import recurring_periods, supported_currencies
 from wstore.asset_manager.resource_plugins.decorators import on_product_offering_validation
 from wstore.ordering.models import Offering
+from wstore.store_commons.utils.units import recurring_periods, CurrencyCode
 
 
 class OfferingValidator(CatalogValidator):
@@ -89,7 +89,7 @@ class OfferingValidator(CatalogValidator):
                 if 'currencyCode' not in price_model['price']:
                     raise ValueError('Missing required field currencyCode in price')
 
-                if price_model['price']['currencyCode'] not in supported_currencies:
+                if not CurrencyCode.contains(price_model['price']['currencyCode']):
                     raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
 
                 if Decimal(price_model['price']['taxIncludedAmount']) <= Decimal("0"):
