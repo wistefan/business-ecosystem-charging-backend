@@ -1,0 +1,25 @@
+version: '3'
+services:
+    mongo:
+        image: mongo:3.2
+        ports:
+            - 27017:27017
+        volumes:
+            - ./charging-data:/data/db
+
+    charging:
+        image: charging
+        links:
+            - mongo
+        depends_on:
+            - mongo
+        ports:
+            - 8006:8006
+        volumes:
+            - ./charging-bills:/business-ecosystem-charging-backend/src/media/bills
+            - ./charging-assets:/business-ecosystem-charging-backend/src/media/assets
+            - ./charging-plugins:/business-ecosystem-charging-backend/src/plugins
+            - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings
+        environment:
+          - PAYPAL_CLIENT_ID=client_id
+          - PAYPAL_CLIENT_SECRET=client_secret
