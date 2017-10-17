@@ -39,7 +39,7 @@ from wstore.ordering.models import Order, Charge
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 from wstore.admin.users.notification_handler import NotificationsHandler
-from wstore.store_commons.utils.units import recurring_periods
+from wstore.store_commons.utils.units import ChargePeriod
 
 
 class ChargingEngine:
@@ -125,7 +125,7 @@ class ChargingEngine:
         return checkout_url
 
     def _calculate_renovation_date(self, unit):
-        return datetime.utcnow() + timedelta(days=recurring_periods[unit.lower()])
+        return datetime.utcnow() + timedelta(days=ChargePeriod.get_value(unit))
 
     def _end_initial_charge(self, contract, transaction):
         # If a subscription part has been charged update renovation date

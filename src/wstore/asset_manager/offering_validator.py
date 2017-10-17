@@ -28,7 +28,7 @@ from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.models import Resource
 from wstore.asset_manager.resource_plugins.decorators import on_product_offering_validation
 from wstore.ordering.models import Offering
-from wstore.store_commons.utils.units import recurring_periods, CurrencyCode
+from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
 class OfferingValidator(CatalogValidator):
@@ -79,7 +79,7 @@ class OfferingValidator(CatalogValidator):
                 if price_model['priceType'] == 'recurring' and 'recurringChargePeriod' not in price_model:
                     raise ValueError('Missing required field recurringChargePeriod for recurring priceType')
 
-                if price_model['priceType'] == 'recurring' and price_model['recurringChargePeriod'].lower() not in recurring_periods:
+                if price_model['priceType'] == 'recurring' and not ChargePeriod.contains(price_model['recurringChargePeriod']):
                     raise ValueError('Unrecognized recurringChargePeriod: ' + price_model['recurringChargePeriod'])
 
                 # Validate currency

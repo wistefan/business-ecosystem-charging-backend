@@ -23,7 +23,58 @@ from __future__ import unicode_literals
 from django.conf import settings
 from django.test import TestCase
 
-from wstore.store_commons.utils.units import CurrencyCode
+from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
+
+
+class ChargePeriodUnitsTestCase(TestCase):
+
+    tags = ('units',)
+
+    def setUp(self):
+        self.cp_valid = {
+            'title': 'daily',
+            'value': 1,
+        }
+        self.cp_not_valid = {
+            'title': 'weekly',
+            'value': 7,
+        }
+
+        settings.CHARGE_PERIODS = [
+            (self.cp_valid['value'], self.cp_valid['title']),
+        ]
+
+    def test_should_check_if_given_title_in_lowercase_exists(self):
+        title = self.cp_valid['title']
+        self.assertTrue(ChargePeriod.contains(title))
+
+    def test_should_check_if_given_title_in_uppercase_exists(self):
+        title = self.cp_valid['title'].upper()
+        self.assertTrue(ChargePeriod.contains(title))
+
+    def test_should_check_if_given_title_does_not_exist(self):
+        title = self.cp_not_valid['title']
+        self.assertFalse(ChargePeriod.contains(title))
+
+    def test_should_get_value_when_given_title_in_lowercase_exists(self):
+        title = self.cp_valid['title']
+        value_expected = self.cp_valid['value']
+        self.assertEquals(ChargePeriod.get_value(title), value_expected)
+
+    def test_should_get_value_when_given_title_in_uppercase_exists(self):
+        title = self.cp_valid['title'].upper()
+        value_expected = self.cp_valid['value']
+        self.assertEquals(ChargePeriod.get_value(title), value_expected)
+
+    def test_should_get_none_when_given_title_does_not_exist(self):
+        title = self.cp_not_valid['title']
+        self.assertIsNone(ChargePeriod.get_value(title))
+
+    def test_should_parse_tuple_to_dict(self):
+        dict_expected = [
+            self.cp_valid,
+        ]
+        self.assertEqual(ChargePeriod.to_dict(), dict_expected)
 
 
 class CurrencyCodeUnitsTestCase(TestCase):

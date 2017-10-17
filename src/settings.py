@@ -52,6 +52,15 @@ ADMIN_ROLE = 'provider'
 PROVIDER_ROLE = 'seller'
 CUSTOMER_ROLE = 'customer'
 
+CHARGE_PERIODS = [
+    (1, 'daily'),  # One day
+    (7, 'weekly'),  # One week
+    (30, 'monthly'),  # One month
+    (90, 'quarterly'),  # Three months
+    (365, 'yearly'),  # One year
+    (1825, 'quinquennial'),  # Five years
+]
+
 CURRENCY_CODES = [
     ('AUD', 'Australia Dollar'),
     ('BRL', 'Brazil Real'),

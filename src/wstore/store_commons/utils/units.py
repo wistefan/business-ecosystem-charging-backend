@@ -23,14 +23,24 @@ from __future__ import unicode_literals
 from django.conf import settings
 
 
-recurring_periods = {
-    'daily': 1,  # One day
-    'weekly': 7,  # One week
-    'monthly': 30,  # One month
-    'quarterly': 90,  # Three months
-    'yearly': 365,  # One year
-    'quinquennial': 1825  # Five years
-}
+class ChargePeriod(object):
+
+    @staticmethod
+    def contains(title):
+        return title.lower() in [t for v, t in settings.CHARGE_PERIODS]
+
+    @staticmethod
+    def get_value(title):
+        title = title.lower()
+        for v, t in settings.CHARGE_PERIODS:
+            if t == title:
+                return v
+        return None
+
+    @staticmethod
+    def to_dict():
+        return [{'title': t, 'value': v} for v, t in settings.CHARGE_PERIODS]
+
 
 class CurrencyCode(object):
 
