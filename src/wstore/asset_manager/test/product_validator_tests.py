@@ -55,10 +55,7 @@ class ValidatorTestCase(TestCase):
         module.Resource.objects.create.return_value = self._asset_instance
 
         # Mock Site
-        module.Context = MagicMock()
-        self._context_inst = MagicMock()
-        self._context_inst.site.domain = "http://testlocation.org/"
-        module.Context.objects.all.return_value = [self._context_inst]
+        module.settings.SITE = "http://testlocation.org/"
 
     def setUp(self):
         self._provider = MagicMock()

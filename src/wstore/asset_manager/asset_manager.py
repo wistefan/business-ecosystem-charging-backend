@@ -27,7 +27,7 @@ from urlparse import urljoin
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
-from wstore.models import Resource, ResourceVersion, ResourcePlugin, Context
+from wstore.models import Resource, ResourceVersion, ResourcePlugin
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import rollback, downgrade_asset
 from wstore.store_commons.utils.name import is_valid_file
@@ -80,7 +80,7 @@ class AssetManager:
 
         self.rollback_logger['files'].append(file_path)
 
-        site = Context.objects.all()[0].site.domain
+        site = settings.SITE
         return resource_path, urljoin(site, '/charging/' + resource_path)
 
     def _create_resource_model(self, provider, resource_data):

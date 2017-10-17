@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -20,6 +20,8 @@
 
 from __future__ import unicode_literals
 
+SITE = 'http://localhost:8004/'
+LOCAL_SITE = 'http://localhost:8006/'
 
 CATALOG = 'http://localhost:8080/DSProductCatalog'
 INVENTORY = 'http://localhost:8080/DSProductInventory'

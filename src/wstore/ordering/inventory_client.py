@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -27,8 +27,6 @@ from urlparse import urljoin
 from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
 
-from wstore.models import Context
-
 
 class InventoryClient:
 
@@ -37,7 +35,7 @@ class InventoryClient:
 
     def _build_callback_url(self):
         # Use the local site for registering the callback
-        site = Context.objects.all()[0].local_site.domain
+        site = settings.LOCAL_SITE
 
         return urljoin(site, 'charging/api/orderManagement/products')
 
