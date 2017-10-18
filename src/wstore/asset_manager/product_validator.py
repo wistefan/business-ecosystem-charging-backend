@@ -21,6 +21,7 @@
 
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
 from wstore.asset_manager.models import ResourcePlugin, Resource
@@ -31,7 +32,6 @@ from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import is_valid_version, is_lower_version
-from wstore.models import Context
 from wstore.store_commons.rollback import rollback, downgrade_asset
 
 
@@ -81,9 +81,9 @@ class ProductValidator(CatalogValidator):
             asset.save()
         else:
             # The asset is not yet included, this option is only valid for URL assets without metadata
-            site = Context.objects.all()[0].site
+            site = settings.SITE
             if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
-                ('URL' in asset_type.formats and url.startswith(site.domain))):
+                ('URL' in asset_type.formats and url.startswith(site))):
 
                 raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
 

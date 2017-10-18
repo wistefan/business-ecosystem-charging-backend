@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -491,11 +491,7 @@ class OrderingClientTestCase(TestCase):
     tags = ('ordering', 'ordering-client')
 
     def setUp(self):
-        # Mock Context
-        ordering_client.Context = MagicMock()
-        self._context_inst = MagicMock()
-        self._context_inst.local_site.domain = 'http://testdomain.com'
-        ordering_client.Context.objects.all.return_value = [self._context_inst]
+        ordering_client.settings.LOCAL_SITE = 'http://testdomain.com'
 
         # Mock requests
         ordering_client.requests = MagicMock()
@@ -514,7 +510,6 @@ class OrderingClientTestCase(TestCase):
         client.create_ordering_subscription()
 
         # Check calls
-        ordering_client.Context.objects.all.assert_called_once_with()
         ordering_client.requests.post.assert_called_once_with('http://localhost:8080/DSProductOrdering/productOrdering/v2/hub', {
             'callback': 'http://testdomain.com/charging/api/orderManagement/orders'
         })
@@ -697,10 +692,7 @@ class InventoryClientTestCase(TestCase):
         inventory_client.requests.post.return_value = self.response
         inventory_client.requests.get.return_value = self.response
 
-        inventory_client.Context = MagicMock()
-        context = MagicMock()
-        context.local_site.domain = 'http://localhost:8004/'
-        inventory_client.Context.objects.all.return_value = [context]
+        inventory_client.settings.LOCAL_SITE = 'http://localhost:8004/'
 
         from datetime import datetime
         now = datetime(2016, 1, 22, 4, 10, 25, 176751)

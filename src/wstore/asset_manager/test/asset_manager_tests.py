@@ -161,10 +161,7 @@ class UploadAssetTestCase(TestCase):
         self._user = MagicMock()
         self._user.userprofile.current_organization.name = 'test_user'
 
-        asset_manager.Context = MagicMock()
-        self._context_mock = MagicMock()
-        self._context_mock.site.domain = 'http://testdomain.com/'
-        asset_manager.Context.objects.all.return_value = [self._context_mock]
+        asset_manager.settings.SITE = 'http://testdomain.com/'
 
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
@@ -586,11 +583,7 @@ class ResourceModelTestCase(TestCase):
     tags = ('resource-model', )
 
     def test_resource_model(self):
-        models.Context = MagicMock()
-        ctx = MagicMock()
-        ctx.site.domain = 'http://testserver.com/'
-
-        models.Context.objects.all.return_value = [ctx]
+        models.settings.SITE = 'http://testserver.com/'
 
         url = 'http://example.com/media/resource'
 
@@ -610,3 +603,5 @@ class ResourceModelTestCase(TestCase):
         uri = 'http://testserver.com/charging/api/assetManagement/assets/' + res.pk
         self.assertEquals(url, res.get_url())
         self.assertEquals(uri, res.get_uri())
+
+        reload(models)

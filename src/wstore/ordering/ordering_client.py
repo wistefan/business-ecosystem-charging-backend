@@ -26,8 +26,6 @@ from urlparse import urljoin
 from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
 
-from wstore.models import Context
-
 
 class OrderingClient:
 
@@ -41,7 +39,7 @@ class OrderingClient:
         """
 
         # Use the local site for registering the callback
-        site = Context.objects.all()[0].local_site.domain
+        site = settings.LOCAL_SITE
 
         callback = {
             'callback': urljoin(site, 'charging/api/orderManagement/orders')

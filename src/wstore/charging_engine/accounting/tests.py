@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -331,17 +331,15 @@ class UsageClientTestCase(TestCase):
         self._test_invalid_state(client.update_usage_state, (BASIC_USAGE['id'], 'invalid'), {})
 
     def test_rate_usage(self):
-        usage_client.Context = MagicMock()
-        context = MagicMock()
-        context.site.domain = 'http://example.com/'
-        usage_client.Context.objects.all.return_value = [context]
+        site = 'http://example.com/'
+        usage_client.settings.SITE = site
 
         timestamp = '2016-04-15'
         duty_free = '10'
         price = '12'
         rate = '20'
         currency = 'EUR'
-        product_url = context.site.domain + 'DSProductInventory/api/productInventory/v2/product/' + self._product_id
+        product_url = site + 'DSProductInventory/api/productInventory/v2/product/' + self._product_id
 
         expected_json = {
             'status': 'Rated',
@@ -366,6 +364,7 @@ class UsageClientTestCase(TestCase):
             client.rate_usage,
             (BASIC_USAGE['id'], timestamp, duty_free, price, rate, currency, self._product_id)
         )
+        reload(usage_client)
 
 
 MANAGER_DENIED_RESP = {

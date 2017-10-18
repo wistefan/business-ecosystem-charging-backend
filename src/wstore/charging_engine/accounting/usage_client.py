@@ -27,7 +27,6 @@ from urlparse import urljoin, urlparse
 from django.conf import settings
 
 from wstore.charging_engine.accounting.errors import UsageError
-from wstore.models import Context
 
 
 class UsageClient(object):
@@ -55,7 +54,7 @@ class UsageClient(object):
     def _create_usage_item(self, url, usage_item):
         # Override the needed headers to avoid spec hrefs to be created with internal host and port
         headers = {
-            'Host': urlparse(Context.objects.all()[0].site.domain).netloc
+            'Host': urlparse(settings.SITE).netloc
         }
 
         r = requests.post(url, headers=headers, json=usage_item)
@@ -156,7 +155,7 @@ class UsageClient(object):
         :return:
         """
         inventory_path = settings.INVENTORY.split('/')[3]
-        ext_host = Context.objects.all()[0].site.domain
+        ext_host = settings.SITE
         inventory_url = urljoin(ext_host, inventory_path + '/')
 
         product_url = urljoin(inventory_url, 'api/productInventory/v2/product/' + unicode(product_id))

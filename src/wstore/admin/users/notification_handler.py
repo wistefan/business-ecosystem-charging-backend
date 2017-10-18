@@ -32,7 +32,7 @@ from urlparse import urljoin
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from wstore.models import User, Context
+from wstore.models import User
 
 
 class NotificationsHandler:
@@ -93,7 +93,7 @@ class NotificationsHandler:
     def send_acquired_notification(self, order):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
 
         order_url = urljoin(domain, '/#/inventory/order')
         product_url = urljoin(domain, '/#/inventory/product')
@@ -113,7 +113,7 @@ class NotificationsHandler:
     def send_product_upgraded_notification(self, order, contract, product_name):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
 
         product_url = urljoin(domain, '/#/inventory/product/{}'.format(contract.product_id))
 
@@ -126,7 +126,7 @@ class NotificationsHandler:
         # Get destination email
         org = contract.offering.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
 
         url = urljoin(domain, '/#/inventory/order')
 
@@ -140,7 +140,7 @@ class NotificationsHandler:
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
 
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
         url = urljoin(domain, '/#/inventory/order/' + order.order_id)
 
         text = 'Your subscription belonging to the product offering ' + contract.offering.name + ' has expired.\n'
@@ -154,7 +154,7 @@ class NotificationsHandler:
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
 
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
         url = urljoin(domain, '/#/inventory/order/' + order.order_id)
 
         text = 'Your subscription belonging to the product offering ' + contract.offering.name + '\n'
@@ -168,7 +168,7 @@ class NotificationsHandler:
     def send_renovation_notification(self, order, transactions):
         org = order.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
 
         order_url = urljoin(domain, '/#/inventory/order')
         product_url = urljoin(domain, '/#/inventory/product')

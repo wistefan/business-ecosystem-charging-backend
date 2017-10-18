@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -26,8 +26,6 @@ from urlparse import urlparse, urljoin
 
 from django.conf import settings
 
-from wstore.models import Context
-
 
 class BillingClient:
 
@@ -41,7 +39,7 @@ class BillingClient:
         str_time = charge_model.date.isoformat() + 'Z'
         tax_rate = ((Decimal(charge_model.cost) - Decimal(charge_model.duty_free)) * Decimal('100') / Decimal(charge_model.cost))
 
-        domain = Context.objects.all()[0].site.domain
+        domain = settings.SITE
         invoice_url = urljoin(domain, charge_model.invoice)
         description = charge_model.concept + ' charge of ' + charge_model.cost + ' ' + charge_model.currency + ' ' + invoice_url
 

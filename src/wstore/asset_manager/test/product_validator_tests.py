@@ -54,12 +54,6 @@ class ValidatorTestCase(TestCase):
         module.Resource.objects.get.return_value = self._asset_instance
         module.Resource.objects.create.return_value = self._asset_instance
 
-        # Mock Site
-        module.Context = MagicMock()
-        self._context_inst = MagicMock()
-        self._context_inst.site.domain = "http://testlocation.org/"
-        module.Context.objects.all.return_value = [self._context_inst]
-
     def setUp(self):
         self._provider = MagicMock()
 
@@ -73,8 +67,12 @@ class ValidatorTestCase(TestCase):
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin = MagicMock()
         wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.return_value = self._plugin_instance
 
+        # Mock Site
+        product_validator.settings.SITE = "http://testlocation.org/"
+
     def tearDown(self):
         reload(offering_validator)
+        reload(product_validator)
 
     def _not_existing(self):
         self._plugin_instance.formats = ["FILE", "URL"]
