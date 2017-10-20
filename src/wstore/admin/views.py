@@ -21,19 +21,17 @@
 from __future__ import unicode_literals
 
 from wstore.store_commons.resource import Resource
-from wstore.store_commons.utils.http import authentication_required, JsonResponse
+from wstore.store_commons.utils.http import JsonResponse
 from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
 class ChargePeriodCollection(Resource):
 
-    @authentication_required
     def read(self, request):
         return JsonResponse(200, ChargePeriod.to_dict())
 
 
 class CurrencyCodeCollection(Resource):
 
-    @authentication_required
     def read(self, request):
         return JsonResponse(200, CurrencyCode.to_dict())
