@@ -27,20 +27,15 @@ class ChargePeriod(object):
 
     @staticmethod
     def contains(title):
-        return title.lower() in [t for v, t in settings.CHARGE_PERIODS]
+        return title.lower() in settings.CHARGE_PERIODS
 
     @staticmethod
     def get_value(title):
-        title = title.lower()
-        for v, t in settings.CHARGE_PERIODS:
-            if t == title:
-                return v
-        return None
+        return settings.CHARGE_PERIODS.get(title.lower())
 
     @staticmethod
     def to_dict():
-        return [{'title': t, 'value': v} for v, t in settings.CHARGE_PERIODS]
-
+        return [{'title': t, 'value': v} for t, v in settings.CHARGE_PERIODS.items()]
 
 class CurrencyCode(object):
 

@@ -52,14 +52,14 @@ ADMIN_ROLE = 'provider'
 PROVIDER_ROLE = 'seller'
 CUSTOMER_ROLE = 'customer'
 
-CHARGE_PERIODS = [
-    (1, 'daily'),  # One day
-    (7, 'weekly'),  # One week
-    (30, 'monthly'),  # One month
-    (90, 'quarterly'),  # Three months
-    (365, 'yearly'),  # One year
-    (1825, 'quinquennial'),  # Five years
-]
+CHARGE_PERIODS = {
+    'daily': 1,  # One day
+    'weekly': 7,  # One week
+    'monthly': 30,  # One month
+    'quarterly': 90,  # Three months
+    'yearly': 365,  # One year
+    'quinquennial': 1825,  # Five years
+}
 
 CURRENCY_CODES = [
     ('AUD', 'Australia Dollar'),
