@@ -22,10 +22,14 @@ from __future__ import unicode_literals
 
 from django.conf import settings
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
+@override_settings(CHARGE_PERIODS={
+    'daily': 1,
+})
 class ChargePeriodUnitsTestCase(TestCase):
 
     tags = ('units',)
@@ -39,10 +43,6 @@ class ChargePeriodUnitsTestCase(TestCase):
             'title': 'weekly',
             'value': 7,
         }
-
-        settings.CHARGE_PERIODS = [
-            (self.cp_valid['value'], self.cp_valid['title']),
-        ]
 
     def test_should_check_if_given_title_in_lowercase_exists(self):
         title = self.cp_valid['title']
@@ -77,6 +77,9 @@ class ChargePeriodUnitsTestCase(TestCase):
         self.assertEqual(ChargePeriod.to_json(), dict_expected)
 
 
+@override_settings(CURRENCY_CODES=[
+    ('EUR', 'Euro'),
+])
 class CurrencyCodeUnitsTestCase(TestCase):
 
     tags = ('units',)
@@ -90,10 +93,6 @@ class CurrencyCodeUnitsTestCase(TestCase):
             'title': 'Canada Dollar',
             'value': 'CAD',
         }
-
-        settings.CURRENCY_CODES = [
-            (self.cc_valid['value'], self.cc_valid['title']),
-        ]
 
     def test_should_check_if_given_value_in_lowercase_exists(self):
         value = self.cc_valid['value'].lower()
