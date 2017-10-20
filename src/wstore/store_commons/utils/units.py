@@ -34,8 +34,9 @@ class ChargePeriod(object):
         return settings.CHARGE_PERIODS.get(title.lower())
 
     @staticmethod
-    def to_dict():
+    def to_json():
         return [{'title': t, 'value': v} for t, v in settings.CHARGE_PERIODS.items()]
+
 
 class CurrencyCode(object):
 
@@ -44,5 +45,5 @@ class CurrencyCode(object):
         return value.upper() in [v for v, t in settings.CURRENCY_CODES]
 
     @staticmethod
-    def to_dict():
+    def to_json():
         return [{'title': t, 'value': v} for v, t in settings.CURRENCY_CODES]

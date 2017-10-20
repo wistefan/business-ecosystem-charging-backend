@@ -70,11 +70,11 @@ class ChargePeriodUnitsTestCase(TestCase):
         title = self.cp_not_valid['title']
         self.assertIsNone(ChargePeriod.get_value(title))
 
-    def test_should_parse_tuple_to_dict(self):
+    def test_should_parse_to_json(self):
         dict_expected = [
             self.cp_valid,
         ]
-        self.assertEqual(ChargePeriod.to_dict(), dict_expected)
+        self.assertEqual(ChargePeriod.to_json(), dict_expected)
 
 
 class CurrencyCodeUnitsTestCase(TestCase):
@@ -107,8 +107,8 @@ class CurrencyCodeUnitsTestCase(TestCase):
         value = self.cc_not_valid['value']
         self.assertFalse(CurrencyCode.contains(value))
 
-    def test_should_parse_tuple_to_dict(self):
+    def test_should_parse_to_json(self):
         dict_expected = [
             self.cc_valid,
         ]
-        self.assertEqual(CurrencyCode.to_dict(), dict_expected)
+        self.assertEqual(CurrencyCode.to_json(), dict_expected)
