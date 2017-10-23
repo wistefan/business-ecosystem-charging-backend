@@ -33,75 +33,85 @@ from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
     CHARGE_PERIODS={
         'daily': 1,
     },
-    CURRENCY_CODES=[
-        ('EUR', 'Euro'),
-    ],
 )
-class UnitsTestCase(TestCase):
+class ChargePeriodUnitsTestCase(TestCase):
 
     tags = ('units',)
 
     def setUp(self):
-        self.charge_period_valid = {
+        self.valid = {
             'title': 'daily',
             'value': 1,
         }
-        self.charge_period_not_valid = {
+        self.not_valid = {
             'title': 'weekly',
             'value': 7,
         }
 
-        self.currency_code_valid = {
+    def _get_title(self, valid, uppercase):
+        title = self.valid['title'] if valid else self.not_valid['title']
+        return title.upper() if uppercase else title.lower()
+
+    @parameterized.expand([
+        ("valid_in_lowercase", True, False, True),
+        ("valid_in_uppercase", True, True, True),
+        ("not_valid", False, False, False),
+    ])
+    def test_should_check_if_given_title_exists(self, name, valid, uppercase, expected):
+        title = self._get_title(valid, uppercase)
+        self.assertEqual(ChargePeriod.contains(title), expected)
+
+    @parameterized.expand([
+        ("valid_in_lowercase", True, False),
+        ("valid_in_uppercase", True, True),
+        ("not_valid", False, False),
+    ])
+    def test_should_get_value_of_given_title(self, name, valid, uppercase):
+        title = self._get_title(valid, uppercase)
+        expected = self.valid['value'] if valid else None
+        self.assertEqual(ChargePeriod.get_value(title), expected)
+
+    def test_should_parse_to_json(self):
+        dict_expected = [
+            self.valid,
+        ]
+        self.assertEqual(ChargePeriod.to_json(), dict_expected)
+
+
+@override_settings(
+    CURRENCY_CODES=[
+        ('EUR', 'Euro'),
+    ],
+)
+class CurrencyCodeUnitsTestCase(TestCase):
+
+    tags = ('units',)
+
+    def setUp(self):
+        self.valid = {
             'title': 'Euro',
             'value': 'EUR',
         }
-        self.currency_code_not_valid = {
+        self.not_valid = {
             'title': 'Canada Dollar',
             'value': 'CAD',
         }
 
-    @parameterized.expand([
-        ("charge_period", ChargePeriod, 'title'),
-        ("currency_code", CurrencyCode, 'value'),
-    ])
-    def test_should_check_if_given_value_in_lowercase_exists(self, name, ns, attr):
-        self.assertTrue(ns.contains(getattr(self, name + '_valid')[attr].lower()))
+    def _get_value(self, valid, uppercase):
+        value = self.valid['value'] if valid else self.not_valid['value']
+        return value.upper() if uppercase else value.lower()
 
     @parameterized.expand([
-        ("charge_period", ChargePeriod, 'title'),
-        ("currency_code", CurrencyCode, 'value'),
+        ("valid_in_lowercase", True, False, True),
+        ("valid_in_uppercase", True, True, True),
+        ("not_valid", False, False, False),
     ])
-    def test_should_check_if_given_value_in_uppercase_exists(self, name, ns, attr):
-        self.assertTrue(ns.contains(getattr(self, name + '_valid')[attr].upper()))
+    def test_should_check_if_given_value_exists(self, name, valid, uppercase, expected):
+        value = self._get_value(valid, uppercase)
+        self.assertEqual(CurrencyCode.contains(value), expected)
 
-    @parameterized.expand([
-        ("charge_period", ChargePeriod, 'title'),
-        ("currency_code", CurrencyCode, 'value'),
-    ])
-    def test_should_check_if_given_value_does_not_exist(self, name, ns, attr):
-        self.assertFalse(ns.contains(getattr(self, name + '_not_valid')[attr].upper()))
-
-    # charge period
-    def test_should_get_value_when_given_title_in_lowercase_exists(self):
-        title = self.charge_period_valid['title']
-        value_expected = self.charge_period_valid['value']
-        self.assertEquals(ChargePeriod.get_value(title), value_expected)
-
-    def test_should_get_value_when_given_title_in_uppercase_exists(self):
-        title = self.charge_period_valid['title'].upper()
-        value_expected = self.charge_period_valid['value']
-        self.assertEquals(ChargePeriod.get_value(title), value_expected)
-
-    def test_should_get_none_when_given_title_does_not_exist(self):
-        title = self.charge_period_not_valid['title']
-        self.assertIsNone(ChargePeriod.get_value(title))
-
-    @parameterized.expand([
-        ("charge_period", ChargePeriod),
-        ("currency_code", CurrencyCode),
-    ])
-    def test_should_parse_to_json(self, name, ns):
+    def test_should_parse_to_json(self):
         dict_expected = [
-            getattr(self, name + '_valid'),
+            self.valid,
         ]
-        self.assertEqual(ns.to_json(), dict_expected)
+        self.assertEqual(CurrencyCode.to_json(), dict_expected)
