@@ -10,12 +10,12 @@ If you want to know what is behind the scenes of our container you can go ahead 
 
 ## The Fastest Way
 
-### Newer versions
+### New versions
 
-Newer versions of the Business Ecosystem Charging Backend than 5.4.1 use an external MongoDB container as database and are
+New versions of the Business Ecosystem Charging Backend container than 5.4.1 use an external MongoDB container as database and are
 configured using the standard `settings.py` file as it is done with the software.
 
-To run the Business Ecosystem Charging Backend `docker-compose` is used. To do so, you must create a folder to place a
+To run the Business Ecosystem Charging Backend, `docker-compose` is used. To do so, you must create a folder to place a
 new file file called `docker-compose.yml` that should include the following content:
 
 ```
@@ -102,7 +102,7 @@ $ sudo docker run \
     -e EMAIL_PASSWD=your-email-passwd \
     -e EMAIL_SERVER=your-email-server \
     -e EMAIL_SERVER_PORT=your-email-server-port
-    -p your-port:8006 conwetlab/biz-ecosystem-charging-backend:5.4.1
+    -p your-port:8006 conwetlab/biz-ecosystem-charging-backend:v5.4.1
 ```
 
 Note in the previous command that it is needed to provide some environment variables. Concretely:
