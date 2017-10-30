@@ -31,10 +31,10 @@ from wstore.ordering import views
 from wstore.ordering.errors import OrderingError
 
 
-def api_call(self, collection, data, side_effect):
+def api_call(self, collection, data, side_effect, extra_headers=[]):
     # Create request
     self.request = MagicMock()
-    self.request.META.get.return_value = 'application/json'
+    self.request.META.get.side_effect = 4 * ['application/json'] + extra_headers
     self.request.user.is_anonymous.return_value = False
     self.request.user.userprofile.current_organization.tax_address = {
         'street': 'fake'
@@ -101,7 +101,7 @@ class OrderingCollectionTestCase(TestCase):
             'error': 'Your order could not be processed'
         }, True, True, _exception)
     ])
-    def test_create_order(self, name, data, redirect_url, exp_code, exp_response, called=True, failed=False, side_effect=None):
+    def test_create_order(self, name, data, redirect_url, exp_code, exp_response, called=True, failed=False, side_effect=None, terms_accepted=False):
         # Create mocks
         views.OrderingManager = MagicMock()
         views.OrderingManager().process_order.return_value = redirect_url
@@ -118,13 +118,13 @@ class OrderingCollectionTestCase(TestCase):
         order.get_item_contract.side_effect = [c1, c2]
 
         collection = views.OrderingCollection(permitted_methods=('POST',))
-        response, body = api_call(self, collection, data, side_effect)
+        response, body = api_call(self, collection, data, side_effect, ["%s" % terms_accepted])
 
         self.assertEquals(exp_code, response.status_code)
         self.assertEquals(exp_response, body)
 
         if called:
-            views.OrderingManager().process_order.assert_called_once_with(self.request.user, data)
+            views.OrderingManager().process_order.assert_called_once_with(self.request.user, data, terms_accepted=terms_accepted)
 
             if redirect_url is None and not failed:
                 self.assertEquals([
