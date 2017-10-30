@@ -28,6 +28,7 @@ from datetime import datetime
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from wstore.models import Organization
 from wstore.ordering.errors import OrderingError
@@ -486,6 +487,9 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals(err_msg, unicode(error))
 
 
+@override_settings(
+    ORDERING='http://localhost:8080/DSProductOrdering'
+)
 class OrderingClientTestCase(TestCase):
 
     tags = ('ordering', 'ordering-client')
@@ -680,6 +684,9 @@ class OrderTestCase(TestCase):
         self.assertEquals('OrderingError: Invalid product id', unicode(e))
 
 
+@override_settings(
+    INVENTORY='http://localhost:8080/DSProductInventory'
+)
 class InventoryClientTestCase(TestCase):
 
     tags = ('inventory', )
