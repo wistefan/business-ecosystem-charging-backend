@@ -297,9 +297,13 @@ class OrderingManagementTestCase(TestCase):
         new_cust['contactMedium'] = []
         self._response.json.side_effect = [OFFERING, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, new_cust]
 
+    def _terms_not_required(self):
+        self._contract_inst.offering.asset.has_terms = False
+
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
         ('basic_add_terms_not_accepted', BASIC_ORDER, BASIC_PRICING, None, None, 'OrderingError: You must accept the terms and conditions of the offering to acquire it', False),
+        ('basic_add_terms_not_required', BASIC_ORDER, BASIC_PRICING, _basic_add_checker, _terms_not_required, None, False),
         ('basic_add_invalid_billing', BASIC_ORDER, BASIC_PRICING, None, _invalid_billing, 'OrderingError: There was an error at the time of retrieving the Billing Address'),
         ('non_digital_add', BASIC_ORDER, BASIC_PRICING, _non_digital_add_checker, _non_digital_offering),
         ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker),
