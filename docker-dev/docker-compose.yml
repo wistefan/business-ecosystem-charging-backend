@@ -3,7 +3,9 @@ services:
     mongo:
         image: mongo:3.2
         ports:
-            - 27017:27017
+            - 27018:27017
+        networks:
+            main:
         volumes:
             - ./charging-data:/data/db
 
@@ -15,5 +17,13 @@ services:
             - mongo
         ports:
             - 8006:8006
+        networks:
+            main:
+                aliases:
+                    - charging.docker
         volumes:
             - ../src:/business-ecosystem-charging-backend/src/
+
+networks:
+    main:
+        external: true
