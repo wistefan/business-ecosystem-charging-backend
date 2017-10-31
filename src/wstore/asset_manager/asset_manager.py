@@ -268,6 +268,9 @@ class AssetManager:
         if asset.product_id is None:
             raise ValueError('It is not possible to upgrade an asset not included in a product specification')
 
+        if asset.state == 'upgrading':
+            raise ValueError('The provided asset is already in upgrading state')
+
         self._save_current_asset_version(asset)
         self._to_downgrade = asset
 

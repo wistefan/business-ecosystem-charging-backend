@@ -558,10 +558,18 @@ class UploadAssetTestCase(TestCase):
             is_public=False
         )]
 
+    def _upgrading_asset(self):
+        return [MagicMock(
+            product_id='2',
+            state='upgrading',
+            is_public=False
+        )]
+
     @parameterized.expand([
         ('not_found', _asset_empty, ObjectDoesNotExist, 'The specified asset does not exists'),
         ('public_asset', _public_asset, ValueError, 'It is not allowed to upgrade public assets, create a new one instead'),
-        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification')
+        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification'),
+        ('upgrading', _upgrading_asset, ValueError, 'The provided asset is already in upgrading state')
     ])
     def test_upgrade_asset_error(self, name, asset_mock, err_type, err_msg):
 
