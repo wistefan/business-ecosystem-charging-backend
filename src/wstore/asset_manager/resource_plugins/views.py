@@ -34,7 +34,7 @@ from wstore.models import ResourcePlugin
 
 def get_plugin_info(plugin):
     site = settings.SITE
-    plugin_url = urljoin(site.domain, 'api/offering/resources/plugins/' + plugin.plugin_id)
+    plugin_url = urljoin(site, 'api/offering/resources/plugins/' + plugin.plugin_id)
     plugin_info = {
         'id': plugin.plugin_id,
         'href': plugin_url,
