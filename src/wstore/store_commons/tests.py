@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -19,15 +19,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
-from django.contrib.auth.models import AnonymousUser
-from django.test.utils import override_settings
 
-from mock import MagicMock
+from bson import ObjectId
+from mock import MagicMock, call
 from nose_parameterized import parameterized
 
+from django.contrib.auth.models import AnonymousUser
+from django.test.utils import override_settings
 from django.test import TestCase
 
-from wstore.store_commons import middleware, rollback
+from wstore.store_commons import middleware, rollback, database
 
 __test__ = False
 
@@ -252,3 +253,34 @@ class RollbackTestCase(TestCase):
             pass
 
         rollback.downgrade_asset(manager())
+
+
+class DocumentLockTestCase(TestCase):
+    tags = ('lock',)
+
+    _id = '59f76ace051eb500613cbbc7'
+    _collection = 'test_collection'
+    _lock_id = '_lock_test'
+
+    def setUp(self):
+        self._connection = MagicMock()
+        database.get_database_connection = MagicMock(return_value=self._connection)
+
+    def test_wait_for_document(self):
+        self._connection[self._collection].find_one_and_update.side_effect = [True, False]
+
+        lock = database.DocumentLock(self._collection, self._id, 'test')
+        lock.wait_document()
+
+        # Check database calls
+        self.assertEquals([
+            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}}),
+            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}})
+        ], self._connection[self._collection].find_one_and_update.call_args_list)
+
+    def test_unlock_document(self):
+        lock = database.DocumentLock(self._collection, self._id, 'test')
+        lock.unlock_document()
+
+        # Check database calls
+        self._connection[self._collection].find_one_and_update.assert_called_once_with({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: False}})
