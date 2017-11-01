@@ -22,12 +22,14 @@ from __future__ import unicode_literals
 
 import base64
 import os
+import threading
 from urlparse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
 from wstore.models import Resource, ResourceVersion, ResourcePlugin
+from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import rollback, downgrade_asset
 from wstore.store_commons.utils.name import is_valid_file
@@ -244,6 +246,20 @@ class AssetManager:
 
         asset.save()
 
+    def _upgrade_timer(self):
+        lock = DocumentLock('wstore_resource', self._to_downgrade.pk, 'asset')
+        lock.wait_document()
+
+        # Refresh asset info
+        asset = Resource.objects.get(pk=self._to_downgrade.pk)
+
+        # If the asset is in upgrading state when the timer ends, rollback is called
+        if asset.state == 'upgrading':
+            self._to_downgrade = asset
+            downgrade_asset(self)
+
+        lock.unlock_document()
+
     @rollback(downgrade_asset)
     def upgrade_asset(self, asset_id, provider, data, file_=None):
         """
@@ -282,6 +298,11 @@ class AssetManager:
         asset.content_type = resource_data['content_type']
         asset.state = 'upgrading'
         asset.save()
+
+        # If the upgrading process is not completed in 30 seconds the upgrade is canceled
+        # in order to avoid an inconsistent state
+        t = threading.Timer(30, self._upgrade_timer)
+        t.start()
 
         return asset
 

@@ -29,6 +29,7 @@ from wstore.asset_manager.errors import ProductError
 from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
 from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment, on_product_spec_upgrade
 from wstore.asset_manager.catalog_validator import CatalogValidator
+from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import is_valid_version, is_lower_version
@@ -202,6 +203,12 @@ class ProductValidator(CatalogValidator):
             raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
 
         asset = assets[0]
+        # Lock the access to the asset
+        lock = DocumentLock('wstore_resource', asset.pk, 'asset')
+        lock.wait_document()
+
+        asset = Resource.objects.get(pk=asset.pk)
+
         # Check that the asset is in upgrading state
         if asset.state != 'upgrading':
             raise ProductError('There is not a new version of the specified digital asset')
@@ -209,15 +216,18 @@ class ProductValidator(CatalogValidator):
         if asset.product_id != product_id:
             raise ProductError('The specified digital asset is included in other product spec')
 
-        return asset
+        return asset, lock
 
     def attach_upgrade(self, provider, product_spec):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
-            asset = self._get_upgrading_asset(asset_t, url, product_spec['id'])
+            asset, lock = self._get_upgrading_asset(asset_t, url, product_spec['id'])
             self._notify_product_upgrade(asset, asset_t, product_spec)
+
+            # Release asset lock
+            lock.unlock_document()
 
     @rollback(downgrade_asset)
     def validate_upgrade(self, provider, product_spec):
@@ -228,7 +238,7 @@ class ProductValidator(CatalogValidator):
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
-                asset = self._get_upgrading_asset(asset_t, url, product_spec['id'])
+                asset, lock = self._get_upgrading_asset(asset_t, url, product_spec['id'])
 
                 self._to_downgrade = asset
 
@@ -244,6 +254,9 @@ class ProductValidator(CatalogValidator):
                 # Attach new info
                 asset.version = product_spec['version']
                 asset.save()
+
+                # Release asset lock
+                lock.unlock_document()
 
     def _rollback_handler(self, provider, product_spec, rollback_method):
         asset_t, media_type, url = self.parse_characteristics(product_spec)

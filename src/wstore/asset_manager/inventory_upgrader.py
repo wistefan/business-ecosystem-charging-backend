@@ -22,7 +22,6 @@ from __future__ import unicode_literals
 
 import math
 import requests
-from bson import ObjectId
 from requests.exceptions import HTTPError
 from threading import Thread
 
@@ -32,7 +31,7 @@ from wstore.admin.users.notification_handler import NotificationsHandler
 from wstore.models import Context, Resource
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.models import Order, Offering
-from wstore.store_commons.database import get_database_connection
+from wstore.store_commons.database import DocumentLock
 
 
 PAGE_LEN = 100.0
@@ -62,17 +61,8 @@ class InventoryUpgrader(Thread):
         # In this case context must be accessed as a shared resource
         context_id = Context.objects.all()[0].pk
 
-        db = get_database_connection()
-        locked = db.wstore_context.find_one_and_update(
-            {'_id': ObjectId(context_id)},
-            {'$set': {'_lock_upg': True}}
-        )
-
-        while locked:
-            locked = db.wstore_context.find_one_and_update(
-                {'_id': ObjectId(context_id)},
-                {'$set': {'_lock_upg': True}}
-            )
+        lock = DocumentLock('wstore_context', context_id, 'ctx')
+        lock.wait_document()
 
         # At this point only the current thread can modify the list of pending upgrades
         context = Context.objects.all()[0]
@@ -83,10 +73,7 @@ class InventoryUpgrader(Thread):
         })
         context.save()
 
-        db.wstore_context.find_one_and_update(
-            {'_id': ObjectId(context_id)},
-            {'$set': {'_lock_upg': False}}
-        )
+        lock.unlock_document()
 
     def _notify_user(self, patched_product):
         if self._product_name is not None:
