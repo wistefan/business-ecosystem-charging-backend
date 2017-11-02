@@ -484,6 +484,13 @@ class UploadAssetTestCase(TestCase):
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
 
+    def _mock_timer(self):
+        timer = MagicMock()
+        asset_manager.threading = MagicMock()
+        asset_manager.threading.Timer = MagicMock(return_value=timer)
+
+        return timer
+
     @override_settings(MEDIA_ROOT='/home/test/media')
     def test_upgrade_asset(self):
 
@@ -505,6 +512,8 @@ class UploadAssetTestCase(TestCase):
         )
 
         asset_manager.Resource.objects.filter.return_value = [asset]
+
+        timer = self._mock_timer()
 
         am = asset_manager.AssetManager()
         am.rollback_logger = {
@@ -543,6 +552,9 @@ class UploadAssetTestCase(TestCase):
         self.assertEquals(prev_type, old_version.content_type)
         self.assertEquals(prev_version, old_version.version)
 
+        asset_manager.threading.Timer.assert_called_once_with(30, am._upgrade_timer)
+        timer.start.assert_called_once_with()
+
     def _asset_empty(self):
         return []
 
@@ -573,6 +585,7 @@ class UploadAssetTestCase(TestCase):
     ])
     def test_upgrade_asset_error(self, name, asset_mock, err_type, err_msg):
 
+        self._mock_timer()
         asset_resp = asset_mock(self)
         asset_manager.Resource.objects.filter.return_value = asset_resp
 
@@ -585,6 +598,45 @@ class UploadAssetTestCase(TestCase):
 
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
+
+    def _test_timer(self, state, check_calls):
+        asset_pk = '1234'
+
+        lock = MagicMock()
+        asset_manager.DocumentLock = MagicMock(return_value=lock)
+
+        asset = MagicMock(pk=asset_pk, state=state)
+        asset_manager.Resource.objects.get.return_value = asset
+        asset_manager.downgrade_asset = MagicMock()
+
+        am = asset_manager.AssetManager()
+        am._to_downgrade = MagicMock(pk=asset_pk)
+
+        am._upgrade_timer()
+
+        asset_manager.DocumentLock.assert_called_once_with('wstore_resource', asset_pk, 'asset')
+        lock.wait_document.assert_called_once_with()
+        lock.unlock_document.assert_called_once_with()
+
+        asset_manager.Resource.objects.get.assert_called_once_with(pk=asset_pk)
+
+        check_calls(am, asset)
+
+    def test_upgrade_timer(self):
+
+        def check_calls(am, asset):
+            asset_manager.downgrade_asset.assert_called_once_with(am)
+            self.assertEquals(asset, am._to_downgrade)
+
+        self._test_timer('upgrading', check_calls)
+
+    def test_upgrade_timer_attached(self):
+
+        def check_calls(am, asset):
+            self.assertEquals(0, asset_manager.downgrade_asset.call_count)
+            self.assertNotEquals(asset, am._to_downgrade)
+
+        self._test_timer('attached', check_calls)
 
 
 class ResourceModelTestCase(TestCase):

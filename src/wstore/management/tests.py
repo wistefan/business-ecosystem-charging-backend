@@ -109,8 +109,8 @@ class ResendUpgradeTestCase(TestCase):
         resend_upgrade.Context.objects.get.return_value = self._ctx_inst
 
         # Mock db connection
-        self._db = MagicMock()
-        resend_upgrade.get_database_connection = MagicMock(return_value=self._db)
+        self._lock_inst = MagicMock()
+        resend_upgrade.DocumentLock = MagicMock(return_value=self._lock_inst)
 
         self._upg_inst = MagicMock()
         resend_upgrade.InventoryUpgrader = MagicMock(return_value=self._upg_inst)
@@ -124,7 +124,6 @@ class ResendUpgradeTestCase(TestCase):
 
     def test_resend_upgrades_no_pending_unlocked(self):
         self._ctx_inst.failed_upgrades = []
-        self._db.wstore_context.find_one_and_update.return_value = False
 
         call_command('resend_upgrade')
 
@@ -132,10 +131,9 @@ class ResendUpgradeTestCase(TestCase):
 
         self.assertEquals(0, resend_upgrade.InventoryUpgrader.call_count)
 
-        self.assertEquals([
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
-        ], self._db.wstore_context.find_one_and_update.call_args_list)
+        resend_upgrade.DocumentLock.assert_called_once_with('wstore_context', self._ctx_pk, 'ctx')
+        self._lock_inst.wait_document.assert_called_once_with()
+        self._lock_inst.unlock_document.assert_called_once_with()
 
     def test_resend_upgrades_pending_locked(self):
         self._ctx_inst.failed_upgrades = [{
@@ -152,8 +150,6 @@ class ResendUpgradeTestCase(TestCase):
         asset2 = MagicMock(pk='2')
 
         resend_upgrade.Resource.objects.get.side_effect = [asset1, asset2]
-
-        self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
 
         self._upg_inst.upgrade_asset_products.return_value = [], []
 
@@ -190,12 +186,9 @@ class ResendUpgradeTestCase(TestCase):
         # Validate that the lambda method passed to the upgrader is working properly
         self.assertEquals('1', self._passed_method('1'))
 
-        self.assertEquals([
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
-        ], self._db.wstore_context.find_one_and_update.call_args_list)
+        resend_upgrade.DocumentLock.assert_called_once_with('wstore_context', self._ctx_pk, 'ctx')
+        self._lock_inst.wait_document.assert_called_once_with()
+        self._lock_inst.unlock_document.assert_called_once_with()
 
     def test_pending_upgrades_no_context(self):
         resend_upgrade.Context.objects.all.return_value = []

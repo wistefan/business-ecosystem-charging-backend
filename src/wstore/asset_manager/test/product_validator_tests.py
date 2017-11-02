@@ -175,6 +175,7 @@ class ValidatorTestCase(TestCase):
     ])
     def test_validate_error(self, name, data, side_effect, err_type, err_msg):
         self._mock_validator_imports(product_validator)
+        self._mock_document_lock()
 
         if side_effect is not None:
             side_effect(self)
@@ -195,9 +196,17 @@ class ValidatorTestCase(TestCase):
         self._asset_instance.version = version
         self._asset_instance.old_versions = [MagicMock(version='1.0')]
 
+    def _mock_document_lock(self):
+        document_lock = MagicMock()
+        product_validator.DocumentLock = MagicMock(return_value=document_lock)
+
+        return document_lock
+
     def test_validate_upgrade(self):
         self._mock_validator_imports(product_validator)
         self._mock_upgrading_asset('')
+
+        doc_lock = self._mock_document_lock()
 
         validator = product_validator.ProductValidator()
         validator.validate('upgrade', self._provider, UPGRADE_PRODUCT['product'])
@@ -206,9 +215,15 @@ class ValidatorTestCase(TestCase):
         self.assertEquals('upgrading', self._asset_instance.state)
         self._asset_instance.save.assert_called_once_with()
 
+        product_validator.DocumentLock.assert_called_once_with('wstore_resource', self._asset_instance.pk, 'asset')
+        doc_lock.wait_document.assert_called_once_with()
+        doc_lock.unlock_document.assert_called_once_with()
+
     def test_attach_upgrade(self):
         self._mock_validator_imports(product_validator)
         self._mock_upgrading_asset(UPGRADE_PRODUCT['product']['version'])
+
+        doc_lock = self._mock_document_lock()
 
         # Mock inventory upgrader class
         product_validator.InventoryUpgrader = MagicMock()
@@ -222,6 +237,10 @@ class ValidatorTestCase(TestCase):
         product_validator.InventoryUpgrader().start.assert_called_once_with()
 
         self._asset_instance.save.assert_called_once_with()
+
+        product_validator.DocumentLock.assert_called_once_with('wstore_resource', self._asset_instance.pk, 'asset')
+        doc_lock.wait_document.assert_called_once_with()
+        doc_lock.unlock_document.assert_called_once_with()
 
     def test_attach_upgrade_non_digital(self):
         self._mock_validator_imports(product_validator)
