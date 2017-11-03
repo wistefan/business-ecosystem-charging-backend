@@ -22,13 +22,13 @@ from __future__ import unicode_literals
 
 from django.conf.urls import patterns, url
 
+from wstore.admin import views as admin_views
 from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
 from wstore.ordering import views as ordering_views
 from wstore.charging_engine import views as charging_views
 from wstore.charging_engine.accounting import views as accounting_views
 from wstore.reports import views as reports_views
-from wstore.views import ChargePeriodCollection, CurrencyCodeCollection
 
 urlpatterns = patterns('',
     # API
@@ -41,8 +41,8 @@ urlpatterns = patterns('',
     url(r'^charging/api/assetManagement/assets/product/(?P<product_id>\w+)/?$', offering_views.AssetEntryFromProduct(permitted_methods=('GET',))),
     url(r'^charging/api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
     url(r'^charging/api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/chargePeriods/?$', ChargePeriodCollection(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/currencyCodes/?$', CurrencyCodeCollection(permitted_methods=('GET',))),
+    url(r'^charging/api/assetManagement/chargePeriods/?$', admin_views.ChargePeriodCollection(permitted_methods=('GET',))),
+    url(r'^charging/api/assetManagement/currencyCodes/?$', admin_views.CurrencyCodeCollection(permitted_methods=('GET',))),
 
     url(r'^charging/api/orderManagement/orders/?$', ordering_views.OrderingCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
