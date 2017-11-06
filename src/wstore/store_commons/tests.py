@@ -296,7 +296,7 @@ class DocumentLockTestCase(TestCase):
         database.get_database_connection = MagicMock(return_value=self._connection)
 
     def test_wait_for_document(self):
-        self._connection[self._collection].find_one_and_update.side_effect = [True, False]
+        self._connection[self._collection].find_one_and_update.side_effect = [{self._lock_id: True}, {self._lock_id: False}]
 
         lock = database.DocumentLock(self._collection, self._id, 'test')
         lock.wait_document()
