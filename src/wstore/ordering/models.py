@@ -71,6 +71,12 @@ class Contract(models.Model):
     terminated = models.BooleanField(default=False)
 
 
+class Payment(models.Model):
+    transactions = ListField()
+    concept = models.CharField(max_length=20)
+    free_contracts = ListField(EmbeddedModelField(Contract))
+
+
 class Order(models.Model):
     description = models.CharField(max_length=1500)
     order_id = models.CharField(max_length=50)
@@ -86,7 +92,7 @@ class Order(models.Model):
     contracts = ListField(EmbeddedModelField(Contract))
 
     # Pending payment info used in asynchronous charges
-    pending_payment = DictField()
+    pending_payment = EmbeddedModelField(Payment, null=True, blank=True)
 
     def get_item_contract(self, item_id):
         # Search related contract
