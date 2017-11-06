@@ -33,7 +33,7 @@ from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import is_valid_version, is_lower_version
-from wstore.store_commons.rollback import rollback, downgrade_asset
+from wstore.store_commons.rollback import rollback, downgrade_asset_pa, downgrade_asset
 
 
 class ProductValidator(CatalogValidator):
@@ -229,7 +229,7 @@ class ProductValidator(CatalogValidator):
             # Release asset lock
             lock.unlock_document()
 
-    @rollback(downgrade_asset)
+    @rollback(downgrade_asset_pa)
     def validate_upgrade(self, provider, product_spec):
 
         if 'version' in product_spec and 'productSpecCharacteristic' in product_spec:
@@ -279,8 +279,7 @@ class ProductValidator(CatalogValidator):
     def rollback_upgrade(self, provider, product_spec):
         def rollback_method(asset):
             if asset.product_id == product_spec['id'] and asset.state == 'upgrading':
-                self._to_downgrade = asset
-                downgrade_asset(self)
+                downgrade_asset(asset)
 
         self._rollback_handler(provider, product_spec, rollback_method)
 

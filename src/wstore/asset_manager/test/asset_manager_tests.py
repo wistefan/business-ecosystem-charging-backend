@@ -552,7 +552,7 @@ class UploadAssetTestCase(TestCase):
         self.assertEquals(prev_type, old_version.content_type)
         self.assertEquals(prev_version, old_version.version)
 
-        asset_manager.threading.Timer.assert_called_once_with(30, am._upgrade_timer)
+        asset_manager.threading.Timer.assert_called_once_with(15, am._upgrade_timer)
         timer.start.assert_called_once_with()
 
     def _asset_empty(self):
@@ -620,21 +620,19 @@ class UploadAssetTestCase(TestCase):
 
         asset_manager.Resource.objects.get.assert_called_once_with(pk=asset_pk)
 
-        check_calls(am, asset)
+        check_calls(asset)
 
     def test_upgrade_timer(self):
 
-        def check_calls(am, asset):
-            asset_manager.downgrade_asset.assert_called_once_with(am)
-            self.assertEquals(asset, am._to_downgrade)
+        def check_calls(asset):
+            asset_manager.downgrade_asset.assert_called_once_with(asset)
 
         self._test_timer('upgrading', check_calls)
 
     def test_upgrade_timer_attached(self):
 
-        def check_calls(am, asset):
+        def check_calls(asset):
             self.assertEquals(0, asset_manager.downgrade_asset.call_count)
-            self.assertNotEquals(asset, am._to_downgrade)
 
         self._test_timer('attached', check_calls)
 

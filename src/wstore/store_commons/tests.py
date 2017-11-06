@@ -155,6 +155,7 @@ class AuthenticationMiddlewareTestCase(TestCase):
         self._user_inst.userprofile.save.assert_called_once_with()
 
 
+@override_settings(BASEDIR='/base/dir')
 class RollbackTestCase(TestCase):
 
     tags = ('rollback', )
@@ -213,9 +214,36 @@ class RollbackTestCase(TestCase):
         if has_post:
             post_action.assert_called_once_with(wrapper_ref)
 
-    def test_downgrade_post_action(self):
+    def _not_exists(self):
+        rollback.os.path.exists.return_value = False
+
+    def _to_remove(self):
+        rollback.os.path.exists.return_value = True
+
+    def _exists_not_called(self):
+        self.assertEquals(0, rollback.os.path.exists.call_count)
+
+    def _exists_called(self):
+        rollback.os.path.exists.assert_called_once_with('/base/dir/new/path')
+        self.assertEquals(0, rollback.os.remove.call_count)
+
+    def _remove_called(self):
+        rollback.os.path.exists.assert_called_once_with('/base/dir/new/path')
+        rollback.os.remove.assert_called_once_with('/base/dir/new/path')
+
+    @parameterized.expand([
+        ('no_path', '', _exists_not_called),
+        ('file_not_found', 'new/path', _exists_called, _not_exists),
+        ('to_remove', 'new/path', _remove_called, _to_remove)
+    ])
+    def test_downgrade_post_action(self, name, res_path, check, side_effect=None):
+        rollback.os = MagicMock()
+
+        if side_effect is not None:
+            side_effect(self)
+
         asset = MagicMock(
-            resource_path='new/path',
+            resource_path=res_path,
             download_link='http://host/new/path',
             content_type='new_type',
             version='2.0',
@@ -231,7 +259,7 @@ class RollbackTestCase(TestCase):
             _to_downgrade=asset
         )
 
-        rollback.downgrade_asset(downgrade_object)
+        rollback.downgrade_asset_pa(downgrade_object)
 
         self.assertEquals('old/path', asset.resource_path)
         self.assertEquals('http://host/old/path', asset.download_link)
@@ -240,19 +268,20 @@ class RollbackTestCase(TestCase):
         self.assertEquals([], asset.old_versions)
 
         asset.save.assert_called_once_with()
+        check(self)
 
     def test_downgrade_post_action_none(self):
         downgrade_object = MagicMock(
             _to_downgrade=None
         )
 
-        rollback.downgrade_asset(downgrade_object)
+        rollback.downgrade_asset_pa(downgrade_object)
 
     def test_downgrade_post_action_not_defined(self):
         class manager:
             pass
 
-        rollback.downgrade_asset(manager())
+        rollback.downgrade_asset_pa(manager())
 
 
 class DocumentLockTestCase(TestCase):
