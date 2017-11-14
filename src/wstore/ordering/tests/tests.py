@@ -24,6 +24,7 @@ from copy import deepcopy
 from nose_parameterized import parameterized
 from mock import MagicMock, call
 from datetime import datetime
+from urlparse import urlparse
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
@@ -38,6 +39,7 @@ from wstore.ordering.tests.test_data import *
 from wstore.ordering import ordering_client, ordering_management, inventory_client
 
 
+@override_settings(SITE='http://extpath.com:8080/')
 class OrderingManagementTestCase(TestCase):
 
     tags = ('ordering', 'order-manager')
@@ -350,11 +352,12 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals(4, ordering_management.requests.get.call_count)
 
             headers = {'Authorization': 'Bearer ' + self._customer.userprofile.access_token}
+            exp_url = 'http://extpath.com:8080{}'
             self.assertEquals([
-                call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-                call(BILLING_ACCOUNT_HREF, headers=headers),
-                call(BILLING_ACCOUNT['customerAccount']['href'], headers=headers),
-                call(CUSTOMER_ACCOUNT['customer']['href'], headers=headers)
+                call(exp_url.format('/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)')),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT_HREF).path), headers=headers),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT['customerAccount']['href']).path), headers=headers),
+                call(exp_url.format(urlparse(CUSTOMER_ACCOUNT['customer']['href']).path), headers=headers)
             ], ordering_management.requests.get.call_args_list)
 
             contact_medium = CUSTOMER['contactMedium'][0]['medium']
