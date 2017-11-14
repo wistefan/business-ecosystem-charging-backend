@@ -54,7 +54,7 @@ class OrderingCollection(Resource):
         client = OrderingClient()
         client.update_state(order, 'InProgress')
 
-        terms_accepted = request.META.get('X-Terms-Accepted', '').lower() == 'true'
+        terms_accepted = request.META.get('HTTP_X_TERMS_ACCEPTED', '').lower() == 'true'
 
         try:
             # Check that the user has a billing address
