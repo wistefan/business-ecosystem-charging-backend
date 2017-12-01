@@ -29,6 +29,7 @@ from django.test.utils import override_settings
 from django.test import TestCase
 
 from wstore.store_commons import middleware, rollback, database
+from wstore.store_commons.utils.url import is_valid_url
 
 __test__ = False
 
@@ -313,3 +314,50 @@ class DocumentLockTestCase(TestCase):
 
         # Check database calls
         self._connection[self._collection].find_one_and_update.assert_called_once_with({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: False}})
+
+
+class URLUtilsTestCase(TestCase):
+
+    tags = ('utils', 'url-utils')
+
+    def test_invalid_url_protocol(self):
+        self.assertFalse(is_valid_url("sftp://localhost/"))
+
+    def test_invalid_url_number(self):
+        self.assertFalse(is_valid_url(1))
+
+    def test_invalid_url_list(self):
+        self.assertFalse(is_valid_url(("sftp://localhost@c",)))
+
+    def test_invalid_url_relative(self):
+        self.assertFalse(is_valid_url("/my/path"))
+
+    def test_invalid_url_relative_schema(self):
+        self.assertFalse(is_valid_url("//my/path"))
+
+    def test_invalid_characters(self):
+        self.assertFalse(is_valid_url("http://data.source.commy/path a"))
+
+    def test_valid_absolute_url_bytes(self):
+        self.assertTrue(is_valid_url(b"http://data.source.commy/path"))
+
+    def test_valid_absolute_url_http(self):
+        self.assertTrue(is_valid_url("http://data.source.commy/path"))
+
+    def test_valid_absolute_url_http_port(self):
+        self.assertTrue(is_valid_url("http://data.source.commy:5000/path"))
+
+    def test_valid_absolute_url_http_query(self):
+        self.assertTrue(is_valid_url("http://data.source.commy/path?a=b"))
+
+    def test_valid_absolute_url_https(self):
+        self.assertTrue(is_valid_url("https://data.source.commy/path"))
+
+    def test_valid_absolute_url_https_port(self):
+        self.assertTrue(is_valid_url("https://data.source.commy:300/path"))
+
+    def test_valid_absolute_url_https_query(self):
+        self.assertTrue(is_valid_url("https://data.source.commy/path?a=b"))
+
+    def test_valid_absolute_url_https_ckan(self):
+        self.assertTrue(is_valid_url("https://data.opplafy.eu/dataset/4d3d9728-39bb-4749-8c8f-d9cea51abe4b"))
