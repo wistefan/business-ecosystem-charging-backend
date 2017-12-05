@@ -41,6 +41,7 @@ services:
             - ./charging-assets:/business-ecosystem-charging-backend/src/media/assets
             - ./charging-plugins:/business-ecosystem-charging-backend/src/plugins
             - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings
+            - ./charging-inst-plugins:/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
         environment:
           - PAYPAL_CLIENT_ID=client_id
           - PAYPAL_CLIENT_SECRET=client_secret
@@ -56,6 +57,7 @@ Additionally, the biz-ecosystem-charging-backend image contains 4 volumes. In pa
 * */business-ecosystem-charging-backend/src/media/assets*: This directory contains the different digital assets uploaded by sellers to the Business Ecosystem Charging Backend
 * */business-ecosystem-charging-backend/src/plugins*: This directory is used for providing asset plugins (see section *Installing Asset Plugins*)
 * */business-ecosystem-charging-backend/src/user_settings*: This directory must include the *settings.py* and *services_settings.py* files with the software configuration.
+* */business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins*: This directory includes the code of the plugins already installed
 
 Once you have created the file, run the following command:
 
