@@ -106,6 +106,14 @@ UPLOAD_CONTENT = {
     }
 }
 
+UPLOAD_CONTENT_WHITESPACE = {
+    'contentType': 'application/x-widget',
+    'content': {
+        'name': 'example file.wgt',
+        'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
+    }
+}
+
 UPLOAD_INV_FILENAME = {
     'contentType': 'application/x-widget',
     'content': {

@@ -20,6 +20,8 @@
 
 from __future__ import unicode_literals
 
+import urllib
+
 from copy import deepcopy
 from mock import MagicMock, mock_open
 from nose_parameterized import parameterized
@@ -202,14 +204,15 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.exists.return_value = True
         self.res_mock.product_id = '1'
 
-    def _check_file_calls(self):
+    def _check_file_calls(self, file_name='example.wgt'):
         asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
-        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
-        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")
+        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name))
+        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name), "wb")
         self.open_mock().write.assert_called_once_with("Test data content")
 
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
+        ('whitespce_name', UPLOAD_CONTENT_WHITESPACE, None, None, None, None, 'example file.wgt'),
         ('file', {'contentType': 'application/x-widget'}, _use_file),
         ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
         ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
@@ -222,7 +225,7 @@ class UploadAssetTestCase(TestCase):
         }, None, False, TypeError, 'content field has an unsupported type, expected string or object')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
-    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None):
+    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None, file_name='example.wgt'):
 
         if side_effect is not None:
             side_effect(self)
@@ -247,11 +250,11 @@ class UploadAssetTestCase(TestCase):
             self.assertEquals(self.res_mock, resource)
             self.assertEquals("http://locationurl.com/", resource.get_url())
             self.assertEqual("http://uri.com/", resource.get_uri())
-            self._check_file_calls()
+            self._check_file_calls(file_name)
 
             # Check rollback logger
             self.assertEquals({
-                'files': ["/home/test/media/assets/test_user/example.wgt"],
+                'files': ["/home/test/media/assets/test_user/{}".format(file_name)],
                 'models': [self.res_mock]
             }, am.rollback_logger)
 
@@ -262,15 +265,15 @@ class UploadAssetTestCase(TestCase):
 
             # Check override calls
             if override:
-                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/example.wgt')
+                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/{}'.format(file_name))
                 self.res_mock.delete.assert_called_once_with()
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
                 provider=self._user.userprofile.current_organization,
                 version='',
-                download_link='http://testdomain.com/charging/media/assets/test_user/example.wgt',
-                resource_path='media/assets/test_user/example.wgt',
+                download_link='http://testdomain.com/charging/media/assets/test_user/{}'.format(urllib.quote(file_name)),
+                resource_path='media/assets/test_user/{}'.format(file_name),
                 content_type='application/x-widget',
                 resource_type='',
                 state='',

@@ -33,7 +33,7 @@ from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import rollback, downgrade_asset_pa, downgrade_asset
 from wstore.store_commons.utils.name import is_valid_file
-from wstore.store_commons.utils.url import is_valid_url
+from wstore.store_commons.utils.url import is_valid_url, url_fix
 
 
 class AssetManager:
@@ -83,7 +83,7 @@ class AssetManager:
         self.rollback_logger['files'].append(file_path)
 
         site = settings.SITE
-        return resource_path, urljoin(site, '/charging/' + resource_path)
+        return resource_path, url_fix(urljoin(site, '/charging/' + resource_path))
 
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
