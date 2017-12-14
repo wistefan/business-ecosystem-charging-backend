@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,15 +23,25 @@ from __future__ import unicode_literals
 import sys
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 from wstore.models import Context
+from wstore.store_commons.utils.url import is_valid_url
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.rss_adaptor.rss_manager import ProviderManager
 
 
 testing = sys.argv[1:2] == ['test']
 
-if not testing and Context.objects.all() and Context.objects.all()[0].local_site is not None:
+if not testing:
+    # Validate that a correct site and local_site has been provided
+    if not is_valid_url(settings.SITE) or not is_valid_url(settings.LOCAL_SITE):
+        raise ImproperlyConfigured('SITE and LOCAL_SITE settings must be a valid URL')
+
+    # Create context object if it does not exists
+    if not len(Context.objects.all()):
+        Context.objects.create()
+
     inventory = InventoryClient()
     inventory.create_inventory_subscription()
 

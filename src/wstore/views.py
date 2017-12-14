@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
 import os
 
 from django.conf import settings
@@ -28,11 +30,36 @@ from django.http import HttpResponse
 from store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
 
-from wstore.models import Resource
+from wstore.models import Resource, Organization
 from wstore.ordering.models import Order, Offering
 
 
 class ServeMedia(API_Resource):
+
+    def _get_asset(self, resource_path):
+        assets = Resource.objects.filter(resource_path=resource_path)
+        asset = None
+
+        if not len(assets):
+            # Get the name of the potential asset provider from the resource_path
+            owner_name = resource_path.split('/')[-2]
+            org = Organization.objects.get(name=owner_name)
+
+            # Check if the resource path refers to an asset that is being upgraded
+            # Get only those upgrading assets belonging to the same provider
+            assets = Resource.objects.filter(state='upgrading', provider=org)
+
+            for upgrading_asset in assets:
+                if len(upgrading_asset.old_versions) and upgrading_asset.old_versions[-1].resource_path == resource_path:
+                    asset = upgrading_asset
+                    break
+        else:
+            asset = assets[0]
+
+        if asset is None:
+            raise Exception()
+
+        return asset
 
     def _validate_asset_permissions(self, user, path, name):
         err_code, err_msg = None, None
@@ -40,7 +67,7 @@ class ServeMedia(API_Resource):
         # Retrieve the given digital asset
         try:
             resource_path = os.path.join(settings.MEDIA_DIR, path, name)
-            asset = Resource.objects.get(resource_path=resource_path)
+            asset = self._get_asset(resource_path)
         except:
             err_code, err_msg = 404, 'The specified asset does not exists'
 

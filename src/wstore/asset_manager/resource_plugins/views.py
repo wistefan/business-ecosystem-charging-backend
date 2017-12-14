@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,17 +23,18 @@ from __future__ import unicode_literals
 import json
 from urlparse import urljoin
 
+from django.conf import settings
 from django.http import HttpResponse
 
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response
 from wstore.store_commons.utils.http import authentication_required
-from wstore.models import ResourcePlugin, Context
+from wstore.models import ResourcePlugin
 
 
 def get_plugin_info(plugin):
-    site = Context.objects.all()[0].site
-    plugin_url = urljoin(site.domain, 'api/offering/resources/plugins/' + plugin.plugin_id)
+    site = settings.SITE
+    plugin_url = urljoin(site, 'api/offering/resources/plugins/' + plugin.plugin_id)
     plugin_info = {
         'id': plugin.plugin_id,
         'href': plugin_url,

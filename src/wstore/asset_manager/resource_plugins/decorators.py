@@ -40,13 +40,14 @@ def _get_plugin_model(name):
 
 
 def load_plugin_module(asset_t):
-    module = _get_plugin_model(asset_t).module
+    plugin_model = _get_plugin_model(asset_t)
+    module = plugin_model.module
     module_class_name = module.split('.')[-1]
     module_package = module.partition('.' + module_class_name)[0]
 
     module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
 
-    return module_class()
+    return module_class(plugin_model)
 
 
 def on_product_spec_validation(func):
@@ -88,6 +89,28 @@ def on_product_spec_attachment(func):
         if not len(asset.bundled_assets):
             # Call on post create event handler
             plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
+
+    return wrapper
+
+
+def on_product_spec_upgrade(func):
+
+    @wraps(func)
+    def wrapper(self, asset, asset_t, product_spec):
+
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module = load_plugin_module(asset_t)
+
+            # Call on pre create event handler
+            plugin_module.on_pre_product_spec_upgrade(asset, asset_t, product_spec)
+
+        # Call method
+        func(self, asset, asset_t, product_spec)
+
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_product_spec_upgrade(asset, asset_t, product_spec)
 
     return wrapper
 
@@ -137,11 +160,13 @@ def _execute_asset_event(asset, order, contract, type_):
     # Load plugin module
     plugin_module = load_plugin_module(asset.resource_type)
 
+    events = {
+        'activate': plugin_module.on_product_acquisition,
+        'suspend': plugin_module.on_product_suspension,
+        'usage': plugin_module.on_usage_refresh
+    }
     # Execute event
-    if type_ == 'activate':
-        plugin_module.on_product_acquisition(asset, contract, order)
-    else:
-        plugin_module.on_product_suspension(asset, contract, order)
+    events[type_](asset, contract, order)
 
 
 def process_product_notification(order, contract, type_):
@@ -166,3 +191,7 @@ def on_product_acquired(order, contract):
 
 def on_product_suspended(order, contract):
     process_product_notification(order, contract, 'suspend')
+
+
+def on_usage_refreshed(order, contract):
+    process_product_notification(order, contract, 'usage')

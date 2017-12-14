@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,65 +21,79 @@
 
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
 from wstore.asset_manager.models import ResourcePlugin, Resource
 from wstore.asset_manager.errors import ProductError
-from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment
+from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
+from wstore.asset_manager.resource_plugins.decorators import on_product_spec_validation, on_product_spec_attachment, on_product_spec_upgrade
 from wstore.asset_manager.catalog_validator import CatalogValidator
+from wstore.store_commons.database import DocumentLock
+from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.url import is_valid_url
-from wstore.models import Context
-from wstore.store_commons.rollback import rollback
+from wstore.store_commons.utils.version import is_valid_version, is_lower_version
+from wstore.store_commons.rollback import rollback, downgrade_asset_pa, downgrade_asset
 
 
 class ProductValidator(CatalogValidator):
 
-    @on_product_spec_validation
-    def _validate_product(self, provider, asset_t, media_type, url):
+    def _get_asset_resouces(self, asset_t, url):
         # Search the asset type
         asset_type = ResourcePlugin.objects.get(name=asset_t)
-
-        # Validate media type
-        if len(asset_type.media_types) and media_type not in asset_type.media_types:
-            raise ProductError('The media type characteristic included in the product specification is not valid for the given asset type')
 
         # Validate location format
         if not is_valid_url(url):
             raise ProductError('The location characteristic included in the product specification is not a valid URL')
 
-        site = Context.objects.all()[0].site
+        # Use the location to retrieve the attached asset
+        assets = Resource.objects.filter(download_link=url)
 
-        # If the asset is a file it must have been uploaded
-        if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
-                ('URL' in asset_type.formats and url.startswith(site.domain))):
+        return asset_type, assets
 
-            try:
-                asset = Resource.objects.get(download_link=url)
-            except:
-                raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+    def _validate_product_characteristics(self, asset, provider, asset_t, media_type):
+        if asset.provider != provider:
+            raise PermissionDenied('You are not authorized to use the digital asset specified in the location characteristic')
 
-            if asset.provider != provider:
-                raise PermissionDenied('You are not authorized to use the digital asset specified in the location characteristic')
+        if asset.resource_type != asset_t:
+            raise ProductError('The specified asset type is different from the asset one')
 
-            if asset.content_type != media_type.lower():
-                raise ProductError('The specified media type characteristic is different from the one of the provided digital asset')
+        if asset.content_type.lower() != media_type.lower():
+            raise ProductError('The provided media type characteristic is different from the asset one')
+
+        if asset.is_public:
+            raise ProductError('It is not allowed to create products with public assets')
+
+    @on_product_spec_validation
+    def _validate_product(self, provider, asset_t, media_type, url):
+
+        asset_type, assets = self._get_asset_resouces(asset_t, url)
+
+        if len(assets):
+            # The asset is already registered
+            asset = assets[0]
+
+            if asset.product_id is not None:
+                raise ConflictError('There is already an existing product specification defined for the given digital asset')
+
+            self._validate_product_characteristics(asset, provider, asset_t, media_type)
 
             asset.has_terms = self._has_terms
             asset.save()
         else:
-            # If the asset is an URL and the resource model is created, that means that
-            # the asset have been already included in another product
-            resources = Resource.objects.filter(download_link=url)
-            error = False
-            for res in resources:
-                # The asset has been attached so it already exists
-                if res.product_id:
-                    error = True
-                else:
-                    res.delete()
+            # The asset is not yet included, this option is only valid for URL assets without metadata
+            site = settings.SITE
+            if 'FILE' in asset_type.formats and (('URL' not in asset_type.formats) or
+                ('URL' in asset_type.formats and url.startswith(site))):
 
-            if error:
-                raise ProductError('There is already an existing product specification defined for the given digital asset')
+                raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+
+            if asset_type.form:
+                raise ProductError('Automatic creation of digital assets with expected metadata is not supported')
+
+            # Validate media type
+            if len(asset_type.media_types) and media_type.lower() not in [media.lower() for media in asset_type.media_types]:
+                raise ProductError('The media type characteristic included in the product specification is not valid for the given asset type')
 
             # Create the new asset model
             asset = Resource.objects.create(
@@ -89,7 +103,10 @@ class ProductValidator(CatalogValidator):
                 provider=provider,
                 content_type=media_type
             )
-            self.rollback_logger['models'].append(asset)
+
+        # The asset model is included to the rollback list so if an exception is raised in the plugin post validation
+        # the asset model would be deleted
+        self.rollback_logger['models'].append(asset)
 
         return asset
 
@@ -99,7 +116,7 @@ class ProductValidator(CatalogValidator):
         asset.product_id = product_spec['id']
         asset.version = product_spec['version']
         asset.resource_type = asset_t
-        asset.state = product_spec['lifecycleStatus']
+        asset.state = 'attached'
         asset.save()
 
     def _extract_digital_assets(self, bundled_specs):
@@ -163,10 +180,108 @@ class ProductValidator(CatalogValidator):
                         break
 
         if asset is not None:
+            # TODO: Drop the product object from the catalog in case of error
             self.rollback_logger['models'].append(asset)
 
             # The asset is a digital product or a bundle containing a digital product
             self._attach_product_info(asset, asset_t, product_spec)
+
+    @on_product_spec_upgrade
+    def _notify_product_upgrade(self, asset, asset_t, product_spec):
+        # Update existing inventory products to include new version asset info
+        upgrader = InventoryUpgrader(asset)
+        upgrader.start()
+
+        # Set the asset status to attached
+        asset.state = 'attached'
+        asset.save()
+
+    def _get_upgrading_asset(self, asset_t, url, product_id):
+        asset_type, assets = self._get_asset_resouces(asset_t, url)
+
+        if not len(assets):
+            raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
+
+        asset = assets[0]
+        # Lock the access to the asset
+        lock = DocumentLock('wstore_resource', asset.pk, 'asset')
+        lock.wait_document()
+
+        asset = Resource.objects.get(pk=asset.pk)
+
+        # Check that the asset is in upgrading state
+        if asset.state != 'upgrading':
+            raise ProductError('There is not a new version of the specified digital asset')
+
+        if asset.product_id != product_id:
+            raise ProductError('The specified digital asset is included in other product spec')
+
+        return asset, lock
+
+    def attach_upgrade(self, provider, product_spec):
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
+
+        if is_digital:
+            asset, lock = self._get_upgrading_asset(asset_t, url, product_spec['id'])
+            self._notify_product_upgrade(asset, asset_t, product_spec)
+
+            # Release asset lock
+            lock.unlock_document()
+
+    @rollback(downgrade_asset_pa)
+    def validate_upgrade(self, provider, product_spec):
+
+        if 'version' in product_spec and 'productSpecCharacteristic' in product_spec:
+            # Extract product needed characteristics
+            asset_t, media_type, url = self.parse_characteristics(product_spec)
+            is_digital = asset_t is not None and media_type is not None and url is not None
+
+            if is_digital:
+                asset, lock = self._get_upgrading_asset(asset_t, url, product_spec['id'])
+
+                self._to_downgrade = asset
+
+                self._validate_product_characteristics(asset, provider, asset_t, media_type)
+
+                # Check product version
+                if not is_valid_version(product_spec['version']):
+                    raise ProductError('The field version does not have a valid format')
+
+                if not is_lower_version(asset.old_versions[-1].version, product_spec['version']):
+                    raise ProductError('The provided version is not higher that the previous one')
+
+                # Attach new info
+                asset.version = product_spec['version']
+                asset.save()
+
+                # Release asset lock
+                lock.unlock_document()
+
+    def _rollback_handler(self, provider, product_spec, rollback_method):
+        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
+
+        if is_digital:
+            asset_type, assets = self._get_asset_resouces(asset_t, url)
+
+            asset = assets[0]
+            self._validate_product_characteristics(asset, provider, asset_t, media_type)
+            rollback_method(asset)
+
+    def rollback_create(self, provider, product_spec):
+        def rollback_method(asset):
+            if asset.product_id is None:
+                asset.delete()
+
+        self._rollback_handler(provider, product_spec, rollback_method)
+
+    def rollback_upgrade(self, provider, product_spec):
+        def rollback_method(asset):
+            if asset.product_id == product_spec['id'] and asset.state == 'upgrading':
+                downgrade_asset(asset)
+
+        self._rollback_handler(provider, product_spec, rollback_method)
 
     @rollback()
     def validate_creation(self, provider, product_spec):
@@ -174,7 +289,7 @@ class ProductValidator(CatalogValidator):
         asset_t, media_type, url = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
-        # Product spec bundles are intended for create composed products, it cannot contain its own asset
+        # Product spec bundles are intended for creating composed products, it cannot contain its own asset
         if product_spec['isBundle'] and is_digital:
             raise ProductError('Product spec bundles cannot define digital assets')
 

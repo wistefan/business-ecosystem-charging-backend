@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -35,7 +35,7 @@ from wstore.charging_engine.charging.cdr_manager import CDRManager
 from wstore.charging_engine.charging.billing_client import BillingClient
 from wstore.charging_engine.invoice_builder import InvoiceBuilder
 from wstore.ordering.errors import OrderingError
-from wstore.ordering.models import Order, Charge
+from wstore.ordering.models import Order, Charge, Payment
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.database import get_database_connection
 from wstore.admin.users.notification_handler import NotificationsHandler
@@ -70,7 +70,7 @@ class ChargingEngine:
 
     def _renew_charge_timeout(self, order):
         order.state = 'paid'
-        order.pending_payment = {}
+        order.pending_payment = None
 
         order.save()
 
@@ -220,7 +220,7 @@ class ChargingEngine:
 
         time_stamp = datetime.utcnow()
 
-        self._order.pending_payment = {}
+        self._order.pending_payment = None
 
         invoice_builder = InvoiceBuilder(self._order)
         billing_client = BillingClient() if concept != 'initial' else None
@@ -266,11 +266,11 @@ class ChargingEngine:
         self._send_notification(concept, transactions)
 
     def _save_pending_charge(self, transactions, free_contracts=[]):
-        pending_payment = {
-            'transactions': transactions,
-            'concept': self._concept,
-            'free_contracts': free_contracts
-        }
+        pending_payment = Payment(
+            transactions=transactions,
+            concept=self._concept,
+            free_contracts=free_contracts
+        )
 
         self._order.pending_payment = pending_payment
         self._order.save()

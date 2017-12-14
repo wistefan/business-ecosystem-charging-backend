@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,9 +23,10 @@ from __future__ import unicode_literals
 from urlparse import urljoin
 
 from django.db import models
+from django.conf import settings
 from djangotoolbox.fields import ListField, DictField, EmbeddedModelField
 
-from wstore.models import Organization, Context
+from wstore.models import Organization
 
 
 # This embedded class is used to save old versions
@@ -33,14 +34,16 @@ from wstore.models import Organization, Context
 class ResourceVersion(models.Model):
     version = models.CharField(max_length=20)
     resource_path = models.CharField(max_length=100)
-    download_link = models.CharField(max_length=200)
+    download_link = models.URLField()
+    content_type = models.CharField(max_length=100)
+    meta_info = DictField()
 
 
 class Resource(models.Model):
     product_id = models.CharField(max_length=100, blank=True, null=True)
     version = models.CharField(max_length=20)  # This field maps the Product Spec version
     provider = models.ForeignKey(Organization)
-    content_type = models.CharField(max_length=50)
+    content_type = models.CharField(max_length=100)
     download_link = models.URLField()
     resource_path = models.CharField(max_length=100)
     old_versions = ListField(EmbeddedModelField(ResourceVersion))
@@ -55,8 +58,7 @@ class Resource(models.Model):
         return self.download_link
 
     def get_uri(self):
-        site_context = Context.objects.all()[0]
-        base_uri = site_context.site.domain
+        base_uri = settings.SITE
 
         return urljoin(base_uri, 'charging/api/assetManagement/assets/' + self.pk)
 
@@ -74,6 +76,9 @@ class ResourcePlugin(models.Model):
     media_types = ListField(models.CharField(max_length=100))
     formats = ListField(models.CharField(max_length=10))
     overrides = ListField(models.CharField(max_length=10))
+
+    # Whether the plugin must ask for accounting info
+    pull_accounting = models.BooleanField(default=False)
     options = DictField()
 
     def __unicode__(self):

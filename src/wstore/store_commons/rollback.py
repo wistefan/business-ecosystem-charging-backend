@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,6 +21,32 @@
 from __future__ import unicode_literals
 
 import os
+
+from django.conf import settings
+
+
+def downgrade_asset(asset):
+    prev_version = asset.old_versions.pop()
+
+    # Check if a file has to be removed
+    if asset.resource_path != '':
+        file_path = settings.BASEDIR + '/' + asset.resource_path
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    asset.resource_path = prev_version.resource_path
+    asset.version = prev_version.version
+    asset.download_link = prev_version.download_link
+    asset.meta_info = prev_version.meta_info
+    asset.content_type = prev_version.content_type
+    asset.state = 'attached'
+    asset.save()
+
+
+def downgrade_asset_pa(self):
+    if hasattr(self, '_to_downgrade') and self._to_downgrade is not None and len(self._to_downgrade.old_versions):
+        downgrade_asset(self._to_downgrade)
 
 
 def rollback(post_action=None):
@@ -57,7 +83,7 @@ def rollback(post_action=None):
                     _remove_model(model)
 
                 if post_action is not None:
-                    post_action()
+                    post_action(self)
 
                 raise e
 

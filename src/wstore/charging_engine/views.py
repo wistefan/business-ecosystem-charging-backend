@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,10 +23,10 @@ from __future__ import unicode_literals
 
 import json
 import importlib
+from copy import deepcopy
 from bson import ObjectId
 
 from django.conf import settings
-from django.core.exceptions import PermissionDenied
 from wstore.charging_engine.charging.cdr_manager import CDRManager
 
 from wstore.ordering.inventory_client import InventoryClient
@@ -36,49 +36,8 @@ from wstore.store_commons.utils.http import build_response, supported_request_mi
 from wstore.ordering.models import Order
 from wstore.ordering.errors import PaymentError
 from wstore.charging_engine.charging_engine import ChargingEngine
-from wstore.charging_engine.accounting.sdr_manager import SDRManager
 from wstore.store_commons.database import get_database_connection
-from wstore.charging_engine.accounting.usage_client import UsageClient
 from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
-
-
-class ServiceRecordCollection(Resource):
-
-    # This method is used to load SDR documents and
-    # start the charging process
-    @supported_request_mime_types(('application/json',))
-    def create(self, request):
-        try:
-            # Extract SDR document from the HTTP request
-            data = json.loads(request.body)
-        except:
-            # The usage document is not valid, so the state cannot be changed
-            return build_response(request, 400, 'The request does not contain a valid JSON object')
-
-        # Validate usage information
-        response = None
-        sdr_manager = SDRManager()
-        try:
-            sdr_manager.validate_sdr(data)
-        except PermissionDenied as e:
-            response = build_response(request, 403, unicode(e))
-        except ValueError as e:
-            response = build_response(request, 422, unicode(e))
-        except:
-            response = build_response(request, 500, 'The SDR document could not be processed due to an unexpected error')
-
-        usage_client = UsageClient()
-        if response is not None:
-            # The usage document is not valid, change its state to Rejected
-            usage_client.update_usage_state(data['id'], 'Rejected')
-        else:
-            # The usage document is valid, change its state to Guided
-            usage_client.update_usage_state(data['id'], 'Guided')
-            sdr_manager.update_usage()
-            response = build_response(request, 200, 'OK')
-
-        # Update usage document state
-        return response
 
 
 class PayPalConfirmation(Resource):
@@ -151,7 +110,7 @@ class PayPalConfirmation(Resource):
             order = Order.objects.get(pk=reference)
             raw_order = self.ordering_client.get_order(order.order_id)
             pending_info = order.pending_payment
-            concept = pending_info['concept']
+            concept = pending_info.concept
 
             # If the order state value is different from pending means that
             # the timeout function has completely ended before acquiring the resource
@@ -164,10 +123,10 @@ class PayPalConfirmation(Resource):
                 raise PaymentError('The timeout set to process the payment has finished')
 
             # Check that the request user is authorized to end the payment
-            if request.user.userprofile.current_organization != order.owner_organization:
+            if request.user.userprofile.current_organization != order.owner_organization or request.user != order.customer:
                 raise PaymentError('You are not authorized to execute the payment')
 
-            transactions = pending_info['transactions']
+            transactions = pending_info.transactions
 
             # Get the payment client
             # Load payment client
@@ -182,7 +141,7 @@ class PayPalConfirmation(Resource):
             order.save()
 
             charging_engine = ChargingEngine(order)
-            charging_engine.end_charging(transactions, pending_info['free_contracts'], concept)
+            charging_engine.end_charging(transactions, pending_info.free_contracts, concept)
 
         except Exception as e:
 
@@ -195,7 +154,7 @@ class PayPalConfirmation(Resource):
                     order.delete()
                 else:
                     order.state = 'paid'
-                    order.pending_payment = {}
+                    order.pending_payment = None
                     order.save()
 
             expl = ' due to an unexpected error'
@@ -215,7 +174,11 @@ class PayPalConfirmation(Resource):
             'recurring': self._set_renovation_states,
             'usage': self._set_renovation_states
         }
-        states_processors[concept](transactions, raw_order, order)
+        # Include the free contracts as transactions in order to activate them
+        ext_transactions = deepcopy(transactions)
+        ext_transactions.extend([{'item': contract.item_id} for contract in pending_info.free_contracts])
+
+        states_processors[concept](ext_transactions, raw_order, order)
 
         # _lock is set to false
         db.wstore_order.find_one_and_update(

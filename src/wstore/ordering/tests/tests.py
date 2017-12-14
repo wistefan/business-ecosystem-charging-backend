@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -24,10 +24,12 @@ from copy import deepcopy
 from nose_parameterized import parameterized
 from mock import MagicMock, call
 from datetime import datetime
+from urlparse import urlparse
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from wstore.models import Organization
 from wstore.ordering.errors import OrderingError
@@ -37,6 +39,7 @@ from wstore.ordering.tests.test_data import *
 from wstore.ordering import ordering_client, ordering_management, inventory_client
 
 
+@override_settings(SITE='http://extpath.com:8080/')
 class OrderingManagementTestCase(TestCase):
 
     tags = ('ordering', 'order-manager')
@@ -349,11 +352,12 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals(4, ordering_management.requests.get.call_count)
 
             headers = {'Authorization': 'Bearer ' + self._customer.userprofile.access_token}
+            exp_url = 'http://extpath.com:8080{}'
             self.assertEquals([
-                call('http://localhost:8004/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'),
-                call(BILLING_ACCOUNT_HREF, headers=headers),
-                call(BILLING_ACCOUNT['customerAccount']['href'], headers=headers),
-                call(CUSTOMER_ACCOUNT['customer']['href'], headers=headers)
+                call(exp_url.format('/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)')),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT_HREF).path), headers=headers),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT['customerAccount']['href']).path), headers=headers),
+                call(exp_url.format(urlparse(CUSTOMER_ACCOUNT['customer']['href']).path), headers=headers)
             ], ordering_management.requests.get.call_args_list)
 
             contact_medium = CUSTOMER['contactMedium'][0]['medium']
@@ -486,16 +490,15 @@ class OrderingManagementTestCase(TestCase):
             self.assertEquals(err_msg, unicode(error))
 
 
+@override_settings(
+    ORDERING='http://localhost:8080/DSProductOrdering'
+)
 class OrderingClientTestCase(TestCase):
 
     tags = ('ordering', 'ordering-client')
 
     def setUp(self):
-        # Mock Context
-        ordering_client.Context = MagicMock()
-        self._context_inst = MagicMock()
-        self._context_inst.local_site.domain = 'http://testdomain.com'
-        ordering_client.Context.objects.all.return_value = [self._context_inst]
+        ordering_client.settings.LOCAL_SITE = 'http://testdomain.com'
 
         # Mock requests
         ordering_client.requests = MagicMock()
@@ -514,7 +517,6 @@ class OrderingClientTestCase(TestCase):
         client.create_ordering_subscription()
 
         # Check calls
-        ordering_client.Context.objects.all.assert_called_once_with()
         ordering_client.requests.post.assert_called_once_with('http://localhost:8080/DSProductOrdering/productOrdering/v2/hub', {
             'callback': 'http://testdomain.com/charging/api/orderManagement/orders'
         })
@@ -685,6 +687,9 @@ class OrderTestCase(TestCase):
         self.assertEquals('OrderingError: Invalid product id', unicode(e))
 
 
+@override_settings(
+    INVENTORY='http://localhost:8080/DSProductInventory'
+)
 class InventoryClientTestCase(TestCase):
 
     tags = ('inventory', )
@@ -697,10 +702,7 @@ class InventoryClientTestCase(TestCase):
         inventory_client.requests.post.return_value = self.response
         inventory_client.requests.get.return_value = self.response
 
-        inventory_client.Context = MagicMock()
-        context = MagicMock()
-        context.local_site.domain = 'http://localhost:8004/'
-        inventory_client.Context.objects.all.return_value = [context]
+        inventory_client.settings.LOCAL_SITE = 'http://localhost:8004/'
 
         from datetime import datetime
         now = datetime(2016, 1, 22, 4, 10, 25, 176751)
@@ -796,3 +798,16 @@ class InventoryClientTestCase(TestCase):
 
         inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product/1')
         inventory_client.requests.get().raise_for_status.assert_called_once_with()
+
+    @parameterized.expand([
+        ('all', {}, ''),
+        ('filtered', {'id': '1,2,3'}, '?id=1,2,3')
+    ])
+    def test_get_products(self, name, query, qs):
+        client = inventory_client.InventoryClient()
+        products = client.get_products(query=query)
+
+        inventory_client.requests.get.assert_called_once_with('http://localhost:8080/DSProductInventory/api/productInventory/v2/product' + qs)
+        inventory_client.requests.get().raise_for_status.assert_called_once_with()
+
+        self.assertEquals(inventory_client.requests.get().json(), products)

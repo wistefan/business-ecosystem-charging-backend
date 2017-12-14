@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -64,7 +64,6 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.admin',
     'django_mongodb_engine',
@@ -99,7 +98,7 @@ MIDDLEWARE_CLASSES = (
 )
 
 WSTOREMAILUSER = 'email_user'
-WSTOREMAIL = 'wstore_email'
+WSTOREMAIL = 'wstore@email.com'
 WSTOREMAILPASS = 'wstore_email_passwd'
 SMTPSERVER = 'wstore_smtp_server'
 SMTPPORT = 587
@@ -144,16 +143,9 @@ TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 # Daily job that checks pending pay-per-use charges
 CRONJOBS = [
     ('0 5 * * *', 'django.core.management.call_command', ['pending_charges_daemon']),
-    ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs'])
+    ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs']),
+    ('0 4 * * *', 'django.core.management.call_command', ['resend_upgrade'])
 ]
-
-# Hack to ignore `site` instance creation
-# This will prevent site creation on syncdb
-from django.db.models import signals
-from django.contrib.sites.management import create_default_site
-from django.contrib.sites import models as site_app
-
-signals.post_syncdb.disconnect(create_default_site, site_app)
 
 CLIENTS = {
     'paypal': 'wstore.charging_engine.payment_client.paypal_client.PayPalClient',

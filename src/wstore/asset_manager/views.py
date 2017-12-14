@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -42,7 +42,7 @@ class AssetCollection(Resource):
 
     def read(self, request):
         """
-        Retrives the existing digital assets associated with a given seller
+        Retrieves the existing digital assets associated with a given seller
         :param request:
         :return: JSON List containing the existing assets
         """
@@ -65,7 +65,7 @@ class AssetCollection(Resource):
                 user_search = User.objects.get(username=user)
                 user = UserProfile.objects.get(user=user_search)
             except Exception as e:
-                return build_response(request, 404, "User {} not exist, error: {}".format(user, unicode(e)))
+                return build_response(request, 404, "User {} does not exist, error: {}".format(user, unicode(e)))
 
         try:
             asset_manager = AssetManager()
@@ -100,7 +100,7 @@ class AssetEntry(Resource):
 
 
 class AssetEntryFromProduct(Resource):
-    def read(selg, request, product_id):
+    def read(self, request, product_id):
         """
         Retrieves the assets from a product
         :param request:
@@ -119,6 +119,41 @@ class AssetEntryFromProduct(Resource):
         return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
 
 
+def _manage_digital_asset(request, manager):
+    user = request.user
+    profile = user.userprofile
+    content_type = get_content_type(request)[0]
+
+    if 'provider' not in profile.get_current_roles() and not user.is_staff:
+        return build_response(request, 403, "You don't have the seller role")
+
+    try:
+        resource, data = manager(request, user, content_type)
+    except ValueError as e:
+        return build_response(request, 422, unicode(e))
+    except ConflictError as e:
+        return build_response(request, 409, unicode(e))
+    except ObjectDoesNotExist as e:
+        return build_response(request, 404, unicode(e))
+    except PermissionDenied as e:
+        return build_response(request, 403, unicode(e))
+    except Exception as e:
+        return build_response(request, 400, unicode(e))
+
+    location = resource.get_url()
+
+    # Fill location header with the URL of the uploaded digital asset
+    response = HttpResponse(json.dumps({
+        'content': location,
+        'contentType': data['contentType'],
+        'id': resource.pk,
+        'href': resource.get_uri()
+    }), status=200, mimetype='application/json; charset=utf-8')
+
+    response['Location'] = location
+    return response
+
+
 class UploadCollection(Resource):
 
     @supported_request_mime_types(('application/json', 'multipart/form-data'))
@@ -127,43 +162,51 @@ class UploadCollection(Resource):
         """
         Uploads a new downloadable digital asset
         :param request:
-        :return: 201 Created, including the new URL of the asset in the location header
+        :return: 200 Created, including the new URL of the asset in the location header
         """
 
-        user = request.user
-        profile = user.userprofile
-        content_type = get_content_type(request)[0]
+        def upload_asset(req, user, content_type):
+            asset_manager = AssetManager()
 
-        if 'provider' not in profile.get_current_roles() and not user.is_staff:
-            return build_response(request, 403, "You don't have the seller role")
-
-        asset_manager = AssetManager()
-        try:
             if content_type == 'application/json':
-                data = json.loads(request.body)
+                data = json.loads(req.body)
                 resource = asset_manager.upload_asset(user, data)
             else:
-                data = json.loads(request.POST['json'])
-                f = request.FILES['file']
+                data = json.loads(req.POST['json'])
+                f = req.FILES['file']
                 resource = asset_manager.upload_asset(user, data, file_=f)
 
-        except ConflictError as e:
-            return build_response(request, 409, unicode(e))
-        except Exception as e:
-            return build_response(request, 400, unicode(e))
+            return resource, data
 
-        location = resource.get_url()
+        return _manage_digital_asset(request, upload_asset)
 
-        # Fill location header with the URL of the uploaded digital asset
-        response = HttpResponse(json.dumps({
-            'content': location,
-            'contentType': data['contentType'],
-            'id': resource.pk,
-            'href': resource.get_uri()
-        }), status=200, mimetype='application/json; charset=utf-8')
 
-        response['Location'] = location
-        return response
+class UpgradeCollection(Resource):
+
+    @supported_request_mime_types(('application/json', 'multipart/form-data'))
+    @authentication_required
+    def create(self, request, asset_id):
+        """
+        Upgrades an existing digital asset for creating new product versions
+        :param request: User request
+        :param asset_id: Id of the asset to be upgraded
+        :return: Response 200 if the asset is correctly upgraded
+        """
+
+        def upgrade_asset(req, user, content_type):
+            asset_manager = AssetManager()
+
+            if content_type == 'application/json':
+                data = json.loads(req.body)
+                resource = asset_manager.upgrade_asset(asset_id, user, data)
+            else:
+                data = json.loads(req.POST['json'])
+                f = req.FILES['file']
+                resource = asset_manager.upgrade_asset(asset_id, user, data, file_=f)
+
+            return resource, data
+
+        return _manage_digital_asset(request, upgrade_asset)
 
 
 def _validate_catalog_element(request, element, validator):
@@ -190,6 +233,8 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 400, unicode(e))
     except ProductError as e:
         return build_response(request, 400, unicode(e))
+    except ConflictError as e:
+        return build_response(request, 409, unicode(e))
     except PluginError as e:
         return build_response(request, 422, unicode(e))
     except PermissionDenied as e:

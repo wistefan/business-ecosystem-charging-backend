@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -263,10 +263,8 @@ class BillingClientTestCase(TestCase):
         charge.currency = 'EUR'
         charge.concept = name
 
-        billing_client.Context = MagicMock()
-        context = MagicMock()
-        context.site.domain = 'http://extpath.com:8080/'
-        billing_client.Context.objects.all.return_value = [context]
+        site = 'http://extpath.com:8080/'
+        billing_client.settings.SITE = site
 
         billing_client.Request = MagicMock()
         billing_client.Session = MagicMock()
