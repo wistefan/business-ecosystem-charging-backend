@@ -13,12 +13,14 @@ install:
   - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --version
   - "sudo apt install -y gcc libxml2-dev libxslt1-dev zlib1g-dev python-dev libffi-dev libssl-dev"
   - ./python-dep-install.sh
+  - pip install coveralls
 before_script:
   - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
   - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
 script:
   - "export WORKSPACE=`pwd`"
   - ./coverage.sh
+after_success: "cd src/; coveralls"
 branches:
   only:
     - develop
