@@ -1,0 +1,17 @@
+sudo: required
+language: python
+python:
+  - "2.7"
+services:
+  - mongodb
+install:
+  - ./resolve-basic-dep.sh
+  - ./python-dep-install.sh
+before_script:
+  - mongo --version
+script:
+  - "export WORKSPACE=`pwd`"
+  - ./coverage.sh
+branches:
+  only:
+    - develop
