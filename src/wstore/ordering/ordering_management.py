@@ -44,7 +44,7 @@ class OrderingManager:
         self._validator = ProductValidator()
 
     def _download(self, url, element, item_id):
-        r = requests.get(url)
+        r = requests.get(url, verify=settings.VERIFY_REQUESTS)
 
         if r.status_code != 200:
             raise OrderingError('The ' + element + ' specified in order item ' + item_id + ' does not exists')
