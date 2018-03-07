@@ -237,7 +237,7 @@ class OrderingManager:
             if not self._customer.userprofile.current_organization.private:
                 headers['x-organization'] = self._customer.userprofile.current_organization.name
 
-            r = requests.get(url, headers=headers)
+            r = requests.get(url, headers=headers, verify=settings.VERIFY_REQUESTS)
 
             if r.status_code != 200:
                 raise OrderingError('There was an error at the time of retrieving the Billing Address')
