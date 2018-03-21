@@ -20,6 +20,8 @@
 
 from __future__ import unicode_literals
 
+import urllib
+
 from copy import deepcopy
 from mock import MagicMock, mock_open
 from nose_parameterized import parameterized
@@ -161,10 +163,7 @@ class UploadAssetTestCase(TestCase):
         self._user = MagicMock()
         self._user.userprofile.current_organization.name = 'test_user'
 
-        asset_manager.Context = MagicMock()
-        self._context_mock = MagicMock()
-        self._context_mock.site.domain = 'http://testdomain.com/'
-        asset_manager.Context.objects.all.return_value = [self._context_mock]
+        asset_manager.settings.SITE = 'http://testdomain.com/'
 
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
@@ -205,14 +204,15 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.exists.return_value = True
         self.res_mock.product_id = '1'
 
-    def _check_file_calls(self):
+    def _check_file_calls(self, file_name='example.wgt'):
         asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
-        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/example.wgt")
-        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/example.wgt", "wb")
+        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name))
+        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name), "wb")
         self.open_mock().write.assert_called_once_with("Test data content")
 
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
+        ('whitespce_name', UPLOAD_CONTENT_WHITESPACE, None, None, None, None, 'example file.wgt'),
         ('file', {'contentType': 'application/x-widget'}, _use_file),
         ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
         ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
@@ -225,7 +225,7 @@ class UploadAssetTestCase(TestCase):
         }, None, False, TypeError, 'content field has an unsupported type, expected string or object')
     ])
     @override_settings(MEDIA_ROOT='/home/test/media')
-    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None):
+    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None, file_name='example.wgt'):
 
         if side_effect is not None:
             side_effect(self)
@@ -250,11 +250,11 @@ class UploadAssetTestCase(TestCase):
             self.assertEquals(self.res_mock, resource)
             self.assertEquals("http://locationurl.com/", resource.get_url())
             self.assertEqual("http://uri.com/", resource.get_uri())
-            self._check_file_calls()
+            self._check_file_calls(file_name)
 
             # Check rollback logger
             self.assertEquals({
-                'files': ["/home/test/media/assets/test_user/example.wgt"],
+                'files': ["/home/test/media/assets/test_user/{}".format(file_name)],
                 'models': [self.res_mock]
             }, am.rollback_logger)
 
@@ -265,15 +265,15 @@ class UploadAssetTestCase(TestCase):
 
             # Check override calls
             if override:
-                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/example.wgt')
+                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/{}'.format(file_name))
                 self.res_mock.delete.assert_called_once_with()
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
                 provider=self._user.userprofile.current_organization,
                 version='',
-                download_link='http://testdomain.com/charging/media/assets/test_user/example.wgt',
-                resource_path='media/assets/test_user/example.wgt',
+                download_link='http://testdomain.com/charging/media/assets/test_user/{}'.format(urllib.quote(file_name)),
+                resource_path='media/assets/test_user/{}'.format(file_name),
                 content_type='application/x-widget',
                 resource_type='',
                 state='',
@@ -487,6 +487,13 @@ class UploadAssetTestCase(TestCase):
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
 
+    def _mock_timer(self):
+        timer = MagicMock()
+        asset_manager.threading = MagicMock()
+        asset_manager.threading.Timer = MagicMock(return_value=timer)
+
+        return timer
+
     @override_settings(MEDIA_ROOT='/home/test/media')
     def test_upgrade_asset(self):
 
@@ -508,6 +515,8 @@ class UploadAssetTestCase(TestCase):
         )
 
         asset_manager.Resource.objects.filter.return_value = [asset]
+
+        timer = self._mock_timer()
 
         am = asset_manager.AssetManager()
         am.rollback_logger = {
@@ -546,6 +555,9 @@ class UploadAssetTestCase(TestCase):
         self.assertEquals(prev_type, old_version.content_type)
         self.assertEquals(prev_version, old_version.version)
 
+        asset_manager.threading.Timer.assert_called_once_with(15, am._upgrade_timer)
+        timer.start.assert_called_once_with()
+
     def _asset_empty(self):
         return []
 
@@ -561,13 +573,22 @@ class UploadAssetTestCase(TestCase):
             is_public=False
         )]
 
+    def _upgrading_asset(self):
+        return [MagicMock(
+            product_id='2',
+            state='upgrading',
+            is_public=False
+        )]
+
     @parameterized.expand([
         ('not_found', _asset_empty, ObjectDoesNotExist, 'The specified asset does not exists'),
         ('public_asset', _public_asset, ValueError, 'It is not allowed to upgrade public assets, create a new one instead'),
-        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification')
+        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification'),
+        ('upgrading', _upgrading_asset, ValueError, 'The provided asset is already in upgrading state')
     ])
     def test_upgrade_asset_error(self, name, asset_mock, err_type, err_msg):
 
+        self._mock_timer()
         asset_resp = asset_mock(self)
         asset_manager.Resource.objects.filter.return_value = asset_resp
 
@@ -581,16 +602,49 @@ class UploadAssetTestCase(TestCase):
         self.assertTrue(isinstance(error, err_type))
         self.assertEquals(err_msg, unicode(error))
 
+    def _test_timer(self, state, check_calls):
+        asset_pk = '1234'
+
+        lock = MagicMock()
+        asset_manager.DocumentLock = MagicMock(return_value=lock)
+
+        asset = MagicMock(pk=asset_pk, state=state)
+        asset_manager.Resource.objects.get.return_value = asset
+        asset_manager.downgrade_asset = MagicMock()
+
+        am = asset_manager.AssetManager()
+        am._to_downgrade = MagicMock(pk=asset_pk)
+
+        am._upgrade_timer()
+
+        asset_manager.DocumentLock.assert_called_once_with('wstore_resource', asset_pk, 'asset')
+        lock.wait_document.assert_called_once_with()
+        lock.unlock_document.assert_called_once_with()
+
+        asset_manager.Resource.objects.get.assert_called_once_with(pk=asset_pk)
+
+        check_calls(asset)
+
+    def test_upgrade_timer(self):
+
+        def check_calls(asset):
+            asset_manager.downgrade_asset.assert_called_once_with(asset)
+
+        self._test_timer('upgrading', check_calls)
+
+    def test_upgrade_timer_attached(self):
+
+        def check_calls(asset):
+            self.assertEquals(0, asset_manager.downgrade_asset.call_count)
+
+        self._test_timer('attached', check_calls)
+
 
 class ResourceModelTestCase(TestCase):
     tags = ('resource-model', )
 
     def test_resource_model(self):
-        models.Context = MagicMock()
-        ctx = MagicMock()
-        ctx.site.domain = 'http://testserver.com/'
-
-        models.Context.objects.all.return_value = [ctx]
+        models.settings.SITE = 'http://testserver.com/'
 
         url = 'http://example.com/media/resource'
 
@@ -610,3 +664,5 @@ class ResourceModelTestCase(TestCase):
         uri = 'http://testserver.com/charging/api/assetManagement/assets/' + res.pk
         self.assertEquals(url, res.get_url())
         self.assertEquals(uri, res.get_uri())
+
+        reload(models)

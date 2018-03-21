@@ -24,6 +24,9 @@ import re
 import requests
 from decimal import Decimal
 from datetime import datetime
+from urlparse import urlparse
+
+from django.conf import settings
 
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.rollback import rollback
@@ -41,7 +44,7 @@ class OrderingManager:
         self._validator = ProductValidator()
 
     def _download(self, url, element, item_id):
-        r = requests.get(url)
+        r = requests.get(url, verify=settings.VERIFY_REQUESTS)
 
         if r.status_code != 200:
             raise OrderingError('The ' + element + ' specified in order item ' + item_id + ' does not exists')
@@ -51,7 +54,11 @@ class OrderingManager:
     def _get_offering(self, item):
 
         # Download related product offering and product specification
-        offering_info = self._download(item['productOffering']['href'], 'product offering', item['id'])
+        site = urlparse(settings.SITE)
+        off = urlparse(item['productOffering']['href'])
+
+        offering_url = '{}://{}{}'.format(site.scheme, site.netloc, off.path)
+        offering_info = self._download(offering_url, 'product offering', item['id'])
 
         offering_id = offering_info['id']
 
@@ -230,16 +237,23 @@ class OrderingManager:
             if not self._customer.userprofile.current_organization.private:
                 headers['x-organization'] = self._customer.userprofile.current_organization.name
 
-            r = requests.get(url, headers=headers)
+            r = requests.get(url, headers=headers, verify=settings.VERIFY_REQUESTS)
 
             if r.status_code != 200:
                 raise OrderingError('There was an error at the time of retrieving the Billing Address')
 
             return r.json()
 
-        billing_account = _download_asset(items[0]['billingAccount'][0]['href'])
-        customer_account = _download_asset(billing_account['customerAccount']['href'])
-        customer = _download_asset(customer_account['customer']['href'])
+        site = urlparse(settings.SITE)
+
+        billing_url = urlparse(items[0]['billingAccount'][0]['href'])
+        billing_account = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, billing_url.path))
+
+        customer_acc_url = urlparse(billing_account['customerAccount']['href'])
+        customer_account = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, customer_acc_url.path))
+
+        customer_url = urlparse(customer_account['customer']['href'])
+        customer = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, customer_url.path))
 
         postal_addresses = [contactMedium for contactMedium in customer['contactMedium'] if contactMedium['type'] == 'PostalAddress']
 

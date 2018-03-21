@@ -22,16 +22,18 @@ from __future__ import unicode_literals
 
 import base64
 import os
+import threading
 from urlparse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
-from wstore.models import Resource, ResourceVersion, ResourcePlugin, Context
+from wstore.models import Resource, ResourceVersion, ResourcePlugin
+from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
-from wstore.store_commons.rollback import rollback, downgrade_asset
+from wstore.store_commons.rollback import rollback, downgrade_asset_pa, downgrade_asset
 from wstore.store_commons.utils.name import is_valid_file
-from wstore.store_commons.utils.url import is_valid_url
+from wstore.store_commons.utils.url import is_valid_url, url_fix
 
 
 class AssetManager:
@@ -80,8 +82,8 @@ class AssetManager:
 
         self.rollback_logger['files'].append(file_path)
 
-        site = Context.objects.all()[0].site.domain
-        return resource_path, urljoin(site, '/charging/' + resource_path)
+        site = settings.SITE
+        return resource_path, url_fix(urljoin(site, '/charging/' + resource_path))
 
     def _create_resource_model(self, provider, resource_data):
         # Create the resource
@@ -244,7 +246,20 @@ class AssetManager:
 
         asset.save()
 
-    @rollback(downgrade_asset)
+    def _upgrade_timer(self):
+        lock = DocumentLock('wstore_resource', self._to_downgrade.pk, 'asset')
+        lock.wait_document()
+
+        # Refresh asset info
+        asset = Resource.objects.get(pk=self._to_downgrade.pk)
+
+        # If the asset is in upgrading state when the timer ends, rollback is called
+        if asset.state == 'upgrading':
+            downgrade_asset(asset)
+
+        lock.unlock_document()
+
+    @rollback(downgrade_asset_pa)
     def upgrade_asset(self, asset_id, provider, data, file_=None):
         """
         Upgrades a digital asset in order to enable the creation of a new product version
@@ -268,6 +283,9 @@ class AssetManager:
         if asset.product_id is None:
             raise ValueError('It is not possible to upgrade an asset not included in a product specification')
 
+        if asset.state == 'upgrading':
+            raise ValueError('The provided asset is already in upgrading state')
+
         self._save_current_asset_version(asset)
         self._to_downgrade = asset
 
@@ -279,6 +297,11 @@ class AssetManager:
         asset.content_type = resource_data['content_type']
         asset.state = 'upgrading'
         asset.save()
+
+        # If the upgrading process is not completed in 15 seconds the upgrade is canceled
+        # in order to avoid an inconsistent state
+        t = threading.Timer(15, self._upgrade_timer)
+        t.start()
 
         return asset
 

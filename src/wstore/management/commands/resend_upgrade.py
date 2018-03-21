@@ -20,14 +20,12 @@
 
 from __future__ import unicode_literals
 
-from bson import ObjectId
-
 from django.core.management.base import BaseCommand, CommandError
 
 from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
 from wstore.asset_manager.models import Resource
 from wstore.models import Context
-from wstore.store_commons.database import get_database_connection
+from wstore.store_commons.database import DocumentLock
 
 
 class Command(BaseCommand):
@@ -42,18 +40,8 @@ class Command(BaseCommand):
 
         # Context object is locked in order to avoid possible inconsistencies
         # in the list of pending upgrade notifications
-
-        db = get_database_connection()
-        locked = db.wstore_context.find_one_and_update(
-            {'_id': ObjectId(context_id)},
-            {'$set': {'_lock_upg': True}}
-        )
-
-        while locked:
-            locked = db.wstore_context.find_one_and_update(
-                {'_id': ObjectId(context_id)},
-                {'$set': {'_lock_upg': True}}
-            )
+        lock = DocumentLock('wstore_context', context_id, 'ctx')
+        lock.wait_document()
 
         context = Context.objects.get(pk=context_id)
 
@@ -86,7 +74,4 @@ class Command(BaseCommand):
         context.save()
 
         # Release Context object
-        db.wstore_context.find_one_and_update(
-            {'_id': ObjectId(context_id)},
-            {'$set': {'_lock_upg': False}}
-        )
+        lock.unlock_document()

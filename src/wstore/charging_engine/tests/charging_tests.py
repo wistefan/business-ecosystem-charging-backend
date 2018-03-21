@@ -33,6 +33,7 @@ from django.test.client import RequestFactory
 
 import wstore.store_commons.utils.http
 from wstore.ordering.errors import OrderingError
+from wstore.ordering.models import Payment
 from wstore.charging_engine import charging_engine
 from wstore.charging_engine import views
 from wstore.store_commons.utils.testing import decorator_mock
@@ -733,11 +734,11 @@ class ChargingEngineTestCase(TestCase):
         self._thread.start.assert_called_once_with()
 
         # Check payment saving
-        self.assertEquals({
-            'transactions': transactions,
-            'free_contracts': free_contracts,
-            'concept': name
-        }, self._order.pending_payment)
+        self.assertEquals(Payment(
+            transactions=transactions,
+            free_contracts=free_contracts,
+            concept=name
+        ), self._order.pending_payment)
         self.assertEquals('pending', self._order.state)
         self._order.save.assert_called_once_with()
 
@@ -773,7 +774,7 @@ class ChargingEngineTestCase(TestCase):
 
         # Check order status
         self.assertEquals('paid', self._order.state)
-        self.assertEquals({}, self._order.pending_payment)
+        self.assertEquals(None, self._order.pending_payment)
         self._order.save.assert_called_once_with()
 
     def _validate_subscription_calls(self):
@@ -1082,20 +1083,21 @@ class PayPalConfirmationTestCase(TestCase):
 
         # Mock Order
         views.Order = MagicMock()
+        self._free_contracts = [MagicMock(item_id='3'), MagicMock(item_id='4')]
         self._order_inst = MagicMock()
         self._order_inst.order_id = '1'
         self._order_inst.owner_organization = org
         self._order_inst.customer = self.user
         self._order_inst.state = 'pending'
-        self._order_inst.pending_payment = {
-            'transactions': [{
+        self._order_inst.pending_payment = Payment(
+            transactions=[{
                 'item': '1'
             }, {
                 'item': '2'
             }],
-            'free_contracts': [],
-            'concept': 'initial'
-        }
+            free_contracts=self._free_contracts,
+            concept='initial'
+        )
         views.Order.objects.filter.return_value = [self._order_inst]
         views.Order.objects.get.return_value = self._order_inst
 
@@ -1112,17 +1114,6 @@ class PayPalConfirmationTestCase(TestCase):
     def tearDown(self):
         reload(wstore.store_commons.utils.http)
         reload(views)
-
-    def _accounting_included(self):
-        self._order_inst.pending_payment = {
-            'transactions': [{
-                'item': '1'
-            }, {
-                'item': '2'
-            }],
-            'concept': 'initial',
-            'accounting': []
-        }
 
     def _invalid_ref(self):
         views.Order.objects.filter.return_value = []
@@ -1217,7 +1208,7 @@ class PayPalConfirmationTestCase(TestCase):
             self._payment_inst.end_redirection_payment.assert_called_once_with('payment', 'payer')
 
             views.ChargingEngine.assert_called_once_with(self._order_inst)
-            self._charging_inst.end_charging.assert_called_once_with([{'item': '1'}, {'item': '2'}], [], 'initial')
+            self._charging_inst.end_charging.assert_called_once_with([{'item': '1'}, {'item': '2'}], self._free_contracts, 'initial')
 
             self._ordering_inst.get_order.assert_called_once_with('1')
 

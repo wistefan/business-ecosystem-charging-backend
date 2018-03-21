@@ -23,9 +23,10 @@ from __future__ import unicode_literals
 from urlparse import urljoin
 
 from django.db import models
+from django.conf import settings
 from djangotoolbox.fields import ListField, DictField, EmbeddedModelField
 
-from wstore.models import Organization, Context
+from wstore.models import Organization
 
 
 # This embedded class is used to save old versions
@@ -57,8 +58,7 @@ class Resource(models.Model):
         return self.download_link
 
     def get_uri(self):
-        site_context = Context.objects.all()[0]
-        base_uri = site_context.site.domain
+        base_uri = settings.SITE
 
         return urljoin(base_uri, 'charging/api/assetManagement/assets/' + self.pk)
 

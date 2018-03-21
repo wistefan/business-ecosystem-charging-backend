@@ -20,10 +20,10 @@
 
 from __future__ import unicode_literals
 
-from decimal import Decimal
+from urlparse import urlparse
 
+from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.sites.models import Site
 from django.db.models.signals import post_save
 from djangotoolbox.fields import ListField
 from djangotoolbox.fields import DictField, EmbeddedModelField
@@ -33,25 +33,10 @@ from wstore.charging_engine.models import *
 
 
 class Context(models.Model):
-
-    site = models.OneToOneField(Site, related_name='site')
-    local_site = models.OneToOneField(Site, related_name='local_site', null=True, blank=True)
     user_refs = DictField()
     failed_cdrs = ListField()
     failed_upgrades = ListField()
     payouts_n = models.IntegerField(default=0)
-
-    def is_valid_currency(self, currency):
-        """
-         Checks that a currency is valid for WStore
-       """
-        valid = False
-        if 'allowed' in self.allowed_currencies and len(self.allowed_currencies['allowed']) > 0:
-            for c in self.allowed_currencies['allowed']:
-                if c['currency'].lower() == currency.lower():
-                    valid = True
-                    break
-        return valid
 
 
 class Organization(models.Model):
@@ -69,7 +54,8 @@ class Organization(models.Model):
 
     def get_party_url(self):
         party_type = 'individual' if self.private else 'organization'
-        return Context.objects.all()[0].site.domain + '/partyManagement/' + party_type + '/' + self.name
+        parsed_site = urlparse(settings.SITE)
+        return '{}://{}/partyManagement/{}/{}'.format(parsed_site.scheme, parsed_site.netloc, party_type, self.name)
 
 
 from wstore.asset_manager.models import Resource, ResourceVersion, ResourcePlugin
@@ -106,21 +92,5 @@ def create_user_profile(sender, instance, created, **kwargs):
             profile.save()
 
 
-def create_context(sender, instance, created, **kwargs):
-
-    if created:
-        if not len(Context.objects.all()):
-            context = Context.objects.get_or_create(site=instance)[0]
-            context.save()
-        else:
-            context = Context.objects.all()[0]
-            context.local_site = instance
-            context.save()
-
-
 # Creates a new user profile when an user is created
 post_save.connect(create_user_profile, sender=User)
-
-
-# Creates a context when the site is created
-post_save.connect(create_context, sender=Site)

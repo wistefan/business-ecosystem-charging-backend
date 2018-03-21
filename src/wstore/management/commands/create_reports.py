@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,11 +18,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.core.management.base import BaseCommand
-from django.conf import settings
+from __future__ import unicode_literals
 
 import requests
-from wstore.models import Context
+
+from django.core.management.base import BaseCommand
+from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -34,7 +35,7 @@ class Command(BaseCommand):
             'X-Email': settings.WSTOREMAIL
         }
 
-        local_site = Context.objects.all()[0].local_site
+        local_site = settings.LOCAL_SITE
         url = '{}/charging/api/reportManagement/created'.format(local_site)
         data = {"aggregatorId": None, "providerId": None, "productClass": None, "callbackUrl": url}
 

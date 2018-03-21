@@ -101,7 +101,6 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.admin',
     'django_mongodb_engine',
@@ -184,14 +183,6 @@ CRONJOBS = [
     ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs']),
     ('0 4 * * *', 'django.core.management.call_command', ['resend_upgrade'])
 ]
-
-# Hack to ignore `site` instance creation
-# This will prevent site creation on syncdb
-from django.db.models import signals
-from django.contrib.sites.management import create_default_site
-from django.contrib.sites import models as site_app
-
-signals.post_syncdb.disconnect(create_default_site, site_app)
 
 CLIENTS = {
     'paypal': 'wstore.charging_engine.payment_client.paypal_client.PayPalClient',

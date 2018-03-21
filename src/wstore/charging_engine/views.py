@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 
 import json
 import importlib
+from copy import deepcopy
 from bson import ObjectId
 
 from django.conf import settings
@@ -109,7 +110,7 @@ class PayPalConfirmation(Resource):
             order = Order.objects.get(pk=reference)
             raw_order = self.ordering_client.get_order(order.order_id)
             pending_info = order.pending_payment
-            concept = pending_info['concept']
+            concept = pending_info.concept
 
             # If the order state value is different from pending means that
             # the timeout function has completely ended before acquiring the resource
@@ -125,7 +126,7 @@ class PayPalConfirmation(Resource):
             if request.user.userprofile.current_organization != order.owner_organization or request.user != order.customer:
                 raise PaymentError('You are not authorized to execute the payment')
 
-            transactions = pending_info['transactions']
+            transactions = pending_info.transactions
 
             # Get the payment client
             # Load payment client
@@ -140,7 +141,7 @@ class PayPalConfirmation(Resource):
             order.save()
 
             charging_engine = ChargingEngine(order)
-            charging_engine.end_charging(transactions, pending_info['free_contracts'], concept)
+            charging_engine.end_charging(transactions, pending_info.free_contracts, concept)
 
         except Exception as e:
 
@@ -153,7 +154,7 @@ class PayPalConfirmation(Resource):
                     order.delete()
                 else:
                     order.state = 'paid'
-                    order.pending_payment = {}
+                    order.pending_payment = None
                     order.save()
 
             expl = ' due to an unexpected error'
@@ -173,7 +174,11 @@ class PayPalConfirmation(Resource):
             'recurring': self._set_renovation_states,
             'usage': self._set_renovation_states
         }
-        states_processors[concept](transactions, raw_order, order)
+        # Include the free contracts as transactions in order to activate them
+        ext_transactions = deepcopy(transactions)
+        ext_transactions.extend([{'item': contract.item_id} for contract in pending_info.free_contracts])
+
+        states_processors[concept](ext_transactions, raw_order, order)
 
         # _lock is set to false
         db.wstore_order.find_one_and_update(

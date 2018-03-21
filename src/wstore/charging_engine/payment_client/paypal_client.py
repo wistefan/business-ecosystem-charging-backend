@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,12 +23,12 @@ from __future__ import unicode_literals
 from decimal import Decimal
 import random
 import string
-
 import paypalrestsdk
+
+from django.conf import settings
 
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.ordering.errors import PaymentError
-from wstore.models import Context
 
 # Paypal credentials
 PAYPAL_CLIENT_ID = ''
@@ -53,7 +53,7 @@ class PayPalClient(PaymentClient):
     def start_redirection_payment(self, transactions):
 
         # Build URL
-        url = Context.objects.all()[0].site.domain
+        url = settings.SITE
         if url[-1] != '/':
             url += '/'
 

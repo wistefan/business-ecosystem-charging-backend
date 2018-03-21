@@ -42,6 +42,7 @@ class NotificationsTestCase(TestCase):
         notification_handler.settings.WSTOREMAILUSER = 'wstore'
         notification_handler.settings.SMTPSERVER = 'smtp.gmail.com'
         notification_handler.settings.SMTPPORT = 587
+        notification_handler.settings.SITE = 'http://localhost:8000'
 
         notification_handler.settings.BASEDIR = '/home/test/wstore'
 
@@ -79,12 +80,6 @@ class NotificationsTestCase(TestCase):
         self._user2 = MagicMock()
         self._user2.email = 'user2@email.com'
         notification_handler.User.objects.get.side_effect = [self._user1, self._user2]
-
-        # Mock context
-        notification_handler.Context = MagicMock()
-        context = MagicMock()
-        context.site.domain = 'http://localhost:8000'
-        notification_handler.Context.objects.all.return_value = [context]
 
         # Mock email libs
         notification_handler.MIMEMultipart = MagicMock()

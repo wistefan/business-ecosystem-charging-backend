@@ -283,8 +283,8 @@ class InventoryUpgraderTestCase(TestCase):
         inventory_upgrader.InventoryClient = MagicMock(return_value=self._client_instance)
 
         # Mock database connector
-        self._db = MagicMock()
-        inventory_upgrader.get_database_connection = MagicMock(return_value=self._db)
+        self._lock_inst = MagicMock()
+        inventory_upgrader.DocumentLock = MagicMock(return_value=self._lock_inst)
 
         inventory_upgrader.requests = MagicMock()
         self._resp = MagicMock()
@@ -557,8 +557,6 @@ class InventoryUpgraderTestCase(TestCase):
             HTTPError()  # Error retrieving second offering
         ]
 
-        self._db.wstore_context.find_one_and_update.return_value = False
-
         self._client_instance.patch_product.side_effect = [self._product3, self._product4]
 
         self._not_handler.send_product_upgraded_notification.side_effect = Exception()
@@ -575,10 +573,9 @@ class InventoryUpgraderTestCase(TestCase):
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
 
-        self.assertEquals([
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
-        ], self._db.wstore_context.find_one_and_update.call_args_list)
+        inventory_upgrader.DocumentLock.assert_called_once_with('wstore_context', self._ctx_pk, 'ctx')
+        self._lock_inst.wait_document.assert_called_once_with()
+        self._lock_inst.unlock_document.assert_called_once_with()
 
         self.assertEquals([
             call(query={
@@ -632,8 +629,6 @@ class InventoryUpgraderTestCase(TestCase):
             [self._product3, self._product4],  # Last call
         ]
 
-        self._db.wstore_context.find_one_and_update.side_effect = [True, True, False, False]
-
         self._client_instance.patch_product.side_effect = [None, HTTPError()]
 
         inventory_upgrader.requests.get.side_effect = HTTPError()
@@ -650,12 +645,9 @@ class InventoryUpgraderTestCase(TestCase):
         }], self._ctx_instance.failed_upgrades)
         self._ctx_instance.save.assert_called_once_with()
 
-        self.assertEquals([
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': True}}),
-            call({'_id': ObjectId(self._ctx_pk)}, {'$set': {'_lock_upg': False}}),
-        ], self._db.wstore_context.find_one_and_update.call_args_list)
+        inventory_upgrader.DocumentLock.assert_called_once_with('wstore_context', self._ctx_pk, 'ctx')
+        self._lock_inst.wait_document.assert_called_once_with()
+        self._lock_inst.unlock_document.assert_called_once_with()
 
         self.assertEquals([
             call(query={

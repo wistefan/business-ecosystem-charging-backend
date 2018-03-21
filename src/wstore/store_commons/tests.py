@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -19,15 +19,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import unicode_literals
-from django.contrib.auth.models import AnonymousUser
-from django.test.utils import override_settings
 
-from mock import MagicMock
+from bson import ObjectId
+from mock import MagicMock, call
 from nose_parameterized import parameterized
 
+from django.contrib.auth.models import AnonymousUser
+from django.test.utils import override_settings
 from django.test import TestCase
 
-from wstore.store_commons import middleware, rollback
+from wstore.store_commons import middleware, rollback, database
+from wstore.store_commons.utils.url import is_valid_url
 
 __test__ = False
 
@@ -154,6 +156,7 @@ class AuthenticationMiddlewareTestCase(TestCase):
         self._user_inst.userprofile.save.assert_called_once_with()
 
 
+@override_settings(BASEDIR='/base/dir')
 class RollbackTestCase(TestCase):
 
     tags = ('rollback', )
@@ -212,9 +215,36 @@ class RollbackTestCase(TestCase):
         if has_post:
             post_action.assert_called_once_with(wrapper_ref)
 
-    def test_downgrade_post_action(self):
+    def _not_exists(self):
+        rollback.os.path.exists.return_value = False
+
+    def _to_remove(self):
+        rollback.os.path.exists.return_value = True
+
+    def _exists_not_called(self):
+        self.assertEquals(0, rollback.os.path.exists.call_count)
+
+    def _exists_called(self):
+        rollback.os.path.exists.assert_called_once_with('/base/dir/new/path')
+        self.assertEquals(0, rollback.os.remove.call_count)
+
+    def _remove_called(self):
+        rollback.os.path.exists.assert_called_once_with('/base/dir/new/path')
+        rollback.os.remove.assert_called_once_with('/base/dir/new/path')
+
+    @parameterized.expand([
+        ('no_path', '', _exists_not_called),
+        ('file_not_found', 'new/path', _exists_called, _not_exists),
+        ('to_remove', 'new/path', _remove_called, _to_remove)
+    ])
+    def test_downgrade_post_action(self, name, res_path, check, side_effect=None):
+        rollback.os = MagicMock()
+
+        if side_effect is not None:
+            side_effect(self)
+
         asset = MagicMock(
-            resource_path='new/path',
+            resource_path=res_path,
             download_link='http://host/new/path',
             content_type='new_type',
             version='2.0',
@@ -230,7 +260,7 @@ class RollbackTestCase(TestCase):
             _to_downgrade=asset
         )
 
-        rollback.downgrade_asset(downgrade_object)
+        rollback.downgrade_asset_pa(downgrade_object)
 
         self.assertEquals('old/path', asset.resource_path)
         self.assertEquals('http://host/old/path', asset.download_link)
@@ -239,16 +269,95 @@ class RollbackTestCase(TestCase):
         self.assertEquals([], asset.old_versions)
 
         asset.save.assert_called_once_with()
+        check(self)
 
     def test_downgrade_post_action_none(self):
         downgrade_object = MagicMock(
             _to_downgrade=None
         )
 
-        rollback.downgrade_asset(downgrade_object)
+        rollback.downgrade_asset_pa(downgrade_object)
 
     def test_downgrade_post_action_not_defined(self):
         class manager:
             pass
 
-        rollback.downgrade_asset(manager())
+        rollback.downgrade_asset_pa(manager())
+
+
+class DocumentLockTestCase(TestCase):
+    tags = ('lock',)
+
+    _id = '59f76ace051eb500613cbbc7'
+    _collection = 'test_collection'
+    _lock_id = '_lock_test'
+
+    def setUp(self):
+        self._connection = MagicMock()
+        database.get_database_connection = MagicMock(return_value=self._connection)
+
+    def test_wait_for_document(self):
+        self._connection[self._collection].find_one_and_update.side_effect = [{self._lock_id: True}, {self._lock_id: False}]
+
+        lock = database.DocumentLock(self._collection, self._id, 'test')
+        lock.wait_document()
+
+        # Check database calls
+        self.assertEquals([
+            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}}),
+            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}})
+        ], self._connection[self._collection].find_one_and_update.call_args_list)
+
+    def test_unlock_document(self):
+        lock = database.DocumentLock(self._collection, self._id, 'test')
+        lock.unlock_document()
+
+        # Check database calls
+        self._connection[self._collection].find_one_and_update.assert_called_once_with({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: False}})
+
+
+class URLUtilsTestCase(TestCase):
+
+    tags = ('utils', 'url-utils')
+
+    def test_invalid_url_protocol(self):
+        self.assertFalse(is_valid_url("sftp://localhost/"))
+
+    def test_invalid_url_number(self):
+        self.assertFalse(is_valid_url(1))
+
+    def test_invalid_url_list(self):
+        self.assertFalse(is_valid_url(("sftp://localhost@c",)))
+
+    def test_invalid_url_relative(self):
+        self.assertFalse(is_valid_url("/my/path"))
+
+    def test_invalid_url_relative_schema(self):
+        self.assertFalse(is_valid_url("//my/path"))
+
+    def test_invalid_characters(self):
+        self.assertFalse(is_valid_url("http://data.source.commy/path a"))
+
+    def test_valid_absolute_url_bytes(self):
+        self.assertTrue(is_valid_url(b"http://data.source.commy/path"))
+
+    def test_valid_absolute_url_http(self):
+        self.assertTrue(is_valid_url("http://data.source.commy/path"))
+
+    def test_valid_absolute_url_http_port(self):
+        self.assertTrue(is_valid_url("http://data.source.commy:5000/path"))
+
+    def test_valid_absolute_url_http_query(self):
+        self.assertTrue(is_valid_url("http://data.source.commy/path?a=b"))
+
+    def test_valid_absolute_url_https(self):
+        self.assertTrue(is_valid_url("https://data.source.commy/path"))
+
+    def test_valid_absolute_url_https_port(self):
+        self.assertTrue(is_valid_url("https://data.source.commy:300/path"))
+
+    def test_valid_absolute_url_https_query(self):
+        self.assertTrue(is_valid_url("https://data.source.commy/path?a=b"))
+
+    def test_valid_absolute_url_https_ckan(self):
+        self.assertTrue(is_valid_url("https://data.opplafy.eu/dataset/4d3d9728-39bb-4749-8c8f-d9cea51abe4b"))
