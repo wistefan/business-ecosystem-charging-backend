@@ -54,12 +54,14 @@ class OrderingCollection(Resource):
         client = OrderingClient()
         client.update_state(order, 'InProgress')
 
+        terms_accepted = request.META.get('HTTP_X_TERMS_ACCEPTED', '').lower() == 'true'
+
         try:
             # Check that the user has a billing address
             response = None
 
             om = OrderingManager()
-            redirect_url = om.process_order(user, order)
+            redirect_url = om.process_order(user, order, terms_accepted=terms_accepted)
 
             if redirect_url is not None:
 

@@ -270,9 +270,13 @@ class OrderingManager:
             'country': postal_address['country']
         }
 
-    def _process_add_items(self, items, order_id, description):
+    def _process_add_items(self, items, order_id, description, terms_accepted):
 
         new_contracts = [self._build_contract(item) for item in items]
+        terms_found = [c for c in new_contracts if c.offering.asset is not None and c.offering.asset.has_terms]
+
+        if terms_found and not terms_accepted:
+            raise OrderingError('You must accept the terms and conditions of the offering to acquire it')
 
         current_org = self._customer.userprofile.current_organization
         order = Order.objects.create(
@@ -365,7 +369,7 @@ class OrderingManager:
             client.terminate_product(product['id'])
 
     @rollback()
-    def process_order(self, customer, order):
+    def process_order(self, customer, order, terms_accepted=False):
         """
         Process the different order items included in a given ordering depending on its action field
         :param customer:
@@ -407,6 +411,6 @@ class OrderingManager:
             if 'description' in order:
                 description = order['description']
 
-            redirection_url = self._process_add_items(items['add'], order['id'], description)
+            redirection_url = self._process_add_items(items['add'], order['id'], description, terms_accepted)
 
         return redirection_url
