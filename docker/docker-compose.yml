@@ -16,11 +16,46 @@ services:
         ports:
             - 8006:8006
         volumes:
+            # - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings  # Used if the settings files are provided through the volume 
             - ./charging-bills:/business-ecosystem-charging-backend/src/media/bills
             - ./charging-assets:/business-ecosystem-charging-backend/src/media/assets
             - ./charging-plugins:/business-ecosystem-charging-backend/src/plugins
-            - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings
             - ./charging-inst-plugins:/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
         environment:
-          - PAYPAL_CLIENT_ID=client_id
-          - PAYPAL_CLIENT_SECRET=client_secret
+          - BAE_CB_PAYMENT_METHOD=None  # Paypal or None (testing mode payment disconected)
+          # - BAE_CB_PAYPAL_CLIENT_ID=client_id
+          # - BAE_CB_PAYPAL_CLIENT_SECRET=client_secret
+
+          # ----- Database configuration ------
+          - BAE_CB_MONGO_SERVER=mongo
+          - BAE_CB_MONGO_PORT=27017
+          - BAE_CB_MONGO_DB=charging_db
+          # - BAE_CB_MONGO_USER=user
+          # - BAE_CB_MONGO_PASS=passwd
+
+          # ----- Roles Configuration -----
+          - BAE_LP_OAUTH2_ADMIN_ROLE=admin
+          - BAE_LP_OAUTH2_SELLER_ROLE=seller
+          - BAE_LP_OAUTH2_CUSTOMER_ROLE=customer
+
+          # ----- Email configuration ------
+          - BAE_CB_EMAIL=charging@email.com
+          # - BAE_CB_EMAIL_USER=user
+          # - BAE_CB_EMAIL_PASS=pass
+          # - BAE_CB_EMAIL_SMTP_SERVER=smtp.server.com
+          # - BAE_CB_EMAIL_SMTP_PORT=587
+
+          - BAE_CB_VERIFY_REQUESTS=True  # Whether or not the BAE validates SSL certificates on requests to external components 
+
+          # ----- Site configuration -----
+          - BAE_SERVICE_HOST=https://store.lab.fiware.org/  # External URL used to access the BAE
+          - BAE_CB_LOCAL_SITE=http://charging.docker:8006/  # Local URL of the charging backend
+
+          # ----- APIs Conection config -----
+          - BAE_CB_CATALOG=http://apis.docker:8080/DSProductCatalog
+          - BAE_CB_INVENTORY=http://apis.docker:8080/DSProductInventory
+          - BAE_CB_ORDERING=http://apis.docker:8080/DSProductOrdering
+          - BAE_CB_BILLING=http://apis.docker:8080/DSBillingManagement
+          - BAE_CB_RSS=http://rss.docker:8080/DSRevenueSharing
+          - BAE_CB_USAGE=http://apis.docker:8080/DSUsageManagement
+          - BAE_CB_AUTHORIZE_SERVICE=http://proxy.docker:8004/authorizeService/apiKeys

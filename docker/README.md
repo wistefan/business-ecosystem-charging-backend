@@ -10,13 +10,11 @@ If you want to know what is behind the scenes of our container you can go ahead 
 
 ## The Fastest Way
 
-### New versions
+Versions of the Business Ecosystem Charging Backend container higher than 5.4.1 use an external MongoDB container as database and are
+configured in the same way as the software, using both, the standard `settings.py` file or the supported environment variables (min version 7.4.0). For details of the different configuration
+options, have a look at the [Business API Ecosystem Installation Guide](https://business-api-ecosystem.readthedocs.io/en/develop/installation-administration-guide.html#configuring-the-charging-backend)
 
-New versions of the Business Ecosystem Charging Backend container than 5.4.1 use an external MongoDB container as database and are
-configured using the standard `settings.py` file as it is done with the software.
-
-To run the Business Ecosystem Charging Backend, `docker-compose` is used. To do so, you must create a folder to place a
-new file file called `docker-compose.yml` that should include the following content:
+To run the Business Ecosystem Charging Backend, `docker-compose` is used. To do so, you can use the file `docker-compose.yml` provided with the source code or create a new one with the following content:
 
 ```
 version: '3'
@@ -29,7 +27,7 @@ services:
             - ./charging-data:/data/db
 
     charging:
-        image: conwetlab/biz-ecosystem-charging-backend
+        image: conwetlab/biz-ecosystem-charging-backend:develop
         links:
             - mongo
         depends_on:
@@ -37,27 +35,60 @@ services:
         ports:
             - 8006:8006
         volumes:
+            # - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings  # Used if the settings files are provided through the volume 
             - ./charging-bills:/business-ecosystem-charging-backend/src/media/bills
             - ./charging-assets:/business-ecosystem-charging-backend/src/media/assets
             - ./charging-plugins:/business-ecosystem-charging-backend/src/plugins
-            - ./charging-settings:/business-ecosystem-charging-backend/src/user_settings
             - ./charging-inst-plugins:/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
         environment:
-          - PAYPAL_CLIENT_ID=client_id
-          - PAYPAL_CLIENT_SECRET=client_secret
+          - BAE_CB_PAYMENT_METHOD=None  # Paypal or None (testing mode payment disconected)
+          # - BAE_CB_PAYPAL_CLIENT_ID=client_id
+          # - BAE_CB_PAYPAL_CLIENT_SECRET=client_secret
+
+          # ----- Database configuration ------
+          - BAE_CB_MONGO_SERVER=mongo
+          - BAE_CB_MONGO_PORT=27017
+          - BAE_CB_MONGO_DB=charging_db
+          # - BAE_CB_MONGO_USER=user
+          # - BAE_CB_MONGO_PASS=passwd
+
+          # ----- Roles Configuration -----
+          - BAE_LP_OAUTH2_ADMIN_ROLE=admin
+          - BAE_LP_OAUTH2_SELLER_ROLE=seller
+          - BAE_LP_OAUTH2_CUSTOMER_ROLE=customer
+
+          # ----- Email configuration ------
+          - BAE_CB_EMAIL=charging@email.com
+          # - BAE_CB_EMAIL_USER=user
+          # - BAE_CB_EMAIL_PASS=pass
+          # - BAE_CB_EMAIL_SMTP_SERVER=smtp.server.com
+          # - BAE_CB_EMAIL_SMTP_PORT=587
+
+          - BAE_CB_VERIFY_REQUESTS=True  # Whether or not the BAE validates SSL certificates on requests to external components 
+
+          # ----- Site configuration -----
+          - BAE_SERVICE_HOST=https://store.lab.fiware.org/  # External URL used to access the BAE
+          - BAE_CB_LOCAL_SITE=http://charging.docker:8006/  # Local URL of the charging backend
+
+          # ----- APIs Conection config -----
+          - BAE_CB_CATALOG=http://apis.docker:8080/DSProductCatalog
+          - BAE_CB_INVENTORY=http://apis.docker:8080/DSProductInventory
+          - BAE_CB_ORDERING=http://apis.docker:8080/DSProductOrdering
+          - BAE_CB_BILLING=http://apis.docker:8080/DSBillingManagement
+          - BAE_CB_RSS=http://rss.docker:8080/DSRevenueSharing
+          - BAE_CB_USAGE=http://apis.docker:8080/DSUsageManagement
+          - BAE_CB_AUTHORIZE_SERVICE=http://proxy.docker:8004/authorizeService/apiKeys
 ```
 
-As you can see, some environment vars should be configured, in particular:
-
-* **PAYPAL_CLIENT_ID**: the client id of your application PayPal credentials used for charging users (a Sandbox account can be used for testing).
-* **PAYPAL_CLIENT_SECRET**: the client secret of your application PayPal credentials used for charging users (a Sandbox account can be used for testing).
-
-Additionally, the biz-ecosystem-charging-backend image contains 4 volumes. In particular:
+As you can see, the biz-ecosystem-charging-backend image defines 4 volumes. In particular:
+* */business-ecosystem-charging-backend/src/user_settings*: This directory must include the *settings.py* and *services_settings.py* files with the software configuration, when the volume configuration is used.
 * */business-ecosystem-charging-backend/src/media/bills*: This directory contains the PDF invoices generated by the Business Ecosystem Charging Backend
 * */business-ecosystem-charging-backend/src/media/assets*: This directory contains the different digital assets uploaded by sellers to the Business Ecosystem Charging Backend
 * */business-ecosystem-charging-backend/src/plugins*: This directory is used for providing asset plugins (see section *Installing Asset Plugins*)
-* */business-ecosystem-charging-backend/src/user_settings*: This directory must include the *settings.py* and *services_settings.py* files with the software configuration.
 * */business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins*: This directory includes the code of the plugins already installed
+
+It can be seen, that the system can be configured with the environment variables defined by the software (min version 7.4.0). In this case, providing the settings file is
+not mandatory, taking into account that the environment variables values override the file ones.
 
 Once you have created the file, run the following command:
 

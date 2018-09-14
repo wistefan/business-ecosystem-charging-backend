@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-MAINTAINER CoNWeT Lab. Universidad Politécnica de Madrid
+LABEL Author="CoNWeT Lab. Universidad Politécnica de Madrid"
 
 RUN apt-get update && apt-get install -y --fix-missing \
     gcc git wkhtmltopdf xvfb python2.7 python-pip \
@@ -11,18 +11,20 @@ RUN apt-get update && apt-get install -y --fix-missing \
 
 ENV VERSION develop
 
-WORKDIR business-ecosystem-charging-backend
+WORKDIR /business-ecosystem-charging-backend
 
 RUN git checkout $VERSION && \
     mkdir ./src/media && \
     mkdir ./src/media/bills && \
     mkdir ./src/media/assets && \
     mkdir ./src/plugins && \
-    mkdir ./src/user_settings
+    mkdir ./src/user_settings && \
+    cp ./src/settings.py ./src/user_settings/settings.py && \
+    cp ./src/services_settings.py ./src/user_settings/services_settings.py
 
 ENV WORKSPACE=`pwd`
 
-# Install dependencies and sonfigure system to use volume settings
+# Install dependencies and configure system to support volume settings
 RUN ./python-dep-install.sh && \
     echo "from user_settings.settings import *" > ./src/settings.py
 
@@ -33,7 +35,7 @@ VOLUME /business-ecosystem-charging-backend/src/plugins
 VOLUME /business-ecosystem-charging-backend/src/user_settings
 VOLUME /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
 
-WORKDIR src
+WORKDIR /business-ecosystem-charging-backend/src
 
 RUN rm wsgi.py
 COPY wsgi.py .

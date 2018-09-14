@@ -75,7 +75,7 @@ class RSSAdaptor:
         headers = {
             'content-type': 'application/json',
             'X-Nick-Name': settings.STORE_NAME,
-            'X-Roles': 'provider',
+            'X-Roles': settings.ADMIN_ROLE,
             'X-Email': settings.WSTOREMAIL
         }
 

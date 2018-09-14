@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -20,18 +20,18 @@
 
 from __future__ import unicode_literals
 
-import json
-
-from django.http import HttpResponse
-
-from wstore.store_commons.utils.http import authentication_required
-from wstore.store_commons.utils.units import supported_currencies
 from wstore.store_commons.resource import Resource
+from wstore.store_commons.utils.http import JsonResponse
+from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
-class CurrencyCollection(Resource):
+class ChargePeriodCollection(Resource):
 
-    @authentication_required
     def read(self, request):
-        response = json.dumps(supported_currencies)
-        return HttpResponse(response, status=200, mimetype='application/json; charset=utf-8')
+        return JsonResponse(200, ChargePeriod.to_json())
+
+
+class CurrencyCodeCollection(Resource):
+
+    def read(self, request):
+        return JsonResponse(200, CurrencyCode.to_json())

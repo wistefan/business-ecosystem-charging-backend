@@ -29,17 +29,6 @@ function test_connection {
     echo "$1 connection, OK"
 }
 
-# Validate that mandatory parameters has been provided
-if [ -z $PAYPAL_CLIENT_ID ]; then
-    echo 'PAYPAL_CLIENT_ID environment variable not set'
-    exit 1
-fi
-
-if [ -z $PAYPAL_CLIENT_SECRET ]; then
-    echo 'PAYPAL_CLIENT_SECRET environment variable not set'
-    exit 1
-fi
-
 # Check that the settings files have been included
 if [ ! -f /business-ecosystem-charging-backend/src/user_settings/settings.py ]; then
     echo "Missing settings.py file"
@@ -55,35 +44,56 @@ if [ ! -f /business-ecosystem-charging-backend/src/user_settings/__init__.py ]; 
     touch /business-ecosystem-charging-backend/src/user_settings/__init__.py
 fi
 
-# Configure PayPal settings
-sed -i "s|PAYPAL_CLIENT_ID = ''|PAYPAL_CLIENT_ID = '$PAYPAL_CLIENT_ID'|g" ./wstore/charging_engine/payment_client/paypal_client.py
-sed -i "s|PAYPAL_CLIENT_SECRET = ''|PAYPAL_CLIENT_SECRET = '$PAYPAL_CLIENT_SECRET'|g" ./wstore/charging_engine/payment_client/paypal_client.py
+# Create __init__.py file if not present (a volume has been bound)
+if [ ! -f /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py ]; then
+    touch /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py
+fi
 
 # Ensure mongodb is running
 # Get MongoDB host and port from settings
-MONGO_HOST=`grep -o "'HOST':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
-if [ -z ${MONGO_HOST} ]; then
-    MONGO_HOST=localhost
+if [ -z ${BAE_CB_MONGO_SERVER} ]; then
+    MONGO_HOST=`grep -o "'HOST':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+
+    if [ -z ${MONGO_HOST} ]; then
+        MONGO_HOST=localhost
+    fi
+else
+    MONGO_HOST=${BAE_CB_MONGO_SERVER}
 fi
 
-MONGO_PORT=`grep -o "'PORT':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+if [ -z ${BAE_CB_MONGO_PORT} ]; then
+    MONGO_PORT=`grep -o "'PORT':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
-if [ -z ${MONGO_PORT} ]; then
-    MONGO_PORT=27017
+    if [ -z ${MONGO_PORT} ]; then
+        MONGO_PORT=27017
+    fi
+else
+    MONGO_PORT=${BAE_CB_MONGO_PORT}
 fi
 
 test_connection "MongoDB" ${MONGO_HOST} ${MONGO_PORT}
 
 # Check that the required APIs are running
-APIS_HOST=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
-APIS_PORT=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+if [ -z ${BAE_CB_CATALOG} ]; then
+    APIS_HOST=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
+    APIS_PORT=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+else
+    APIS_HOST=`echo ${BAE_CB_CATALOG} | grep -o "://.*:" | grep -oE "[^:/]+"`
+    APIS_PORT=`echo ${BAE_CB_CATALOG} | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+fi
 
 test_connection "APIs" ${APIS_HOST} ${APIS_PORT}
 
 # Check that the RSS is running
-RSS_HOST=`grep "RSS =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
-RSS_PORT=`grep "RSS =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+if [ -z ${BAE_CB_RSS} ]; then
+    RSS_HOST=`grep "RSS =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
+    RSS_PORT=`grep "RSS =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+else
+    RSS_HOST=`echo ${BAE_CB_RSS} | grep -o "://.*:" | grep -oE "[^:/]+"`
+    RSS_PORT=`echo ${BAE_CB_RSS} | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+fi
+
 test_connection "RSS" ${RSS_HOST} ${RSS_PORT}
 
 echo "Starting charging server"

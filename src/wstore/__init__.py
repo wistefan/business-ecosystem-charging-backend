@@ -48,7 +48,7 @@ if not testing:
     # Create RSS default aggregator and provider
     credentials = {
         'user': settings.STORE_NAME,
-        'roles': ['provider'],
+        'roles': [settings.ADMIN_ROLE],
         'email': settings.WSTOREMAIL
     }
     prov_manager = ProviderManager(credentials)

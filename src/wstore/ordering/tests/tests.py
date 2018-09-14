@@ -39,7 +39,7 @@ from wstore.ordering.tests.test_data import *
 from wstore.ordering import ordering_client, ordering_management, inventory_client
 
 
-@override_settings(SITE='http://extpath.com:8080/')
+@override_settings(SITE='http://extpath.com:8080/', VERIFY_REQUESTS=True)
 class OrderingManagementTestCase(TestCase):
 
     tags = ('ordering', 'order-manager')
@@ -300,8 +300,13 @@ class OrderingManagementTestCase(TestCase):
         new_cust['contactMedium'] = []
         self._response.json.side_effect = [OFFERING, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, new_cust]
 
+    def _terms_not_required(self):
+        self._contract_inst.offering.asset.has_terms = False
+
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
+        ('basic_add_terms_not_accepted', BASIC_ORDER, BASIC_PRICING, None, None, 'OrderingError: You must accept the terms and conditions of the offering to acquire it', False),
+        ('basic_add_terms_not_required', BASIC_ORDER, BASIC_PRICING, _basic_add_checker, _terms_not_required, None, False),
         ('basic_add_invalid_billing', BASIC_ORDER, BASIC_PRICING, None, _invalid_billing, 'OrderingError: There was an error at the time of retrieving the Billing Address'),
         ('non_digital_add', BASIC_ORDER, BASIC_PRICING, _non_digital_add_checker, _non_digital_offering),
         ('recurring_add', RECURRING_ORDER, RECURRING_PRICING, _recurring_add_checker),
@@ -325,7 +330,7 @@ class OrderingManagementTestCase(TestCase):
         ('offering_not_registered', BASIC_ORDER, {}, None, _missing_offering_local, 'OrderingError: The offering 5 has not been previously registered'),
         ('missing_postal_address', BASIC_ORDER, BASIC_PRICING, None, _missing_postal, 'OrderingError: Provided Billing Account does not contain a Postal Address')
     ])
-    def test_process_order(self, name, order, pricing, checker, side_effect=None, err_msg=None):
+    def test_process_order(self, name, order, pricing, checker, side_effect=None, err_msg=None, terms_accepted=True):
 
         OFFERING['productOfferingPrice'] = [pricing]
 
@@ -335,7 +340,7 @@ class OrderingManagementTestCase(TestCase):
         ordering_manager = ordering_management.OrderingManager()
         error = None
         try:
-            redirect_url = ordering_manager.process_order(self._customer, order)
+            redirect_url = ordering_manager.process_order(self._customer, order, terms_accepted=terms_accepted)
         except OrderingError as e:
             error = e
 
@@ -354,10 +359,10 @@ class OrderingManagementTestCase(TestCase):
             headers = {'Authorization': 'Bearer ' + self._customer.userprofile.access_token}
             exp_url = 'http://extpath.com:8080{}'
             self.assertEquals([
-                call(exp_url.format('/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)')),
-                call(exp_url.format(urlparse(BILLING_ACCOUNT_HREF).path), headers=headers),
-                call(exp_url.format(urlparse(BILLING_ACCOUNT['customerAccount']['href']).path), headers=headers),
-                call(exp_url.format(urlparse(CUSTOMER_ACCOUNT['customer']['href']).path), headers=headers)
+                call(exp_url.format('/DSProductCatalog/api/catalogManagement/v2/productOffering/20:(2.0)'), verify=True),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT_HREF).path), headers=headers, verify=True),
+                call(exp_url.format(urlparse(BILLING_ACCOUNT['customerAccount']['href']).path), headers=headers, verify=True),
+                call(exp_url.format(urlparse(CUSTOMER_ACCOUNT['customer']['href']).path), headers=headers, verify=True)
             ], ordering_management.requests.get.call_args_list)
 
             contact_medium = CUSTOMER['contactMedium'][0]['medium']

@@ -18,7 +18,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import socket
+
 from urlparse import urljoin
 from xml.dom.minidom import getDOMImplementation
 
@@ -31,6 +33,16 @@ from django.utils.translation import ugettext as _
 
 from wstore.store_commons.utils.error_response import get_json_response, get_xml_response, get_unicode_response
 from wstore.store_commons.utils import mimeparser
+
+
+class JsonResponse(HttpResponse):
+
+    def __init__(self, status, content):
+        super(JsonResponse, self).__init__(
+            content=json.dumps(content),
+            mimetype='application/json; charset=utf-8',
+            status=status,
+        )
 
 
 def get_html_basic_error_response(request, mimetype, status_code, message):
