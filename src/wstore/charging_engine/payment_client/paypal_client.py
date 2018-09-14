@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 - 2018 CoNWeT Lab., Universidad Politécnica de Madrid
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 from decimal import Decimal
+import os
 import random
 import string
 import paypalrestsdk
@@ -31,8 +32,9 @@ from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.ordering.errors import PaymentError
 
 # Paypal credentials
-PAYPAL_CLIENT_ID = ''
-PAYPAL_CLIENT_SECRET = ''
+PAYPAL_CLIENT_ID = os.environ.get('BAE_CB_PAYPAL_CLIENT_ID', '')
+PAYPAL_CLIENT_SECRET = os.environ.get('BAE_CB_PAYPAL_CLIENT_SECRET', '')
+
 MODE = 'sandbox'  # sandbox or live
 
 
