@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 LABEL Author="CoNWeT Lab. Universidad Politécnica de Madrid"
 
 RUN apt-get update && apt-get install -y --fix-missing \
-    gcc git wkhtmltopdf xvfb python2.7 python-pip \
+    gcc git wkhtmltopdf xvfb python2.7 python-pip wget \
     python-dev build-essential libssl-dev libffi-dev \
     apache2 libapache2-mod-wsgi && \
     git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git && \

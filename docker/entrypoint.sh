@@ -96,6 +96,35 @@ fi
 
 test_connection "RSS" ${RSS_HOST} ${RSS_PORT}
 
+# Check that inventory service is running
+wget http://${APIS_HOST}:${APIS_PORT}/DSProductInventory
+STATUS=$?
+I=0
+while [[ ${STATUS} -ne 0  && ${I} -lt 50 ]]; do
+    echo "Inventory API not ready retrying in 5 seconds..."
+
+    sleep 5
+    wget http://${APIS_HOST}:${APIS_PORT}/DSProductInventory
+    STATUS=$?
+
+    I=${I}+1
+done
+
+# Check that RSS service is running
+wget http://${RSS_HOST}:${RSS_PORT}/DSRevenueSharing
+STATUS=$?
+I=0
+while [[ ${STATUS} -ne 6  && ${I} -lt 50 ]]; do
+    echo "RSS API not ready retrying in 5 seconds..."
+
+    echo "===============> ${STATUS}"
+    sleep 5
+    wget http://${RSS_HOST}:${RSS_PORT}/DSRevenueSharing
+    STATUS=$?
+
+    I=${I}+1
+done
+
 echo "Starting charging server"
 service apache2 restart
 
