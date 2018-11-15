@@ -26,7 +26,10 @@ ENV WORKSPACE=`pwd`
 
 # Install dependencies and configure system to support volume settings
 RUN ./python-dep-install.sh && \
-    echo "from user_settings.settings import *" > ./src/settings.py
+    echo "from user_settings.settings import *" > ./src/settings.py && \
+    echo "BASEDIR = path.dirname(path.abspath(__file__))" >> settings.py && \
+    echo "MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)" >> settings.py && \
+    echo "BILL_ROOT = path.join(MEDIA_ROOT, 'bills')" >> settings.py
 
 # Create volumes
 VOLUME /business-ecosystem-charging-backend/src/media/bills
