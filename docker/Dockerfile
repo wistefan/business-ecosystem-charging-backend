@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 LABEL Author="CoNWeT Lab. Universidad Politécnica de Madrid"
 
 RUN apt-get update && apt-get install -y --fix-missing \
-    gcc git wkhtmltopdf xvfb python2.7 python-pip \
+    gcc git wkhtmltopdf xvfb python2.7 python-pip wget \
     python-dev build-essential libssl-dev libffi-dev \
     apache2 libapache2-mod-wsgi && \
     git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git && \
@@ -26,7 +26,10 @@ ENV WORKSPACE=`pwd`
 
 # Install dependencies and configure system to support volume settings
 RUN ./python-dep-install.sh && \
-    echo "from user_settings.settings import *" > ./src/settings.py
+    echo "from user_settings.settings import *" > ./src/settings.py && \
+    echo "BASEDIR = path.dirname(path.abspath(__file__))" >> ./src/settings.py && \
+    echo "MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)" >> ./src/settings.py && \
+    echo "BILL_ROOT = path.join(MEDIA_ROOT, 'bills')" >> ./src/settings.py
 
 # Create volumes
 VOLUME /business-ecosystem-charging-backend/src/media/bills
