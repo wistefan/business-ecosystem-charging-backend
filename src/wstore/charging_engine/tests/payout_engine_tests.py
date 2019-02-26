@@ -147,7 +147,7 @@ class PayoutWatcherTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'provider',
+                'X-Roles': 'admin',
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.patch().json.assert_called_once_with()
@@ -171,7 +171,7 @@ class PayoutWatcherTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'provider',
+                'X-Roles': 'admin',
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.patch().json.assert_not_called()
@@ -471,7 +471,7 @@ class PayoutEngineTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'provider',
+                'X-Roles': 'admin',
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.get().json.assert_called_once_with()

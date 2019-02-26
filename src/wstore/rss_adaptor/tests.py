@@ -94,7 +94,7 @@ class RSSAdaptorTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': 'wstore',
-                'X-Roles': 'provider',
+                'X-Roles': 'admin',
                 'X-Email': 'testmail@mail.com'
             })
 
