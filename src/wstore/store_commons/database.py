@@ -36,11 +36,11 @@ def get_database_connection():
     client = None
     # Create database connection
     if database_info['HOST'] and database_info['PORT']:
-        client = MongoClient(database_info['HOST'], database_info['PORT'])
+        client = MongoClient(database_info['HOST'], int(database_info['PORT']))
     elif database_info['HOST'] and not database_info['PORT']:
         client = MongoClient(database_info['HOST'])
     elif not database_info['HOST'] and database_info['PORT']:
-        client = MongoClient('localhost', database_info['PORT'])
+        client = MongoClient('localhost', int(database_info['PORT']))
     else:
         client = MongoClient()
 

@@ -50,7 +50,7 @@ BASEDIR = path.dirname(path.abspath(__file__))
 STORE_NAME = 'WStore'
 AUTH_PROFILE_MODULE = 'wstore.models.UserProfile'
 
-ADMIN_ROLE = 'provider'
+ADMIN_ROLE = 'admin'
 PROVIDER_ROLE = 'seller'
 CUSTOMER_ROLE = 'customer'
 
