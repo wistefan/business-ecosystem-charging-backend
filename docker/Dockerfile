@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --fix-missing \
     git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git && \
     pip install sh
 
-ENV VERSION develop
+ENV VERSION master
 
 WORKDIR /business-ecosystem-charging-backend
 
