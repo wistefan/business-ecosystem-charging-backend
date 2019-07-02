@@ -138,6 +138,7 @@ def get_api_user(request):
         email = request.META['HTTP_X_EMAIL']
         roles = request.META['HTTP_X_ROLES'].split(',')
         user_name = request.META['HTTP_X_ACTOR']
+        external_username = request.META['HTTP_X_EXT_NAME']
     except:
         return AnonymousUser()
 
@@ -154,7 +155,7 @@ def get_api_user(request):
         # Update user info
         user.email = email
         user.userprofile.complete_name = display_name
-        user.userprofile.actor_id = nick_name
+        user.userprofile.actor_id = external_username
         user.is_staff = settings.ADMIN_ROLE.lower() in roles
         user.save()
 

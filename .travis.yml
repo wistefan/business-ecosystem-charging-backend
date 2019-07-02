@@ -23,4 +23,5 @@ script:
 after_success: "cd src/; coveralls"
 branches:
   only:
-    - develop
+    - "develop"
+    - "master"
