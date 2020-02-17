@@ -950,6 +950,22 @@ BASIC_OFFERING = {
     }]
 }
 
+OPEN_OFFERING = {
+    "id": "3",
+    "href": "http://catalog.com/offerin3",
+    "isBundle": False,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "name": "open",
+        "description": "Open offering"
+    }]
+}
+
 ZERO_OFFERING = {
     'id': '3',
     "href": "http://catalog.com/offerin3",
@@ -990,6 +1006,23 @@ BUNDLE_OFFERING = {
         'id': '6'
     }, {
         'id': '7'
+    }]
+}
+
+OPEN_BUNDLE = {
+    "isBundle": True,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+    },
+    "bundledProductOffering": [{
+        'id': '6'
+    }, {
+        'id': '7'
+    }],
+    "productOfferingPrice": [{
+        "name": "open",
+        "description": "Open offering"
     }]
 }
 
@@ -1137,6 +1170,29 @@ MULTIPLE_NAMES = {
         }
     }, {
         "name": "Plan",
+        "priceType": "one time",
+        "price": {
+            "currencyCode": "EUR",
+            'taxIncludedAmount': '1.0'
+        }
+    }]
+}
+
+OPEN_MIXED = {
+    "id": "3",
+    "href": "http://catalog.com/offerin3",
+    "isBundle": False,
+    "name": "TestOffering",
+    "version": "1.0",
+    "productSpecification": {
+        "id": "20",
+        "href": "http://catalog.com/products/20"
+    },
+    "productOfferingPrice": [{
+        "name": "open",
+        "description": "Open offering"
+    }, {
+        "name": "single",
         "priceType": "one time",
         "price": {
             "currencyCode": "EUR",

@@ -420,7 +420,7 @@ class ValidatorTestCase(TestCase):
         self.assertEquals(0, product_validator.Resource.objects.get.call_count)
         self.assertEquals(0, product_validator.Resource.objects.create.call_count)
 
-    def _validate_offering_calls(self, offering, asset, is_digital):
+    def _validate_offering_calls(self, offering, asset, is_digital, is_open=False):
         # Check resource retrieving if needed
         offering_validator.Resource.objects.filter.assert_called_once_with(product_id=offering['productSpecification']['id'])
 
@@ -431,6 +431,7 @@ class ValidatorTestCase(TestCase):
             description='',
             version=offering['version'],
             is_digital=is_digital,
+            is_open=is_open,
             asset=asset,
             bundled_offerings=[]
         )
@@ -441,7 +442,7 @@ class ValidatorTestCase(TestCase):
     def _validate_physical_offering_calls(self, offering):
         self._validate_offering_calls(offering, None, False)
 
-    def _validate_bundle_offering_calls(self, offering, is_digital):
+    def _validate_bundle_offering_calls(self, offering, is_digital, is_open=False):
         self.assertEquals(
             [call(off_id=off['id']) for off in offering['bundledProductOffering']],
             offering_validator.Offering.objects.filter.call_args_list)
@@ -453,6 +454,7 @@ class ValidatorTestCase(TestCase):
             description='',
             version=offering['version'],
             is_digital=is_digital,
+            is_open=is_open,
             asset=None,
             bundled_offerings=[off[0].pk for off in self._bundles]
         )
@@ -462,6 +464,14 @@ class ValidatorTestCase(TestCase):
 
     def _validate_bundle_physical_offering_calls(self, offering):
         self._validate_bundle_offering_calls(offering, False)
+
+    def _validate_open_offering_calls(self, offering):
+        self._validate_offering_calls(offering, self._asset_instance, True, is_open=True)
+        self.assertTrue(self._asset_instance.is_public)
+        self._asset_instance.save.assert_called_once_with()
+
+    def _validate_open_bundle_calls(self, offering):
+        self._validate_bundle_offering_calls(offering, True, is_open=True)
 
     def _mock_product_request(self):
         offering_validator.requests = MagicMock()
@@ -489,6 +499,16 @@ class ValidatorTestCase(TestCase):
         offering_validator.Offering.objects.filter.side_effect = None
         offering_validator.Offering.objects.filter.return_value = []
 
+    def _open_bundled(self):
+        for bundle_resp in self._bundles:
+            for bundle in bundle_resp:
+                bundle.is_open = True
+
+    def _open_existing(self):
+        offering_responses = [bund for bund in self._bundles]
+        offering_responses.append([MagicMock(id='6'), MagicMock(id='8')])
+        offering_validator.Offering.objects.filter.side_effect = offering_responses
+
     def _mixed_bundled_offerings(self):
         offering_validator.Offering.objects.filter.side_effect = [[MagicMock(id='6', is_digital=True)],
                                                                   [MagicMock(id='7', is_digital=False)]]
@@ -496,12 +516,19 @@ class ValidatorTestCase(TestCase):
     def _catalog_api_error(self):
         offering_validator.requests.get().status_code = 500
 
+    def _non_open_bundled(self):
+        for bundle_resp in self._bundles:
+            for bundle in bundle_resp:
+                bundle.is_open = False
+
     @parameterized.expand([
         ('valid_pricing', BASIC_OFFERING, _validate_single_offering_calls, None),
         ('zero_offering', ZERO_OFFERING, None, None, 'Invalid price, it must be greater than zero.'),
         ('free_offering', FREE_OFFERING, _validate_physical_offering_calls, _non_digital_offering),
         ('bundle_offering', BUNDLE_OFFERING, _validate_bundle_digital_offering_calls, None),
         ('bundle_offering_non_digital', BUNDLE_OFFERING, _validate_bundle_physical_offering_calls, _non_digital_bundle),
+        ('open_offering', OPEN_OFFERING, _validate_open_offering_calls, None),
+        ('open_bundle', OPEN_BUNDLE, _validate_open_bundle_calls, _open_bundled),
         ('missing_type', MISSING_PRICETYPE, None, None, 'Missing required field priceType in productOfferingPrice'),
         ('invalid_type', INVALID_PRICETYPE, None, None, 'Invalid priceType, it must be one time, recurring, or usage'),
         ('missing_charge_period', MISSING_PERIOD, None, None, 'Missing required field recurringChargePeriod for recurring priceType'),
@@ -514,7 +541,11 @@ class ValidatorTestCase(TestCase):
         ('bundle_missing', BUNDLE_MISSING_FIELD, None, None, 'Offering bundles must contain a bundledProductOffering field'),
         ('bundle_invalid_number', BUNDLE_MISSING_ELEMS, None, None, 'Offering bundles must contain at least two bundled offerings'),
         ('bundle_inv_bundled', BUNDLE_OFFERING, None, _invalid_bundled, 'The bundled offering 6 is not registered'),
-        ('bundle_mixed', BUNDLE_OFFERING, None, _mixed_bundled_offerings, 'Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical')
+        ('bundle_mixed', BUNDLE_OFFERING, None, _mixed_bundled_offerings, 'Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical'),
+        ('open_mixed', OPEN_MIXED, None, None, 'Open offerings cannot include price plans'),
+        ('open_multiple_offers', OPEN_OFFERING, None, _open_existing, 'Assets of open offerings cannot be monetized in other offerings'),
+        ('open_non_digital', OPEN_OFFERING, None, _non_digital_offering, 'Non digital products cannot be open'),
+        ('open_bundle_mixed', OPEN_BUNDLE, None, _non_open_bundled, 'If a bundle is open all the bundled offerings must be open')
     ])
     def test_create_offering_validation(self, name, offering, checker, side_effect, msg=None):
 
@@ -523,6 +554,11 @@ class ValidatorTestCase(TestCase):
 
         self._mock_product_request()
         self._mock_offering_bundle(offering)
+
+        # Add the extra call for open search
+        offering_responses = [bund for bund in self._bundles]
+        offering_responses.append([])
+        offering_validator.Offering.objects.filter.side_effect = offering_responses
 
         if side_effect is not None:
             side_effect(self)
@@ -623,3 +659,47 @@ class ValidatorTestCase(TestCase):
 
         test_validator(self)
 
+    def _mock_offering_update(self):
+        self._mock_validator_imports(offering_validator)
+        offering_validator.Resource.objects.filter.return_value = [self._asset_instance]
+
+        self._mock_product_request()
+
+        offering_validator.Offering = MagicMock()
+        offering_validator.Offering.objects.filter.return_value = []
+
+    def test_update_offering_validator(self):
+        self._mock_offering_update()
+
+        validator = offering_validator.OfferingValidator()
+        validator.validate('update', self._provider, BASIC_OFFERING)
+
+        # Validate calls
+        self.assertEquals(0, offering_validator.Offering.objects.filter.call_count)
+        self.assertFalse(self._asset_instance.is_public)
+        self._asset_instance.save.assert_called_once_with()
+
+    def test_update_open_offering(self):
+        self._mock_offering_update()
+
+        validator = offering_validator.OfferingValidator()
+        validator.validate('update', self._provider, OPEN_OFFERING)
+
+        # Validate calls
+        offering_validator.Offering.objects.filter.assert_called_once_with(asset=self._asset_instance)
+        self.assertTrue(self._asset_instance.is_public)
+        self._asset_instance.save.assert_called_once_with()
+
+    def test_update_open_offering_multiple_error(self):
+        self._mock_offering_update()
+
+        offering_validator.Offering.objects.filter.return_value = [MagicMock(), MagicMock()]
+        error = None
+        try:
+            validator = offering_validator.OfferingValidator()
+            validator.validate('update', self._provider, OPEN_OFFERING)
+        except Exception as e:
+            error = e
+
+        self.assertTrue(isinstance(error, ValueError))
+        self.assertEqual(unicode(error), 'Assets of open offerings cannot be monetized in other offerings')

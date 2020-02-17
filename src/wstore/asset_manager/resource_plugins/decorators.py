@@ -148,10 +148,12 @@ def on_product_offering_validation(func):
             plugin_module = load_plugin_module(asset.resource_type)
             plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
-        func(self, provider, product_offering, bundled_offerings)
+        is_open = func(self, provider, product_offering, bundled_offerings)
 
         for asset in assets:
             plugin_module.on_post_product_offering_validation(asset, product_offering)
+
+        return is_open
 
     return wrapper
 

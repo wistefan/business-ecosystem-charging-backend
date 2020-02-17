@@ -37,6 +37,7 @@ class Offering(models.Model):
     description = models.CharField(max_length=1500)
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, null=True, blank=True)
+    is_open = models.BooleanField(default=False)
     bundled_offerings = ListField()
 
 

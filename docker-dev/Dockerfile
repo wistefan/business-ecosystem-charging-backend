@@ -5,7 +5,7 @@ MAINTAINER CoNWeT Lab. Universidad Politécnica de Madrid
 RUN apt-get update && apt-get install -y --fix-missing \
     gcc git wkhtmltopdf xvfb python2.7 python-pip \
     python-dev build-essential libssl-dev libffi-dev \
-    apache2 libapache2-mod-wsgi && \
+    apache2 libapache2-mod-wsgi vim && \
     pip install sh && \
     mkdir -p business-ecosystem-charging-backend/src
 

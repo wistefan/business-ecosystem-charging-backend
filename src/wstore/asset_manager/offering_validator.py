@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2020 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -54,10 +55,28 @@ class OfferingValidator(CatalogValidator):
 
         return bundled_offerings
 
+    def _count_resource_offerings(self, asset):
+        count = 0
+        if asset is not None:
+            offerings = Offering.objects.filter(asset=asset)
+            count = len(offerings)
+        return count
+
+    def _set_asset_public_status(self, asset, is_open):
+        if is_open and len(asset.bundled_assets) > 0:
+            # If the asset is single set the is_public flag
+            raise ValueError('Product bundles cannot be published in open offerings. Create an offering bundle instead')
+
+        asset.is_public = is_open
+        asset.save()
+
     @on_product_offering_validation
     def _validate_offering_pricing(self, provider, product_offering, bundled_offerings):
+        is_open = False
+
         # Validate offering pricing fields
         if 'productOfferingPrice' in product_offering:
+
             names = []
             for price_model in product_offering['productOfferingPrice']:
 
@@ -68,6 +87,11 @@ class OfferingValidator(CatalogValidator):
                     raise ValueError('Price plans names must be unique (' + price_model['name'] + ')')
 
                 names.append(price_model['name'].lower())
+
+                # Check if the offering is an open offering
+                if price_model['name'].lower() == 'open' and (len(price_model.keys()) == 1 or (len(price_model.keys()) == 2 and 'description' in price_model)):
+                    is_open = True
+                    continue
 
                 # Validate price unit
                 if 'priceType' not in price_model:
@@ -95,6 +119,11 @@ class OfferingValidator(CatalogValidator):
                 if Decimal(price_model['price']['taxIncludedAmount']) <= Decimal("0"):
                     raise ValueError('Invalid price, it must be greater than zero.')
 
+            if is_open and len(names) > 1:
+                raise ValueError('Open offerings cannot include price plans')
+
+        return is_open
+
     def _download(self, url):
         r = requests.get(url)
 
@@ -103,8 +132,7 @@ class OfferingValidator(CatalogValidator):
 
         return r.json()
 
-    def _build_offering_model(self, provider, product_offering, bundled_offerings):
-
+    def _get_offering_asset(self, product_offering, bundled_offerings):
         asset = None
         # Check if the offering is a bundle
         if not len(bundled_offerings):
@@ -123,10 +151,36 @@ class OfferingValidator(CatalogValidator):
 
             is_digital = digital > 0
 
+        return asset, is_digital
+
+    def _validate_offering_model(self, product_offering, bundled_offerings, is_open):
+        asset, is_digital = self._get_offering_asset(product_offering, bundled_offerings)
+
+        # Open offerings only can be digital
+        if is_open and not is_digital:
+            raise ValueError('Non digital products cannot be open')
+
+        # If the offering is a bundle and is open all the bundled offerings must be open
+        if is_open and len(bundled_offerings) != len([offer for offer in bundled_offerings if offer.is_open]):
+            raise ValueError('If a bundle is open all the bundled offerings must be open')
+
+        return asset, is_digital
+
+    def _build_offering_model(self, provider, product_offering, bundled_offerings, is_open):
+        asset, is_digital = self._validate_offering_model(product_offering, bundled_offerings, is_open)
+
+        # Open products can only be included in a single offering
+        offering_count = self._count_resource_offerings(asset)
+        if is_digital and ((is_open and offering_count > 0) or (not is_open and offering_count == 1 and asset.is_public)):
+            raise ValueError('Assets of open offerings cannot be monetized in other offerings')
+
         # Check if the offering contains a description
         description = ''
         if 'description' in product_offering:
             description = product_offering['description']
+
+        if asset is not None:
+            self._set_asset_public_status(asset, is_open)
 
         Offering.objects.create(
             owner_organization=provider,
@@ -135,6 +189,7 @@ class OfferingValidator(CatalogValidator):
             version=product_offering['version'],
             is_digital=is_digital,
             asset=asset,
+            is_open=is_open,
             bundled_offerings=[offering.pk for offering in bundled_offerings]
         )
 
@@ -153,9 +208,18 @@ class OfferingValidator(CatalogValidator):
 
     def validate_creation(self, provider, product_offering):
         bundled_offerings = self._get_bundled_offerings(product_offering)
-        self._validate_offering_pricing(provider, product_offering, bundled_offerings)
-        self._build_offering_model(provider, product_offering, bundled_offerings)
+        is_open = self._validate_offering_pricing(provider, product_offering, bundled_offerings)
+        self._build_offering_model(provider, product_offering, bundled_offerings, is_open)
 
     def validate_update(self, provider, product_offering):
         bundled_offerings = self._get_bundled_offerings(product_offering)
-        self._validate_offering_pricing(provider, product_offering, bundled_offerings)
+        is_open = self._validate_offering_pricing(provider, product_offering, bundled_offerings)
+
+        asset, is_digital = self._validate_offering_model(product_offering, bundled_offerings, is_open)
+
+        # Open products can only be included in a single offering
+        if is_open and self._count_resource_offerings(asset) > 1:
+            raise ValueError('Assets of open offerings cannot be monetized in other offerings')
+
+        if asset is not None:
+            self._set_asset_public_status(asset, is_open)
