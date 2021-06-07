@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-LABEL Author="CoNWeT Lab. Universidad Politécnica de Madrid"
+LABEL MAINTAINER="Future Internet Consulting and Development Solutions S.L."
 
 RUN apt-get update && apt-get install -y --fix-missing \
     gcc git wkhtmltopdf xvfb python2.7 python-pip wget \
@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --fix-missing \
     git clone https://github.com/fdelavega/business-ecosystem-charging-backend.git && \
     pip install sh
 
-ENV VERSION feature/multiple-idp
+ENV VERSION master
 
 WORKDIR /business-ecosystem-charging-backend
 
