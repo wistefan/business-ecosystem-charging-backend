@@ -34,4 +34,4 @@ jobs:
         with:
           github-token: ${{ secrets.github_token }}
           base-path: src
-          parallel: true
+          parallel: false
