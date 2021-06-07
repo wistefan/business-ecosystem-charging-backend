@@ -30,18 +30,18 @@ function test_connection {
 }
 
 # Check that the settings files have been included
-if [ ! -f /business-ecosystem-charging-backend/src/user_settings/settings.py ]; then
+if [ ! -f /business-ecosystem-charging-backend/src/settings.py ]; then
     echo "Missing settings.py file"
     exit 1
 fi
 
-if [ ! -f /business-ecosystem-charging-backend/src/user_settings/services_settings.py ]; then
+if [ ! -f /business-ecosystem-charging-backend/src/services_settings.py ]; then
     echo "Missing services_settings.py file"
     exit 1
 fi
 
-if [ ! -f /business-ecosystem-charging-backend/src/user_settings/__init__.py ]; then
-    touch /business-ecosystem-charging-backend/src/user_settings/__init__.py
+if [ ! -f /business-ecosystem-charging-backend/src/__init__.py ]; then
+    touch /business-ecosystem-charging-backend/src/__init__.py
 fi
 
 # Create __init__.py file if not present (a volume has been bound)
@@ -53,7 +53,7 @@ fi
 # Get MongoDB host and port from settings
 
 if [ -z ${BAE_CB_MONGO_SERVER} ]; then
-    MONGO_HOST=`grep -o "'HOST':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+    MONGO_HOST=`grep -o "'HOST':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
     if [ -z ${MONGO_HOST} ]; then
         MONGO_HOST=localhost
@@ -63,7 +63,7 @@ else
 fi
 
 if [ -z ${BAE_CB_MONGO_PORT} ]; then
-    MONGO_PORT=`grep -o "'PORT':.*" ./user_settings/settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+    MONGO_PORT=`grep -o "'PORT':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
     if [ -z ${MONGO_PORT} ]; then
         MONGO_PORT=27017
@@ -76,8 +76,8 @@ test_connection "MongoDB" ${MONGO_HOST} ${MONGO_PORT}
 
 # Check that the required APIs are running
 if [ -z ${BAE_CB_CATALOG} ]; then
-    APIS_HOST=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
-    APIS_PORT=`grep "CATALOG =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+    APIS_HOST=`grep "CATALOG =.*" ./services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
+    APIS_PORT=`grep "CATALOG =.*" ./services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
 else
     APIS_HOST=`echo ${BAE_CB_CATALOG} | grep -o "://.*:" | grep -oE "[^:/]+"`
     APIS_PORT=`echo ${BAE_CB_CATALOG} | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
@@ -87,8 +87,8 @@ test_connection "APIs" ${APIS_HOST} ${APIS_PORT}
 
 # Check that the RSS is running
 if [ -z ${BAE_CB_RSS} ]; then
-    RSS_HOST=`grep "RSS =.*" ./user_settings/services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
-    RSS_PORT=`grep "RSS =.*" ./user_settings/services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
+    RSS_HOST=`grep "RSS =.*" ./services_settings.py | grep -o "://.*:" | grep -oE "[^:/]+"`
+    RSS_PORT=`grep "RSS =.*" ./services_settings.py | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
 else
     RSS_HOST=`echo ${BAE_CB_RSS} | grep -o "://.*:" | grep -oE "[^:/]+"`
     RSS_PORT=`echo ${BAE_CB_RSS} | grep -oE ":[0-9]+" | grep -oE "[^:/]+"`
@@ -126,6 +126,7 @@ while [[ ${STATUS} -ne 6  && ${I} -lt 50 ]]; do
 done
 
 echo "Starting charging server"
-service apache2 restart
+#service apache2 restart
+./manage.py runserver 0.0.0.0:8006
 
 while true; do sleep 1000; done

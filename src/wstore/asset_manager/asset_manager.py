@@ -151,19 +151,6 @@ class AssetManager:
                 if k not in metadata and 'default' in v:
                     metadata[k] = v['default']
 
-    def _check_url_conflict(self, data, current_organization):
-        # Check that the download link is not already being used
-        existing_assets = Resource.objects.filter(download_link=data['content'], provider=current_organization)
-        is_conflict = False
-        for asset in existing_assets:
-            if asset.product_id is not None:
-                is_conflict = True
-            else:
-                asset.delete()
-
-        if is_conflict:
-            raise ConflictError('The provided digital asset already exists')
-
     def _load_resource_info(self, provider, data, file_=None):
 
         if 'contentType' not in data:
@@ -186,7 +173,6 @@ class AssetManager:
         provided_as = 'FILE'
         if 'content' in data:
             if isinstance(data['content'], str) or isinstance(data['content'], unicode):
-                self._check_url_conflict(data, current_organization)
 
                 download_link = data['content']
                 provided_as = 'URL'

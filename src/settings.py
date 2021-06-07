@@ -54,6 +54,23 @@ ADMIN_ROLE = 'admin'
 PROVIDER_ROLE = 'seller'
 CUSTOMER_ROLE = 'customer'
 
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'console':{
+            'level':'DEBUG',
+            'class':'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers':['console'],
+            'propagate': True,
+            'level':'DEBUG',
+        }
+    },
+}
+
 CHARGE_PERIODS = {
     'daily': 1,  # One day
     'weekly': 7,  # One week
@@ -195,6 +212,8 @@ CLIENTS = {
 NOTIF_CERT_FILE = None
 NOTIF_CERT_KEY_FILE = None
 
+PROPAGATE_TOKEN = True
+
 from services_settings import *
 
 # =====================================
@@ -238,3 +257,7 @@ USAGE = environ.get('BAE_CB_USAGE', USAGE)
 AUTHORIZE_SERVICE = environ.get('BAE_CB_AUTHORIZE_SERVICE', AUTHORIZE_SERVICE)
 
 PAYMENT_CLIENT = CLIENTS[PAYMENT_METHOD]
+
+PROPAGATE_TOKEN = environ.get('BAE_CB_PROPAGATE_TOKEN', PROPAGATE_TOKEN)
+if isinstance(PROPAGATE_TOKEN, str) or isinstance(PROPAGATE_TOKEN, unicode):
+    PROPAGATE_TOKEN = PROPAGATE_TOKEN == 'True'

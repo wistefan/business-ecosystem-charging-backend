@@ -39,11 +39,14 @@ class CatalogValidator:
         expected_chars = {
             'asset type': [],
             'media type': [],
-            'location': []
+            'location': [],
+            'asset': []
         }
+
         asset_type = None
         media_type = None
         location = None
+        asset_id = None
 
         if 'productSpecCharacteristic' in product_spec:
             terms = []
@@ -76,8 +79,9 @@ class CatalogValidator:
                 asset_type = expected_chars['asset type'][0]
                 media_type = expected_chars['media type'][0]
                 location = expected_chars['location'][0]
+                asset_id = expected_chars['asset'][0]
 
-        return asset_type, media_type, location
+        return asset_type, media_type, location, asset_id
 
     def validate_creation(self, provider, catalog_element):
         pass

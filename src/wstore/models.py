@@ -49,6 +49,7 @@ class Organization(models.Model):
     tax_address = DictField()
     managers = ListField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
+    idp = models.CharField(null=True, blank=True, max_length=100)
 
     expenditure_limits = DictField()
 
@@ -68,7 +69,7 @@ class UserProfile(models.Model):
     complete_name = models.CharField(max_length=100)
     actor_id = models.CharField(null=True, blank=True, max_length=100)
     current_roles = ListField()
-    access_token = models.CharField(max_length=150, null=True, blank=True)
+    access_token = models.CharField(max_length=16384, null=True, blank=True)
 
     def get_current_roles(self):
         return self.current_roles

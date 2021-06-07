@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y --fix-missing \
     gcc git wkhtmltopdf xvfb python2.7 python-pip wget \
     python-dev build-essential libssl-dev libffi-dev \
     apache2 libapache2-mod-wsgi && \
-    git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git && \
+    git clone https://github.com/fdelavega/business-ecosystem-charging-backend.git && \
     pip install sh
 
-ENV VERSION master
+ENV VERSION feature/multiple-idp
 
 WORKDIR /business-ecosystem-charging-backend
 
@@ -18,18 +18,7 @@ RUN git checkout $VERSION && \
     mkdir ./src/media/bills && \
     mkdir ./src/media/assets && \
     mkdir ./src/plugins && \
-    mkdir ./src/user_settings && \
-    cp ./src/settings.py ./src/user_settings/settings.py && \
-    cp ./src/services_settings.py ./src/user_settings/services_settings.py
-
-ENV WORKSPACE=`pwd`
-
-# Install dependencies and configure system to support volume settings
-RUN ./python-dep-install.sh && \
-    echo "from user_settings.settings import *" > ./src/settings.py && \
-    echo "BASEDIR = path.dirname(path.abspath(__file__))" >> ./src/settings.py && \
-    echo "MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)" >> ./src/settings.py && \
-    echo "BILL_ROOT = path.join(MEDIA_ROOT, 'bills')" >> ./src/settings.py
+    pip install -r requirements.txt
 
 # Create volumes
 VOLUME /business-ecosystem-charging-backend/src/media/bills

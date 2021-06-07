@@ -155,6 +155,30 @@ BASIC_PRODUCT = {
                         }
                     }
                 ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
             }
         ]
     }
@@ -253,6 +277,30 @@ UPGRADE_PRODUCT = {
                         "valueType": "string",
                         "default": True,
                         "value": PRODUCT_LOCATION,
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -423,6 +471,30 @@ MISSING_MEDIA = {
                         }
                     }
                 ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
             }
         ]
     }
@@ -480,6 +552,30 @@ MISSING_TYPE = {
                         }
                     }
                 ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
             }
         ]
     }
@@ -528,6 +624,111 @@ MISSING_LOCATION = {
                         "valueType": "string",
                         "default": True,
                         "value": "Widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+MISSING_ASSET_ID = {
+    'action': 'create',
+    'product': {
+        "productSpecCharacteristic": [
+            {
+                "id": "42",
+                "name": "media type",
+                "description": "Media type of the product",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "application/x-widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset type",
+                "description": "Type of digital asset being provided",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "Widget",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Location",
+                "description": "URL pointing to the digital asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": PRODUCT_LOCATION,
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",
@@ -807,6 +1008,30 @@ INVALID_LOCATION = {
                         "valueType": "string",
                         "default": True,
                         "value": "invalid location",
+                        "unitOfMeasure": "",
+                        "valueFrom": "",
+                        "valueTo": "",
+                        "validFor": {
+                            "startDateTime": "2013-04-19T16:42:23-04:00",
+                            "endDateTime": ""
+                        }
+                    }
+                ]
+            }, {
+                "id": "34",
+                "name": "Asset",
+                "description": "ID of the asset",
+                "valueType": "string",
+                "configurable": False,
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": ""
+                },
+                "productSpecCharacteristicValue": [
+                    {
+                        "valueType": "string",
+                        "default": True,
+                        "value": "12345",
                         "unitOfMeasure": "",
                         "valueFrom": "",
                         "valueTo": "",

@@ -51,7 +51,7 @@ class URLMiddleware(object):
                 raise exceptions.ImproperlyConfigured('%s isn\'t a middleware module' % middleware_path)
             try:
                 mod = import_module(mw_module)
-            except ImportError, e:
+            except ImportError as e:
                 raise exceptions.ImproperlyConfigured('Error importing middleware %s: "%s"' % (mw_module, e))
             try:
                 mw_class = getattr(mod, mw_classname)
@@ -131,14 +131,18 @@ def get_api_user(request):
     from wstore.models import Organization, User
 
     # Get User information from the request
+    token_info = ['bearer', 'token']
     try:
-        token_info = request.META['HTTP_AUTHORIZATION'].split(' ')
+        if settings.PROPAGATE_TOKEN:
+            token_info = request.META['HTTP_AUTHORIZATION'].split(' ')
+
         nick_name = request.META['HTTP_X_NICK_NAME']
         display_name = request.META['HTTP_X_DISPLAY_NAME']
         email = request.META['HTTP_X_EMAIL']
         roles = request.META['HTTP_X_ROLES'].split(',')
         user_name = request.META['HTTP_X_ACTOR']
         external_username = request.META['HTTP_X_EXT_NAME']
+        idp = request.META['HTTP_X_IDP_ID']
     except:
         return AnonymousUser()
 
@@ -176,6 +180,7 @@ def get_api_user(request):
         org = Organization.objects.create(name=nick_name)
 
     org.private = nick_name == user_name
+    org.idp = idp
     org.save()
 
     user.userprofile.current_roles = user_roles

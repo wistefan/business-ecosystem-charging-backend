@@ -32,7 +32,7 @@ from wstore.ordering.inventory_client import InventoryClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
 from wstore.ordering.models import Order
-from wstore.asset_manager.resource_plugins.decorators import on_product_acquired, on_usage_refreshed
+from wstore.asset_manager.resource_plugins.decorators import on_product_acquired, on_product_suspended, on_usage_refreshed
 
 
 class OrderingCollection(Resource):
@@ -152,55 +152,123 @@ class InventoryCollection(Resource):
         return build_response(request, 200, 'OK')
 
 
+def validate_product_job(self, request):
+    try:
+        task = json.loads(request.body)
+    except:
+        return None, None, None, build_response(request, 400, 'The provided data is not a valid JSON object')
+
+    # Check the products to be renovated
+    if 'name' not in task or 'id' not in task or 'priceType' not in task:
+        return None, None, None, build_response(request, 400, 'Missing required field, must contain name, id  and priceType fields')
+
+    if task['priceType'].lower() not in ['recurring', 'usage']:
+        return None, None, None, build_response(request, 400, 'Invalid priceType only recurring and usage types can be renovated')
+
+    # Parse oid from product name
+    parsed_name = task['name'].split('=')
+
+    try:
+        order = Order.objects.get(order_id=parsed_name[1])
+    except:
+        return None, None, None, build_response(request, 404, 'The oid specified in the product name is not valid')
+
+    # Get contract to renovate
+    if isinstance(task['id'], int):
+        task['id'] = unicode(task['id'])
+
+    try:
+        contract = order.get_product_contract(task['id'])
+    except:
+        return None, None, None, build_response(request, 404, 'The specified product id is not valid')
+
+    return task, order, contract, None
+
+
+def process_product_payment(self, request, task, order, contract):
+    # Refresh accounting information
+    on_usage_refreshed(order, contract)
+
+    # Build charging engine
+    charging_engine = ChargingEngine(order)
+
+    redirect_url = None
+    try:
+        redirect_url = charging_engine.resolve_charging(type_=task['priceType'].lower(), related_contracts=[contract])
+    except ValueError as e:
+        return None, build_response(request, 400, unicode(e))
+    except OrderingError as e:
+        # The error might be raised because renewing a suspended product not expired
+        if unicode(e) == 'OrderingError: There is not recurring payments to renovate' and contract.suspended:
+            try:
+                on_product_acquired(order, contract)
+
+                # Change product state to active
+                contract.suspended = False
+                order.save()
+
+                inventory_client = InventoryClient()
+                inventory_client.activate_product(contract.product_id)
+            except:
+                return None, build_response(request, 400, 'The asset has failed to be activated')
+
+        else:
+            return None, build_response(request, 422, unicode(e))
+    except:
+        return None, build_response(request, 500, 'An unexpected event prevented your payment to be created')
+
+    return redirect_url, None
+
+
+class UnsubscriptionCollection(Resource):
+
+    @authentication_required
+    @supported_request_mime_types(('application/json',))
+    def create(self, request):
+        task, order, contract, error_response = validate_product_job(self, request)
+
+        if error_response is not None:
+            return error_response
+
+        # If the model is pay-per-use charge for pending payment
+        redirect_url = None
+        if task['priceType'].lower() == 'usage':
+            # The update of the product status need to be postponed if there is a pending payment
+            redirect_url, error_response = process_product_payment(self, request, task, order, contract)
+
+            if error_response is not None:
+                return error_response
+
+        response = build_response(request, 200, 'OK')
+
+        # Include redirection header if needed
+        if redirect_url is not None:
+            response['X-Redirect-URL'] = redirect_url
+        else:
+            # Suspend the product as no pending payment
+            on_product_suspended(order, contract)
+
+            contract.suspended = True
+            order.save()
+
+            client = InventoryClient()
+            client.suspend_product(contract.product_id)
+
+        return response
+
 class RenovationCollection(Resource):
 
     @authentication_required
     @supported_request_mime_types(('application/json',))
     def create(self, request):
+        task, order, contract, error_response = validate_product_job(self, request)
 
-        try:
-            task = json.loads(request.body)
-        except:
-            return build_response(request, 400, 'The provided data is not a valid JSON object')
+        if error_response is not None:
+            return error_response
 
-        # Check the products to be renovated
-        if 'name' not in task or 'id' not in task or 'priceType' not in task:
-            return build_response(request, 400, 'Missing required field, must contain name, id  and priceType fields')
-
-        # Parse oid from product name
-        parsed_name = task['name'].split('=')
-
-        try:
-            order = Order.objects.get(order_id=parsed_name[1])
-        except:
-            return build_response(request, 404, 'The oid specified in the product name is not valid')
-
-        # Get contract to renovate
-        if isinstance(task['id'], int):
-            task['id'] = unicode(task['id'])
-
-        try:
-            contract = order.get_product_contract(task['id'])
-        except:
-            return build_response(request, 404, 'The specified product id is not valid')
-
-        # Refresh accounting information
-        on_usage_refreshed(order, contract)
-
-        # Build charging engine
-        charging_engine = ChargingEngine(order)
-
-        if task['priceType'].lower() not in ['recurring', 'usage']:
-            return build_response(request, 400, 'Invalid priceType only recurring and usage types can be renovated')
-
-        try:
-            redirect_url = charging_engine.resolve_charging(type_=task['priceType'].lower(), related_contracts=[contract])
-        except ValueError as e:
-            return build_response(request, 400, unicode(e))
-        except OrderingError as e:
-            return build_response(request, 422, unicode(e))
-        except:
-            return build_response(request, 500, 'An unexpected event prevented your payment to be created')
+        redirect_url, error_response = process_product_payment(self, request, task, order, contract)
+        if error_response is not None:
+            return error_response
 
         response = build_response(request, 200, 'OK')
 

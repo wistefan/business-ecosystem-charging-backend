@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --fix-missing \
     python-dev build-essential libssl-dev libffi-dev \
     apache2 libapache2-mod-wsgi vim && \
     pip install sh && \
+    pip install cryptography==3.2 && \
     mkdir -p business-ecosystem-charging-backend/src
 
 WORKDIR business-ecosystem-charging-backend

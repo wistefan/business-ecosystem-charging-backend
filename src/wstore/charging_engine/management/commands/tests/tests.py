@@ -36,7 +36,7 @@ class ChargesDaemonTestCase(TestCase):
     def setUp(self):
         # Mock datetime
         pending_charges_daemon.datetime = MagicMock()
-        pending_charges_daemon.datetime.utcnow.return_value = datetime(2016, 02, 8)
+        pending_charges_daemon.datetime.utcnow.return_value = datetime(2016, 2, 8)
 
         # Mock inventory client
         pending_charges_daemon.InventoryClient = MagicMock()
@@ -107,23 +107,23 @@ class ChargesDaemonTestCase(TestCase):
     def test_subscription_renovation(self):
 
         # Not expired
-        contract1 = self._build_subscription_contract(datetime(2016, 03, 01), '1')
+        contract1 = self._build_subscription_contract(datetime(2016, 3, 1), '1')
 
         # About to expire
-        contract2 = self._build_subscription_contract(datetime(2016, 02, 10), '2')
+        contract2 = self._build_subscription_contract(datetime(2016, 2, 10), '2')
 
         # Expired
-        contract3 = self._build_subscription_contract(datetime(2016, 01, 31), '3')
+        contract3 = self._build_subscription_contract(datetime(2016, 1, 31), '3')
 
         self._test_charging_daemon([contract1, contract2, contract3])
 
     def test_usage_renovation(self):
 
         # Not expired
-        contract1 = self._build_usage_contract(datetime(2016, 03, 01), '1')
+        contract1 = self._build_usage_contract(datetime(2016, 3, 1), '1')
 
         # About to expire
-        contract2 = self._build_usage_contract(datetime(2016, 01, 11), '2')
+        contract2 = self._build_usage_contract(datetime(2016, 1, 11), '2')
 
         # Expired
         contract3 = self._build_usage_contract(datetime(2015, 12, 31), '3')

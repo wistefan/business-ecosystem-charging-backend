@@ -50,6 +50,7 @@ urlpatterns = patterns('',
     url(r'^charging/api/orderManagement/orders/refund/?$', charging_views.PayPalRefund(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/products/?$', ordering_views.InventoryCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/products/renewJob/?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
+    url(r'^charging/api/orderManagement/products/unsubscribeJob/?$', ordering_views.UnsubscriptionCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/accounting/?$', accounting_views.ServiceRecordCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/accounting/refresh/?$', accounting_views.SDRRefreshCollection(permitted_methods=('POST',))),
     url(r'^charging/api/reportManagement/created/?$', reports_views.ReportReceiver(permitted_methods=('POST',)))

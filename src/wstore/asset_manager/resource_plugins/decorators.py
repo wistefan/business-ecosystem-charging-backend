@@ -53,7 +53,7 @@ def load_plugin_module(asset_t):
 def on_product_spec_validation(func):
 
     @wraps(func)
-    def wrapper(self, provider, asset_t, media_type, url):
+    def wrapper(self, provider, asset_t, media_type, url, asset_id):
 
         plugin_module = load_plugin_module(asset_t)
 
@@ -61,7 +61,7 @@ def on_product_spec_validation(func):
         plugin_module.on_pre_product_spec_validation(provider, asset_t, media_type, url)
 
         # Call method
-        asset = func(self, provider, asset_t, media_type, url)
+        asset = func(self, provider, asset_t, media_type, url, asset_id)
 
         # On post validation
         plugin_module.on_post_product_spec_validation(provider, asset)

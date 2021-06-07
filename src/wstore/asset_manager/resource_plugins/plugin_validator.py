@@ -189,4 +189,17 @@ class PluginValidator():
             else:
                 reason = self._validate_plugin_form(plugin_info['form'])
 
+        if reason is None and 'form_order' in plugin_info:
+            if not isinstance(plugin_info['form_order'], list):
+                return 'Invalid format in formOrder'
+
+            if not 'form' in plugin_info:
+                return 'Form Order cannot be specified without a form'
+
+            # Check if all the form fields are included
+            matched_keys = [key for key in plugin_info['form'].keys() if key in plugin_info['form_order']]
+
+            if len(plugin_info['form'].keys()) != len(plugin_info['form_order']) or len(matched_keys) != len(plugin_info['form_order']):
+                reason = 'If form order is provided all form keys need to be provided'
+
         return reason

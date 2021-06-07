@@ -196,9 +196,9 @@ class CDRGenerationTestCase(TestCase):
         cdr_manager.RSSAdaptorThread().start.assert_called_once_with()
 
 
-TIMESTAMP = datetime(2016, 06, 21, 10, 0, 0)
-RENEW_DATE = datetime(2016, 07, 21, 10, 0, 0)
-START_DATE = datetime(2016, 05, 21, 10, 0, 0)
+TIMESTAMP = datetime(2016, 6, 21, 10, 0, 0)
+RENEW_DATE = datetime(2016, 7, 21, 10, 0, 0)
+START_DATE = datetime(2016, 5, 21, 10, 0, 0)
 
 COMMON_CHARGE = {
     'date': TIMESTAMP.isoformat() + 'Z',

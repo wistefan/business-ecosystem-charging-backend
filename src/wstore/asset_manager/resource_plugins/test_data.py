@@ -355,3 +355,74 @@ INVALID_OVERRIDES = {
     "formats": ["FILE", "URL"],
     "overrides": ["INVALID"]
 }
+
+INVALID_FORM_ORDER_FORMAT = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "overrides": [],
+    "form_order": {},
+    "form": {
+        "name": {
+            "type": "text",
+            "placeholder": "Name",
+            "default": "Default name",
+            "label": "Name",
+            "mandatory": True
+        }
+    }
+}
+
+INVALID_FORM_ORDER_NO_FORM = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "overrides": [],
+    "form_order": []
+}
+
+INVALID_FORM_ORDER_MISSING_KEY = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "overrides": [],
+    "form_order": [],
+    "form": {
+        "name": {
+            "type": "text",
+            "placeholder": "Name",
+            "default": "Default name",
+            "label": "Name",
+            "mandatory": True
+        }
+    }
+}
+
+INVALID_FORM_ORDER_DIFFERENT_KEY = {
+    "name": "plugin name",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "media_types": ["text/plain"],
+    "formats": ["FILE", "URL"],
+    "overrides": [],
+    "form_order": ["version"],
+    "form": {
+        "name": {
+            "type": "text",
+            "placeholder": "Name",
+            "default": "Default name",
+            "label": "Name",
+            "mandatory": True
+        }
+    }
+}

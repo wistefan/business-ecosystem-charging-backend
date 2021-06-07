@@ -211,7 +211,7 @@ class ChargingEngineTestCase(TestCase):
             'description': 'Offering 2 description',
             'offering_pk': '222222',
             'item_id': '2',
-            'pricing': self._get_subscription(datetime(2015, 10, 01, 10, 10)),
+            'pricing': self._get_subscription(datetime(2015, 10, 1, 10, 10)),
             'product_id': 'product2'
         })
         contract3 = self._mock_contract({
@@ -237,7 +237,7 @@ class ChargingEngineTestCase(TestCase):
                     'unit': 'monthly',
                     'tax_rate': '20.00',
                     'duty_free': '10.00',
-                    'renovation_date': datetime(2015, 10, 01, 10, 10)
+                    'renovation_date': datetime(2015, 10, 1, 10, 10)
                 }]
             },
             'item': '2'
@@ -704,7 +704,7 @@ class ChargingEngineTestCase(TestCase):
         return self._set_alterations('single_payment', 'one time'), []
 
     def _set_renovation_alteration_contracts(self):
-        return self._set_alterations('subscription', 'monthly', datetime(2015, 10, 01, 10, 10)), []
+        return self._set_alterations('subscription', 'monthly', datetime(2015, 10, 1, 10, 10)), []
 
     @parameterized.expand([
         ('initial', _set_initial_contracts),

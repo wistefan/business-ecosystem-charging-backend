@@ -72,6 +72,7 @@ class ResourcePlugin(models.Model):
     version = models.CharField(max_length=50)
     author = models.CharField(max_length=100)
     form = DictField()
+    form_order = ListField(models.CharField(max_length=100))
     module = models.CharField(max_length=200)
     media_types = ListField(models.CharField(max_length=100))
     formats = ListField(models.CharField(max_length=10))

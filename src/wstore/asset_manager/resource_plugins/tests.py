@@ -249,10 +249,13 @@ class PluginValidatorTestCase(TestCase):
         ('invalid_form_select_inv_opt', INVALID_FORM_SELECT_INV_OPT, '\nInvalid form field: Missing or invalid options in select field'),
         ('invalid_form_select_empty_opt', INVALID_FORM_SELECT_EMPTY_OPT, '\nInvalid form field: Missing or invalid options in select field'),
         ('invalid_form_select_inv_opt_val', INVALID_FORM_SELECT_INV_OPT_VAL, '\nInvalid form field: Invalid option in select field, wrong option type or missing field'),
-        #('invalid_form_select_inv_opt_val2', INVALID_FORM_SELECT_INV_OPT_VAL2, '\nInvalid form field: Invalid option in select field, wrong option type or missing field' +
         ('invalid_form_select_inv_opt_val2', INVALID_FORM_SELECT_INV_OPT_VAL2, '\nInvalid form field: Invalid option in select field, wrong option type or missing field' + 
             '\nInvalid form field: text field in select entry must be an string'),
-        ('invalid_overrides', INVALID_OVERRIDES, 'Override values should be one of: NAME, VERSION and OPEN')
+        ('invalid_overrides', INVALID_OVERRIDES, 'Override values should be one of: NAME, VERSION and OPEN'),
+        ('invalid_form_order_format', INVALID_FORM_ORDER_FORMAT, 'Invalid format in formOrder'),
+        ('invalid_form_order_no_form', INVALID_FORM_ORDER_NO_FORM, 'Form Order cannot be specified without a form'),
+        ('invalid_form_order_missing_key', INVALID_FORM_ORDER_MISSING_KEY, 'If form order is provided all form keys need to be provided'),
+        ('invalid_form_order_different_key', INVALID_FORM_ORDER_DIFFERENT_KEY, 'If form order is provided all form keys need to be provided')
     ])
     def test_plugin_info_validation(self, name, plugin_info, validation_msg=None):
 

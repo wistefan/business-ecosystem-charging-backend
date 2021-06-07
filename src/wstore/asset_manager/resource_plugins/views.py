@@ -43,7 +43,8 @@ def get_plugin_info(plugin):
         'version': plugin.version,
         'mediaTypes': plugin.media_types,
         'formats': plugin.formats,
-        'overrides': plugin.overrides
+        'overrides': plugin.overrides,
+        'formOrder': plugin.form_order
     }
     if plugin.form:
         plugin_info['form'] = plugin.form

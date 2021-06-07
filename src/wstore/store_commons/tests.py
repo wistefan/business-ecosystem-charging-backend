@@ -34,7 +34,7 @@ from wstore.store_commons.utils.url import is_valid_url
 __test__ = False
 
 
-@override_settings(ADMIN_ROLE='provider', PROVIDER_ROLE='seller', CUSTOMER_ROLE='customer')
+@override_settings(ADMIN_ROLE='provider', PROVIDER_ROLE='seller', CUSTOMER_ROLE='customer', PROPAGATE_TOKEN=True)
 class AuthenticationMiddlewareTestCase(TestCase):
 
     tags = ('middleware', )
@@ -99,6 +99,7 @@ class AuthenticationMiddlewareTestCase(TestCase):
         self.request.META['HTTP_AUTHORIZATION'] = 'Bearer 1234567890abcdf'
         self.request.META['HTTP_X_EMAIL'] = 'user@email.com'
         self.request.META['HTTP_X_EXT_NAME'] = 'user'
+        self.request.META['HTTP_X_IDP_ID'] = 'local'
 
         if side_effect is not None:
             side_effect(self)
@@ -126,12 +127,31 @@ class AuthenticationMiddlewareTestCase(TestCase):
             self.assertEquals(expected_roles, self._user_inst.userprofile.current_roles)
             self.assertEquals(self._org_instance, self._user_inst.userprofile.current_organization)
 
+            self.assertEqual('local', self._org_instance.idp)
+
             self._org_instance.save.assert_called_once_with()
             self._user_inst.userprofile.save.assert_called_once_with()
             self._user_inst.save.assert_called_once_with()
 
         else:
             self.assertEquals(AnonymousUser(), user)
+
+    @override_settings(ADMIN_ROLE='provider', PROVIDER_ROLE='seller', CUSTOMER_ROLE='customer', PROPAGATE_TOKEN=False)
+    def test_get_api_user_no_token(self):
+        self.request.META = {
+            'HTTP_X_NICK_NAME': '000000000000023',
+            'HTTP_X_DISPLAY_NAME': 'Test Org',
+            'HTTP_X_ACTOR': 'test-user',
+            'HTTP_X_ROLES': 'customer',
+            'HTTP_X_EMAIL': 'org@email.com',
+            'HTTP_X_EXT_NAME': '',
+            'HTTP_X_IDP_ID': 'local'
+        }
+
+        user = middleware.get_api_user(self.request)
+
+        self.assertEquals(self._user_inst, user)
+        self.assertEquals('token', self._user_inst.userprofile.access_token)
 
     def test_get_api_user_org(self):
         self.request.META = {
@@ -141,7 +161,8 @@ class AuthenticationMiddlewareTestCase(TestCase):
             'HTTP_X_ROLES': 'customer',
             'HTTP_AUTHORIZATION': 'Bearer 1234567890abcdf',
             'HTTP_X_EMAIL': 'org@email.com',
-            'HTTP_X_EXT_NAME': ''
+            'HTTP_X_EXT_NAME': '',
+            'HTTP_X_IDP_ID': 'local'
         }
         self._org_model.objects.get.side_effect = Exception('Not found')
 
@@ -154,6 +175,8 @@ class AuthenticationMiddlewareTestCase(TestCase):
         self.assertEquals(self._org_instance, self._user_inst.userprofile.current_organization)
 
         self.assertFalse(self._org_instance.private)
+        self.assertEqual('local', self._org_instance.idp)
+
         self._org_instance.save.assert_called_once_with()
         self._user_inst.userprofile.save.assert_called_once_with()
 

@@ -158,7 +158,7 @@ class InventoryCollectionTestCase(TestCase):
 
     tags = ('inventory', 'inventory-view')
 
-    _ren_date = datetime(2016, 06, 01)
+    _ren_date = datetime(2016, 6, 1)
 
     def _initial_charge(self):
         self.contract.charges = [MagicMock()]

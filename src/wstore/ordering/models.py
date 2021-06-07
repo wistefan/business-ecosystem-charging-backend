@@ -69,6 +69,7 @@ class Contract(models.Model):
     # Revenue sharing product class
     revenue_class = models.CharField(max_length=15, blank=True, null=True)
 
+    suspended = models.BooleanField(default=False)
     terminated = models.BooleanField(default=False)
 
 

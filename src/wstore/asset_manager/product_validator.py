@@ -65,13 +65,19 @@ class ProductValidator(CatalogValidator):
             raise ProductError('It is not allowed to create products with public assets')
 
     @on_product_spec_validation
-    def _validate_product(self, provider, asset_t, media_type, url):
+    def _validate_product(self, provider, asset_t, media_type, url, asset_id):
 
         asset_type, assets = self._get_asset_resouces(asset_t, url)
 
         if len(assets):
             # The asset is already registered
-            asset = assets[0]
+            asset = None
+            for url_asset in assets:
+                if url_asset.id == asset_id:
+                    asset = url_asset
+                    break
+            else:
+                raise ProductError('The URL specified in the location characteristic does not point to a valid digital asset')
 
             if asset.product_id is not None:
                 raise ConflictError('There is already an existing product specification defined for the given digital asset')
@@ -150,12 +156,12 @@ class ProductValidator(CatalogValidator):
     @rollback()
     def attach_info(self, provider, product_spec):
         # Get the digital asset
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         asset = None
         if is_digital:
-            asset = Resource.objects.get(download_link=url)
+            asset = Resource.objects.get(id=asset_id)
 
         elif product_spec['isBundle']:
             # Get the list of bundles pending to be attached of the given provider
@@ -219,7 +225,7 @@ class ProductValidator(CatalogValidator):
         return asset, lock
 
     def attach_upgrade(self, provider, product_spec):
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
@@ -234,7 +240,7 @@ class ProductValidator(CatalogValidator):
 
         if 'version' in product_spec and 'productSpecCharacteristic' in product_spec:
             # Extract product needed characteristics
-            asset_t, media_type, url = self.parse_characteristics(product_spec)
+            asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
@@ -259,7 +265,7 @@ class ProductValidator(CatalogValidator):
                 lock.unlock_document()
 
     def _rollback_handler(self, provider, product_spec, rollback_method):
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
@@ -286,7 +292,7 @@ class ProductValidator(CatalogValidator):
     @rollback()
     def validate_creation(self, provider, product_spec):
         # Extract product needed characteristics
-        asset_t, media_type, url = self.parse_characteristics(product_spec)
+        asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         # Product spec bundles are intended for creating composed products, it cannot contain its own asset
@@ -295,7 +301,7 @@ class ProductValidator(CatalogValidator):
 
         if not product_spec['isBundle'] and is_digital:
             # Process the new digital product
-            self._validate_product(provider, asset_t, media_type, url)
+            self._validate_product(provider, asset_t, media_type, url, asset_id)
 
         elif product_spec['isBundle'] and not is_digital:
             # The product bundle may contain digital products already registered

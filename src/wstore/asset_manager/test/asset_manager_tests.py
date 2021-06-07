@@ -361,7 +361,6 @@ class UploadAssetTestCase(TestCase):
         }, am.rollback_logger)
 
         # Check calls
-        asset_manager.Resource.objects.filter.assert_called_once_with(download_link=self.LINK, provider=self._user.userprofile.current_organization)
         asset_manager.ResourcePlugin.objects.filter.assert_called_once_with(name='service')
 
         # Check resource creation
@@ -376,29 +375,6 @@ class UploadAssetTestCase(TestCase):
             is_public=False,
             meta_info=exp_meta
         )
-
-    def test_upload_asset_pending(self):
-        content = deepcopy(self.LINK_CONTENT)
-        content['metadata'] = self.BASIC_META
-
-        self._mock_resource_type(self.BASIC_FORM)
-
-        am = asset_manager.AssetManager()
-        am.rollback_logger = {
-            'files': [],
-            'models': []
-        }
-
-        assets = [MagicMock(product_id=None), MagicMock(product_id=None)]
-        asset_manager.Resource.objects.filter.return_value = assets
-        am.upload_asset(self._user, content)
-
-        # Check calls
-        asset_manager.Resource.objects.filter.assert_called_once_with(
-            download_link=self.LINK, provider=self._user.userprofile.current_organization)
-
-        assets[0].delete.assert_called_once_with()
-        assets[1].delete.assert_called_once_with()
 
     def _existing_asset(self):
         asset_manager.Resource.objects.filter.return_value = [MagicMock(product_id='1')]
@@ -421,7 +397,6 @@ class UploadAssetTestCase(TestCase):
         )]
 
     @parameterized.expand([
-        ('conflict', deepcopy(LINK_CONTENT), _existing_asset, None, {}, ConflictError, 'The provided digital asset already exists'),
         ('invalid_url', {
             'contentType': 'application/json',
             'resourceType': 'service',

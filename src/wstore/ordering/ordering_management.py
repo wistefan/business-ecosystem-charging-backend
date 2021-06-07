@@ -231,7 +231,7 @@ class OrderingManager:
 
         def _download_asset(url):
             headers = {
-                'Authorization': 'Bearer ' + self._customer.userprofile.access_token
+                #'Authorization': 'Bearer ' + self._customer.userprofile.access_token
             }
 
             if not self._customer.userprofile.current_organization.private:
@@ -247,13 +247,16 @@ class OrderingManager:
         site = urlparse(settings.SITE)
 
         billing_url = urlparse(items[0]['billingAccount'][0]['href'])
-        billing_account = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, billing_url.path))
+
+        billing_local = urlparse(settings.BILLING)
+
+        billing_account = _download_asset('{}://{}{}'.format(billing_local.scheme, billing_local.netloc, billing_url.path))
 
         customer_acc_url = urlparse(billing_account['customerAccount']['href'])
-        customer_account = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, customer_acc_url.path))
+        customer_account = _download_asset('{}://{}{}'.format(billing_local.scheme, billing_local.netloc, customer_acc_url.path))
 
         customer_url = urlparse(customer_account['customer']['href'])
-        customer = _download_asset('{}://{}{}'.format(site.scheme, site.netloc, customer_url.path))
+        customer = _download_asset('{}://{}{}'.format(billing_local.scheme, billing_local.netloc, customer_url.path))
 
         postal_addresses = [contactMedium for contactMedium in customer['contactMedium'] if contactMedium['type'] == 'PostalAddress']
 

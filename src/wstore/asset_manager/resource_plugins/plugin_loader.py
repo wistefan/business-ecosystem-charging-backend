@@ -132,6 +132,7 @@ class PluginLoader(object):
             formats=json_info['formats'],
             media_types=json_info.get('media_types', []),
             form=json_info.get('form', {}),
+            form_order=json_info.get('form_order', []),
             overrides=json_info.get('overrides', []),
             pull_accounting=json_info.get('pull_accounting', False)
         )
