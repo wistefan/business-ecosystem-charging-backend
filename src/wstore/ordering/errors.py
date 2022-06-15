@@ -18,14 +18,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 
 class OrderingError(Exception):
     def __init__(self, msg):
         self.value = msg
 
-    def __unicode__(self):
+    def __str__(self):
         return 'OrderingError: ' + self.value
 
 
@@ -33,7 +31,7 @@ class PaymentError(Exception):
     def __init__(self, msg):
         self.value = msg
 
-    def __unicode__(self):
+    def __str__(self):
         return 'PaymentError: ' + self.value
 
 
@@ -42,5 +40,5 @@ class PayoutError(Exception):
         super(PayoutError, self).__init__(msg)
         self.value = msg
 
-    def __unicode__(self):
+    def __str__(self):
         return 'PayoutError: ' + self.value

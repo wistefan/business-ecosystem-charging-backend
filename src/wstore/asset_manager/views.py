@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 import json
 
 from django.http import HttpResponse
@@ -57,7 +55,7 @@ class AssetCollection(Resource):
             pagination = None
 
         if user is None:
-            if request.user.is_anonymous():
+            if request.user.is_anonymous:
                 return build_response(request, 401, 'Authentication required')
             user = request.user.userprofile
         else:
@@ -65,15 +63,15 @@ class AssetCollection(Resource):
                 user_search = User.objects.get(username=user)
                 user = UserProfile.objects.get(user=user_search)
             except Exception as e:
-                return build_response(request, 404, "User {} does not exist, error: {}".format(user, unicode(e)))
+                return build_response(request, 404, "User {} does not exist, error: {}".format(user, str(e)))
 
         try:
             asset_manager = AssetManager()
             response = asset_manager.get_provider_assets_info(user, pagination=pagination)
         except Exception as e:
-            return build_response(request, 400, unicode(e))
+            return build_response(request, 400, str(e))
 
-        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
+        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
 
 
 class AssetEntry(Resource):
@@ -90,13 +88,13 @@ class AssetEntry(Resource):
             asset_manager = AssetManager()
             response = asset_manager.get_asset_info(asset_id)
         except ObjectDoesNotExist as e:
-            return build_response(request, 404, unicode(e))
+            return build_response(request, 404, str(e))
         except PermissionDenied as e:
-            return build_response(request, 403, unicode(e))
+            return build_response(request, 403, str(e))
         except:
             return build_response(request, 500, 'An unexpected error occurred')
 
-        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
+        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
 
 
 class AssetEntryFromProduct(Resource):
@@ -112,11 +110,11 @@ class AssetEntryFromProduct(Resource):
             asset_manager = AssetManager()
             response = asset_manager.get_product_assets(product_id)
         except PermissionDenied as e:
-            return build_response(request, 403, unicode(e))
+            return build_response(request, 403, str(e))
         except:
             return build_response(request, 500, 'An unexpected error occurred')
 
-        return HttpResponse(json.dumps(response), status=200, mimetype='application/json; charset=utf-8')
+        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
 
 
 def _manage_digital_asset(request, manager):
@@ -130,15 +128,15 @@ def _manage_digital_asset(request, manager):
     try:
         resource, data = manager(request, user, content_type)
     except ValueError as e:
-        return build_response(request, 422, unicode(e))
+        return build_response(request, 422, str(e))
     except ConflictError as e:
-        return build_response(request, 409, unicode(e))
+        return build_response(request, 409, str(e))
     except ObjectDoesNotExist as e:
-        return build_response(request, 404, unicode(e))
+        return build_response(request, 404, str(e))
     except PermissionDenied as e:
-        return build_response(request, 403, unicode(e))
+        return build_response(request, 403, str(e))
     except Exception as e:
-        return build_response(request, 400, unicode(e))
+        return build_response(request, 400, str(e))
 
     location = resource.get_url()
 
@@ -146,9 +144,9 @@ def _manage_digital_asset(request, manager):
     response = HttpResponse(json.dumps({
         'content': location,
         'contentType': data['contentType'],
-        'id': resource.pk,
+        'id': str(resource.pk),
         'href': resource.get_uri()
-    }), status=200, mimetype='application/json; charset=utf-8')
+    }), status=200, content_type='application/json; charset=utf-8')
 
     response['Location'] = location
     return response
@@ -230,15 +228,15 @@ def _validate_catalog_element(request, element, validator):
     try:
         validator.validate(data['action'], user.userprofile.current_organization, data[element])
     except ValueError as e:
-        return build_response(request, 400, unicode(e))
+        return build_response(request, 400, str(e))
     except ProductError as e:
-        return build_response(request, 400, unicode(e))
+        return build_response(request, 400, str(e))
     except ConflictError as e:
-        return build_response(request, 409, unicode(e))
+        return build_response(request, 409, str(e))
     except PluginError as e:
-        return build_response(request, 422, unicode(e))
+        return build_response(request, 422, str(e))
     except PermissionDenied as e:
-        return build_response(request, 403, unicode(e))
+        return build_response(request, 403, str(e))
     except:
         return build_response(request, 500, 'An unexpected error has occurred')
 

@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from datetime import datetime
 
@@ -86,7 +85,7 @@ class ChargesDaemonTestCase(TestCase):
         }
 
         order = MagicMock()
-        order.contracts = [contract1] + contracts
+        order.get_contracts.return_value = [contract1] + contracts
         pending_charges_daemon.Order.objects.all.return_value = [order]
 
         # Execute commands

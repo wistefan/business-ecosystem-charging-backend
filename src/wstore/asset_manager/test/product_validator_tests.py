@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,10 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
+from bson import ObjectId
+from importlib import reload
 from mock import MagicMock, call
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.core.exceptions import PermissionDenied
 from django.test.testcases import TestCase
@@ -49,7 +51,7 @@ class ValidatorTestCase(TestCase):
         self._asset_instance.provider = self._provider
         self._asset_instance.product_id = None
         self._asset_instance.is_public = False
-        self._asset_instance.id = '12345'
+        self._asset_instance.pk = ObjectId('61004aba5e05acc115f022f0')
 
         module.Resource.objects.filter.return_value = [self._asset_instance]
         module.Resource.objects.get.return_value = self._asset_instance
@@ -150,6 +152,7 @@ class ValidatorTestCase(TestCase):
     def _high_asset_version(self):
         self._set_asset_params()
         self._asset_instance.old_versions = [MagicMock(version='3.0')]
+        self._asset_instance.resource_path = ''
 
     @parameterized.expand([
         ('invalid_action', INVALID_ACTION, None, ValueError, 'The provided action (invalid) is not valid. Allowed values are create, attach, update, upgrade, and delete'),
@@ -190,7 +193,7 @@ class ValidatorTestCase(TestCase):
             error = e
 
         self.assertTrue(isinstance(error, err_type))
-        self.assertEquals(err_msg, unicode(error))
+        self.assertEquals(err_msg, str(error))
 
     def _mock_upgrading_asset(self, version):
         self._asset_instance.state = 'upgrading'
@@ -325,7 +328,7 @@ class ValidatorTestCase(TestCase):
         except ProductError as e:
             error = e
 
-        self.assertEquals(msg, unicode(error))
+        self.assertEquals(msg, str(error))
 
     def test_bundle_creation_missing_products(self):
         self._validate_bundle_creation_error({
@@ -380,7 +383,7 @@ class ValidatorTestCase(TestCase):
 
         validator = product_validator.ProductValidator()
 
-        digital_chars = ('type', 'media', 'http://location', '12345') if is_digital else (None, None, None, None)
+        digital_chars = ('type', 'media', 'http://location', '61004aba5e05acc115f022f0') if is_digital else (None, None, None, None)
         validator.parse_characteristics = MagicMock(return_value=digital_chars)
 
         validator.validate('attach', self._provider, product_spec)
@@ -388,7 +391,7 @@ class ValidatorTestCase(TestCase):
         # Check calls
         validator.parse_characteristics.assert_called_once_with(product_spec)
         if is_digital:
-            product_validator.Resource.objects.get.assert_called_once_with(id=digital_chars[3])
+            product_validator.Resource.objects.get.assert_called_once_with(pk=ObjectId(digital_chars[3]))
             self.assertEquals(0, product_validator.Resource.objects.filter.call_count)
 
         if is_bundle:
@@ -574,7 +577,7 @@ class ValidatorTestCase(TestCase):
 
         if msg is not None:
             self.assertTrue(isinstance(error, ValueError))
-            self.assertEquals(msg, unicode(error))
+            self.assertEquals(msg, str(error))
         else:
             self.assertEquals(error, None)
 
@@ -605,7 +608,7 @@ class ValidatorTestCase(TestCase):
         except ValueError as e:
             error = e
 
-        self.assertEquals('The specified offering has not been registered', unicode(error))
+        self.assertEquals('The specified offering has not been registered', str(error))
 
     def _mock_non_attached(self):
         self._asset_instance.product_id = None
@@ -613,6 +616,7 @@ class ValidatorTestCase(TestCase):
     def _mock_non_upgraded(self):
         self._asset_instance.product_id = BASIC_PRODUCT['product']['id']
         self._asset_instance.state = 'upgrading'
+        self._asset_instance.resource_path = ''
         self._asset_instance.old_versions = [MagicMock(
             version='1.0',
             content_type='type',
@@ -704,4 +708,4 @@ class ValidatorTestCase(TestCase):
             error = e
 
         self.assertTrue(isinstance(error, ValueError))
-        self.assertEqual(unicode(error), 'Assets of open offerings cannot be monetized in other offerings')
+        self.assertEqual(str(error), 'Assets of open offerings cannot be monetized in other offerings')

@@ -21,7 +21,6 @@
 import re
 import regex
 from distutils.version import StrictVersion
-from six import string_types
 
 
 def is_valid_version(version):
@@ -118,7 +117,7 @@ class Version(object):
 
     def __cmp__(self, other):
 
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             other = Version(other)
 
         if not isinstance(other, Version):

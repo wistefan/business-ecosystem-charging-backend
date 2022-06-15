@@ -18,13 +18,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-from __future__ import absolute_import
 
 from collections import namedtuple
 
 from mock import MagicMock, call
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.conf import settings
@@ -147,7 +145,7 @@ class PayoutWatcherTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'admin',
+                'X-Roles': settings.ADMIN_ROLE,
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.patch().json.assert_called_once_with()
@@ -171,7 +169,7 @@ class PayoutWatcherTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'admin',
+                'X-Roles': settings.ADMIN_ROLE,
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.patch().json.assert_not_called()
@@ -471,7 +469,7 @@ class PayoutEngineTestCase(TestCase):
             headers={
                 'content-type': 'application/json',
                 'X-Nick-Name': settings.STORE_NAME,
-                'X-Roles': 'admin',
+                'X-Roles': settings.ADMIN_ROLE,
                 'X-Email': settings.WSTOREMAIL})
 
         payout_engine.requests.get().json.assert_called_once_with()
@@ -700,9 +698,9 @@ class PayoutEngineTestCase(TestCase):
         result = engine._process_payouts(data)
 
         assert len(result) == 2
-        expected_usd = [{'amount': {'currency': 'USD', 'value': '20.00'}, 'sender_item_id': '2_10', 'recipient_type': 'EMAIL', 'receiver': createMail(2)}]
-        expected_eur = [{'amount': {'currency': 'EUR', 'value': '10.00'}, 'sender_item_id': '1_11', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}]
-        engine.paypal.batch_payout.assert_has_calls([call(expected_usd), call(expected_eur)])
+        expected_eur = [{'amount': {'currency': 'EUR', 'value': '10.00'}, 'sender_item_id': '1_10', 'recipient_type': 'EMAIL', 'receiver': createMail(1)}]
+        expected_usd = [{'amount': {'currency': 'USD', 'value': '20.00'}, 'sender_item_id': '2_11', 'recipient_type': 'EMAIL', 'receiver': createMail(2)}]
+        engine.paypal.batch_payout.assert_has_calls([call(expected_eur), call(expected_usd)])
 
         assert payout_engine.Context.objects.all()[0].payouts_n == 12
 

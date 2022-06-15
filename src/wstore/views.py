@@ -18,16 +18,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 import os
+from bson.objectid import ObjectId
 
 from django.conf import settings
 from django.utils.encoding import smart_str
 from django.views.static import serve
 from django.http import HttpResponse
 
-from store_commons.utils.http import build_response
+from wstore.store_commons.utils.http import build_response
 from wstore.store_commons.resource import Resource as API_Resource
 
 from wstore.models import Resource, Organization
@@ -80,12 +79,12 @@ class ServeMedia(API_Resource):
                 # Check if the user has acquired the asset
                 acquired_offerings = user.userprofile.current_organization.acquired_offerings
 
-                for offering in [Offering.objects.get(pk=off) for off in acquired_offerings]:
+                for offering in [Offering.objects.get(pk=ObjectId(off)) for off in acquired_offerings]:
                     # Process the offering in order to extract all the offering assets
                     offering_assets = []
                     if len(offering.bundled_offerings) > 0:
-                        offering_assets = [Offering.objects.get(pk=off).asset
-                                           for off in offering.bundled_offerings if Offering.objects.get(pk=off).is_digital]
+                        offering_assets = [Offering.objects.get(pk=ObjectId(off)).asset
+                                           for off in offering.bundled_offerings if Offering.objects.get(pk=ObjectId(off)).is_digital]
                     elif offering.is_digital:
                         offering_assets = [offering.asset]
 

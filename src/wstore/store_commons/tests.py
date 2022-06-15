@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,11 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from bson import ObjectId
+from importlib import reload
 from mock import MagicMock, call
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.contrib.auth.models import AnonymousUser
 from django.test.utils import override_settings
@@ -104,7 +105,15 @@ class AuthenticationMiddlewareTestCase(TestCase):
         if side_effect is not None:
             side_effect(self)
 
-        user = middleware.get_api_user(self.request)
+        response = MagicMock()
+        def get_response(request):
+            return response
+
+        middleware_class = middleware.AuthenticationMiddleware(get_response)
+        resp = middleware_class(self.request)
+        user = self.request.user
+
+        self.assertEqual(response, resp)
 
         if not anonymous:
             self.assertEquals(self._user_inst, user)
@@ -148,7 +157,13 @@ class AuthenticationMiddlewareTestCase(TestCase):
             'HTTP_X_IDP_ID': 'local'
         }
 
-        user = middleware.get_api_user(self.request)
+        response = MagicMock()
+        def get_response(request):
+            return response
+
+        middleware_class = middleware.AuthenticationMiddleware(get_response)
+        resp = middleware_class(self.request)
+        user = self.request.user
 
         self.assertEquals(self._user_inst, user)
         self.assertEquals('token', self._user_inst.userprofile.access_token)
@@ -166,7 +181,13 @@ class AuthenticationMiddlewareTestCase(TestCase):
         }
         self._org_model.objects.get.side_effect = Exception('Not found')
 
-        user = middleware.get_api_user(self.request)
+        response = MagicMock()
+        def get_response(request):
+            return response
+
+        middleware_class = middleware.AuthenticationMiddleware(get_response)
+        resp = middleware_class(self.request)
+        user = self.request.user
 
         self.assertEquals(self._user_inst, user)
         self._org_model.objects.create.assert_called_once_with(name='000000000000023')
@@ -185,6 +206,13 @@ class AuthenticationMiddlewareTestCase(TestCase):
 class RollbackTestCase(TestCase):
 
     tags = ('rollback', )
+
+    def setUp(self):
+        self._old_exists = rollback.os.path.exists
+        rollback.os.path.exists = MagicMock()
+
+    def tearDown(self):
+        rollback.os.path.exists = self._old_exists
 
     def test_rollback_correct(self):
         called_method = MagicMock()
@@ -231,7 +259,7 @@ class RollbackTestCase(TestCase):
             wrapper(wrapper_ref)
         except ValueError as e:
             error = True
-            self.assertEquals('Value error', unicode(e))
+            self.assertEquals('Value error', str(e))
 
         self.assertTrue(error)
         rollback.os.remove.assert_called_once_with('/home/test/testfile.pdf')
@@ -329,8 +357,8 @@ class DocumentLockTestCase(TestCase):
 
         # Check database calls
         self.assertEquals([
-            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}}),
-            call({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: True}})
+            call({'_id': self._id}, {'$set': {self._lock_id: True}}),
+            call({'_id': self._id}, {'$set': {self._lock_id: True}})
         ], self._connection[self._collection].find_one_and_update.call_args_list)
 
     def test_unlock_document(self):
@@ -338,7 +366,7 @@ class DocumentLockTestCase(TestCase):
         lock.unlock_document()
 
         # Check database calls
-        self._connection[self._collection].find_one_and_update.assert_called_once_with({'_id': ObjectId(self._id)}, {'$set': {self._lock_id: False}})
+        self._connection[self._collection].find_one_and_update.assert_called_once_with({'_id': self._id}, {'$set': {self._lock_id: False}})
 
 
 class URLUtilsTestCase(TestCase):
@@ -362,9 +390,6 @@ class URLUtilsTestCase(TestCase):
 
     def test_invalid_characters(self):
         self.assertFalse(is_valid_url("http://data.source.commy/path a"))
-
-    def test_valid_absolute_url_bytes(self):
-        self.assertTrue(is_valid_url(b"http://data.source.commy/path"))
 
     def test_valid_absolute_url_http(self):
         self.assertTrue(is_valid_url("http://data.source.commy/path"))

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -19,11 +20,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import unicode_literals
-
 from bson import ObjectId
 from mock import MagicMock, call, ANY
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.core.management import call_command
@@ -59,6 +58,8 @@ class PluginManagementTestCase(TestCase):
         module.PluginLoader = MagicMock(name="PluginLoader")
 
         self.loader_mock = MagicMock()
+        self.loader_mock.install_plugin.return_value = 'plugin_id'
+
         module.PluginLoader.return_value = self.loader_mock
 
         if side_effect is not None:
@@ -76,7 +77,7 @@ class PluginManagementTestCase(TestCase):
             checker(self)
         else:
             self.assertTrue(isinstance(error, FakeCommandError))
-            self.assertEquals(unicode(e), err_msg)
+            self.assertEquals(str(error), err_msg)
 
     @parameterized.expand([
         ('correct', ['test_plugin.zip'], _check_loaded),
@@ -196,6 +197,6 @@ class ResendUpgradeTestCase(TestCase):
         try:
             call_command('resend_upgrade')
         except CommandError as e:
-            msg = unicode(e)
+            msg = str(e)
 
         self.assertEquals('Context object is not yet created', msg)

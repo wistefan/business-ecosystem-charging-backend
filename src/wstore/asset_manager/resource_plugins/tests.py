@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,11 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import os
+from bson.objectid import ObjectId
+
+from importlib import reload
 from mock import MagicMock, call
-from nose_parameterized import parameterized
+from parameterized import parameterized
 from requests.exceptions import HTTPError
 from shutil import rmtree
 
@@ -152,7 +155,7 @@ class PluginLoaderTestCase(TestCase):
 
         else:
             self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(e), err_msg)
+            self.assertEquals(str(error), err_msg)
 
     def _plugin_in_use(self):
         plugin_loader.Resource.objects.filter.return_value = ['resource']
@@ -210,7 +213,7 @@ class PluginLoaderTestCase(TestCase):
             self.assertEquals(pull, plugin_mock.usage_called)
         else:
             self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(e), err_msg)
+            self.assertEquals(str(error), err_msg)
 
 
 class PluginValidatorTestCase(TestCase):
@@ -430,7 +433,7 @@ class PluginTestCase(TestCase):
             plugin_handler.configure_usage_spec()
         except PluginError as e:
             self.assertEquals(
-                'Plugin Error: Invalid product specification configuration, must include name and description', unicode(e))
+                'Plugin Error: Invalid product specification configuration, must include name and description', str(e))
 
     def _not_found_spec(self):
         error = HTTPError()
@@ -539,7 +542,7 @@ class PluginTestCase(TestCase):
             plugin_handler.on_usage_refresh(asset, contract, order)
         except PluginError as e:
             self.assertEquals(
-                'Plugin Error: Invalid usage record, it must include date, unit and value', unicode(e))
+                'Plugin Error: Invalid usage record, it must include date, unit and value', str(e))
 
     def test_usage_refresh_not_pull(self):
         self._model.pull_accounting = False
@@ -564,7 +567,7 @@ class DecoratorsTestCase(TestCase):
         reload(decorators)
 
     def _get_offering_mock(self, bundle_asset=False):
-        offering = MagicMock(is_digital=True)
+        offering = MagicMock(is_digital=True, pk='61004aba5e05acc115f022f0')
         asset = MagicMock(resource_type='asset')
 
         if bundle_asset:
@@ -577,19 +580,22 @@ class DecoratorsTestCase(TestCase):
 
     def test_product_acquired(self):
         # Include order and contract info
+        bundle = self._get_offering_mock()
+        bundle.bundled_offerings = ['61004aba5e05acc115f022f0', '61004aba5e05acc115f022f1', '61004aba5e05acc115f022f2']
+
         offering1 = self._get_offering_mock()
         offering2 = self._get_offering_mock()
         offering3 = self._get_offering_mock(bundle_asset=True)
 
         decorators.Offering = MagicMock()
-        decorators.Offering.objects.get.side_effect = [offering1, offering1, offering2, offering2, offering3, offering3]
+        decorators.Offering.objects.get.side_effect = [bundle, offering1, offering1, offering2, offering2, offering3, offering3]
 
         decorators.Resource = MagicMock()
         asset1 = MagicMock(resource_type='asset3')
         asset2 = MagicMock(resource_type='asset4')
         decorators.Resource.objects.get.side_effect = [asset1, asset2]
 
-        self._contract.offering.bundled_offerings = ['1', '2', '3']
+        self._contract.offering = '61004aba5e05acc115f022f0'
 
         decorators.on_product_acquired(self._order, self._contract)
 
@@ -605,19 +611,29 @@ class DecoratorsTestCase(TestCase):
             self._module.on_product_acquisition.call_args_list)
 
     def test_product_suspended(self):
-        self._contract.offering = self._get_offering_mock()
+        self._contract.offering = '61004aba5e05acc115f022f0'
+        offering = self._get_offering_mock()
+
+        decorators.Offering = MagicMock()
+        decorators.Offering.objects.get.return_value = offering
 
         decorators.on_product_suspended(self._order, self._contract)
 
+        decorators.Offering.objects.get.assert_called_once_with(pk=ObjectId('61004aba5e05acc115f022f0'))
         decorators.load_plugin_module.assert_called_once_with('asset')
         self._module.on_product_suspension.assert_called_once_with(
-            self._contract.offering.asset, self._contract, self._order)
+            offering.asset, self._contract, self._order)
 
     def test_usage_refreshed(self):
-        self._contract.offering = self._get_offering_mock()
+        self._contract.offering = '61004aba5e05acc115f022f0'
+        offering = self._get_offering_mock()
+
+        decorators.Offering = MagicMock()
+        decorators.Offering.objects.get.return_value = offering
 
         decorators.on_usage_refreshed(self._order, self._contract)
 
+        decorators.Offering.objects.get.assert_called_once_with(pk=ObjectId('61004aba5e05acc115f022f0'))
         decorators.load_plugin_module.assert_called_once_with('asset')
         self._module.on_usage_refresh.assert_called_once_with(
-            self._contract.offering.asset, self._contract, self._order)
+            offering.asset, self._contract, self._order)

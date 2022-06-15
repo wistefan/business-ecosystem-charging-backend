@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S. L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,8 +19,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from __future__ import unicode_literals
 
 from copy import deepcopy
 from requests.exceptions import HTTPError
@@ -117,7 +116,7 @@ class Plugin(object):
             try:
                 usage_client = UsageClient()
 
-                for unit, href in self._model.options['usage'].iteritems():
+                for unit, href in self._model.options['usage'].items():
                     spec_id = href.split('/')[-1]
                     usage_client.delete_usage_spec(spec_id)
             except HTTPError as e:

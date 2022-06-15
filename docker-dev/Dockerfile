@@ -1,25 +1,20 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 
-MAINTAINER CoNWeT Lab. Universidad Politécnica de Madrid
+LABEL Maintainer="Future Internet Consulting and Development Solutions S.L."
 
-RUN apt-get update && apt-get install -y --fix-missing \
-    gcc git wkhtmltopdf xvfb python2.7 python-pip \
-    python-dev build-essential libssl-dev libffi-dev \
-    apache2 libapache2-mod-wsgi vim && \
-    pip install sh && \
-    pip install cryptography==3.2 && \
-    mkdir -p business-ecosystem-charging-backend/src
+COPY requirements.txt requirements.txt
+COPY dev-requirements.txt dev-requirements.txt
 
-WORKDIR business-ecosystem-charging-backend
+RUN apt-get update
 
-COPY ./python-dep-install.sh .
-
-ENV WORKSPACE=`pwd`
-
-# Install python dependencies
-RUN ./python-dep-install.sh && \
-    echo "#!/bin/bash" > /entrypoint.sh && \
-    echo "while true; do sleep 1000; done" >> /entrypoint.sh && chmod +x /entrypoint.sh
+#RUN DEBIAN_FRONTEND="noninteractive" apt-get -y install wkhtmltopdf
+RUN apt-get -y install python3 python3-pip
+RUN apt-get -y install vim
+RUN apt-get -y install xvfb
+RUN pip3 install -r requirements.txt && pip3 install -r dev-requirements.txt
+RUN mkdir -p business-ecosystem-charging-backend/src
+RUN echo "#!/bin/bash" > /entrypoint.sh
+RUN echo "while true; do sleep 1000; done" >> /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Create volume for the software under development
 VOLUME /business-ecosystem-charging-backend/src
@@ -27,4 +22,3 @@ VOLUME /business-ecosystem-charging-backend/src
 EXPOSE 8006
 
 ENTRYPOINT ["/entrypoint.sh"]
-

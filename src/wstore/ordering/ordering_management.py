@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,13 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import re
 import requests
+from bson import ObjectId
 from decimal import Decimal
 from datetime import datetime
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from django.conf import settings
 
@@ -67,17 +68,12 @@ class OrderingManager:
             offering = Offering.objects.get(off_id=offering_id)
 
             # If the offering defines a digital product, check if the customer already owns it
-            included_offerings = [Offering.objects.get(pk=off_pk) for off_pk in offering.bundled_offerings]
+            included_offerings = [Offering.objects.get(pk=ObjectId(off_pk)) for off_pk in offering.bundled_offerings]
             included_offerings.append(offering)
 
-            def owned_digital(off):
+            for off in included_offerings:
                 if off.is_digital and off.pk in self._customer.userprofile.current_organization.acquired_offerings:
                     raise OrderingError('The customer already owns the digital product offering ' + off.name + ' with id ' + off.off_id)
-
-                return off
-
-            map(owned_digital, included_offerings)
-
         else:
             raise OrderingError('The offering ' + offering_id + ' has not been previously registered')
 
@@ -147,7 +143,7 @@ class OrderingManager:
         for off_price in offering_info['productOfferingPrice']:
 
             # Change the price to string in order to avoid problems with floats
-            product_price['price']['amount'] = unicode(product_price['price']['amount'])
+            product_price['price']['amount'] = str(product_price['price']['amount'])
 
             # Validate that all pricing fields matches
             if off_price['priceType'].lower() == product_price['priceType'].lower() and \
@@ -224,7 +220,7 @@ class OrderingManager:
             item_id=item['id'],
             pricing_model=pricing,
             revenue_class=revenue_class,
-            offering=offering
+            offering=offering.pk
         )
 
     def _get_billing_address(self, items):
@@ -276,7 +272,12 @@ class OrderingManager:
     def _process_add_items(self, items, order_id, description, terms_accepted):
 
         new_contracts = [self._build_contract(item) for item in items]
-        terms_found = [c for c in new_contracts if c.offering.asset is not None and c.offering.asset.has_terms]
+
+        terms_found = False
+        for c in new_contracts:
+            off = Offering.objects.get(pk=ObjectId(c.offering))
+            if off.asset is not None and off.asset.has_terms:
+                terms_found = True
 
         if terms_found and not terms_accepted:
             raise OrderingError('You must accept the terms and conditions of the offering to acquire it')

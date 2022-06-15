@@ -18,10 +18,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
+from bson.objectid import ObjectId
 
 from mock import MagicMock
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 
@@ -61,7 +61,7 @@ SUBS_MODEL = [{
     'tax_rate': '20',
     'duty_free': '10.00',
     'unit': 'monthly',
-    'renovation_date': unicode(TIMESTAMP)
+    'renovation_date': str(TIMESTAMP)
 }]
 
 SINGLE_PAYMENT_TRANS = {
@@ -227,7 +227,7 @@ SINGLE_PAYMENT_ALT_CONTEXT.update(BASIC_ALTERATIONS)
 SUBSCRIPTION_CONTEXT = {
     'exists_single': False,
     'exists_subs': True,
-    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', str(TIMESTAMP))]
 }
 SUBSCRIPTION_CONTEXT.update(COMMON_CONTEXT)
 SUBSCRIPTION_CONTEXT.update(BASIC_PRICES)
@@ -250,7 +250,7 @@ SUBSCRIPTION_ALTERATIONS = {
 SUBSCRIPTION_ALT_CONTEXT = {
     # 'exists_single': False,
     # 'exists_subs': True,
-    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', str(TIMESTAMP))]
 }
 
 SUBSCRIPTION_ALT_CONTEXT.update(COMMON_CONTEXT)
@@ -260,7 +260,7 @@ SUBSCRIPTION_ALT_CONTEXT.update(SUBSCRIPTION_ALTERATIONS)
 MERGED_CONTEXT = {
     'exists_single': True,
     'exists_subs': True,
-    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))],
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', str(TIMESTAMP))],
     'single_parts': [('10.00', '20', '12.00')]
 }
 MERGED_CONTEXT.update(COMMON_CONTEXT)
@@ -268,7 +268,7 @@ MERGED_CONTEXT.update(BASIC_PRICES)
 MERGED_CONTEXT.update(NON_ALTERATIONS)
 
 RENEW_CONTEXT = {
-    'subs_parts': [('10.00', '20', '12.00', 'monthly', unicode(TIMESTAMP))]
+    'subs_parts': [('10.00', '20', '12.00', 'monthly', str(TIMESTAMP))]
 }
 RENEW_CONTEXT.update(COMMON_CONTEXT)
 RENEW_CONTEXT.update(BASIC_PRICES)
@@ -302,9 +302,16 @@ class InvoiceBuilderTestCase(TestCase):
         self._contract = MagicMock()
         self._contract.item_id = '2'
         self._contract.last_charge = TIMESTAMP
-        self._contract.offering.name = OFFERING_NAME
-        self._contract.offering.version = OFFERING_VERSION
-        self._contract.offering.owner_organization.name = OWNER_NAME
+        self._contract.offering = '61004aba5e05acc115f022f0'
+
+        self._offering = MagicMock(
+            version=OFFERING_VERSION
+        )
+        self._offering.name = OFFERING_NAME
+        self._offering.owner_organization.name = OWNER_NAME
+
+        invoice_builder.Offering = MagicMock()
+        invoice_builder.Offering.objects.get.return_value = self._offering
 
         invoice_builder.loader = MagicMock()
         self._template = MagicMock()
@@ -320,13 +327,18 @@ class InvoiceBuilderTestCase(TestCase):
         self._file_handler = MagicMock()
         invoice_builder.codecs.open.return_value = self._file_handler
 
+        self._old_exists = invoice_builder.os.path.exists
         invoice_builder.os.path.exists = MagicMock()
+
         invoice_builder.os.path.exists.side_effect = [True, True, False]
         invoice_builder.os.listdir = MagicMock()
         invoice_builder.os.listdir.return_value = ['file1.pdf', 'file1.html']
         invoice_builder.os.remove = MagicMock()
 
         invoice_builder.subprocess = MagicMock()
+
+    def tearDown(self):
+        invoice_builder.os.path.exists = self._old_exists
 
     @parameterized.expand([
         ('initial_one_time', 'initial', SINGLE_PAYMENT_TRANS, SINGLE_PAYMENT_CONTEXT),
@@ -358,6 +370,8 @@ class InvoiceBuilderTestCase(TestCase):
         self.assertEquals(exp_path, invoice_path)
 
         # Validate calls
+        invoice_builder.Offering.objects.get.assert_called_once_with(pk=ObjectId('61004aba5e05acc115f022f0'))
+
         invoice_builder.loader.get_template.assert_called_once_with(templates[concept])
         invoice_builder.Context.assert_called_once_with(exp_context)
         self._template.render.assert_called_once_with(invoice_builder.Context())

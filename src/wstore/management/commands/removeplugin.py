@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,7 +19,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -26,6 +26,9 @@ from wstore.asset_manager.resource_plugins.plugin_loader import PluginLoader
 
 
 class Command(BaseCommand):
+
+    def add_arguments(self, parser):
+        parser.add_argument('args', nargs='*')
 
     def handle(self, *args, **options):
         """
@@ -44,6 +47,6 @@ class Command(BaseCommand):
             plugin_loader = PluginLoader()
             plugin_loader.uninstall_plugin(name)
         except Exception as e:
-            raise CommandError(unicode(e))
+            raise CommandError(str(e))
 
         self.stdout.write("The plugin has been removed\n")

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,14 +19,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import json
 
+from importlib import reload
 from copy import deepcopy
 from datetime import datetime
 from mock import MagicMock
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied
@@ -208,7 +209,7 @@ class SDRManagerTestCase(TestCase):
             sdr_manager.User.objects.get.assert_called_once_with(username='test_user')
         else:
             self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(e), err_msg)
+            self.assertEquals(str(error), err_msg)
 
     def test_update_usage(self):
         sdr_mng = sdr_manager.SDRManager()
@@ -296,7 +297,7 @@ class UsageClientTestCase(TestCase):
             error = e
 
         self.assertTrue(error is not None)
-        self.assertEquals('UsageError: Invalid usage status invalid', unicode(e))
+        self.assertEquals('UsageError: Invalid usage status invalid', str(error))
 
     def test_retrieve_usage_invalid_state(self):
         client = usage_client.UsageClient()

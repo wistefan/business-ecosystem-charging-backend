@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,9 +19,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 
 from wstore.admin import views as admin_views
 from wstore.asset_manager import views as offering_views
@@ -30,7 +29,7 @@ from wstore.charging_engine import views as charging_views
 from wstore.charging_engine.accounting import views as accounting_views
 from wstore.reports import views as reports_views
 
-urlpatterns = patterns('',
+urlpatterns = [
     # API
     url(r'^charging/api/assetManagement/assets/?$', offering_views.AssetCollection(permitted_methods=('GET',))),
     url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
@@ -54,4 +53,4 @@ urlpatterns = patterns('',
     url(r'^charging/api/orderManagement/accounting/?$', accounting_views.ServiceRecordCollection(permitted_methods=('POST',))),
     url(r'^charging/api/orderManagement/accounting/refresh/?$', accounting_views.SDRRefreshCollection(permitted_methods=('POST',))),
     url(r'^charging/api/reportManagement/created/?$', reports_views.ReportReceiver(permitted_methods=('POST',)))
-)
+]

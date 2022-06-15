@@ -19,18 +19,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import unicode_literals
-
 import os
 import smtplib
+from bson.objectid import ObjectId
+
 from email import encoders
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
-from urlparse import urljoin
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from wstore.ordering.models import Offering
 
 from wstore.models import User
 
@@ -88,7 +89,7 @@ class NotificationsHandler:
 
     def extract_bills_paths(self, order):
         return [charge.invoice[10:] if charge.invoice.startswith("/charging/") else charge.invoice
-                for contract in order.contracts for charge in contract.charges]
+                for contract in order.get_contracts() for charge in contract.charges]
 
     def send_acquired_notification(self, order):
         org = order.owner_organization
@@ -98,10 +99,11 @@ class NotificationsHandler:
         order_url = urljoin(domain, '/#/inventory/order')
         product_url = urljoin(domain, '/#/inventory/product')
 
-        text = 'We have received the payment of your order with reference ' + order.pk + '\n'
+        text = 'We have received the payment of your order with reference ' + str(order.pk) + '\n'
         text += 'containing the following product offerings: \n\n'
-        for cont in order.contracts:
-            text += cont.offering.name + ' with id ' + cont.offering.off_id + '\n\n'
+        for cont in order.get_contracts():
+            offering = Offering.objects.get(pk=ObjectId(cont.offering))
+            text += offering.name + ' with id ' + offering.off_id + '\n\n'
 
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'
@@ -124,13 +126,14 @@ class NotificationsHandler:
 
     def send_provider_notification(self, order, contract):
         # Get destination email
-        org = contract.offering.owner_organization
+        offering = Offering.objects.get(pk=ObjectId(contract.offering))
+        org = offering.owner_organization
         recipients = [User.objects.get(pk=pk).email for pk in org.managers]
         domain = settings.SITE
 
         url = urljoin(domain, '/#/inventory/order')
 
-        text = 'Your product offering with name ' + contract.offering.name + ' and id ' + contract.offering.off_id + '\n'
+        text = 'Your product offering with name ' + offering.name + ' and id ' + offering.off_id + '\n'
         text += 'has been acquired by the user ' + order.owner_organization.name + '\n'
         text += 'Please review you pending orders at: \n\n' + url
 
@@ -143,12 +146,14 @@ class NotificationsHandler:
         domain = settings.SITE
         url = urljoin(domain, '/#/inventory/order/' + order.order_id)
 
-        text = 'Your subscription belonging to the product offering ' + contract.offering.name + ' has expired.\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference ' + order.pk + '\n'
+        offering = Offering.objects.get(pk=ObjectId(contract.offering))
+
+        text = 'Your subscription belonging to the product offering ' + offering.name + ' has expired.\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference ' + str(order.pk) + '\n'
         text += 'in the web portal or accessing the following link: \n\n'
         text += url
 
-        self._send_text_email(text, recipients, contract.offering.name + ' subscription expired')
+        self._send_text_email(text, recipients, offering.name + ' subscription expired')
 
     def send_near_expiration_notification(self, order, contract, days):
         org = order.owner_organization
@@ -157,13 +162,15 @@ class NotificationsHandler:
         domain = settings.SITE
         url = urljoin(domain, '/#/inventory/order/' + order.order_id)
 
-        text = 'Your subscription belonging to the product offering ' + contract.offering.name + '\n'
-        text += 'is going to expire in ' + unicode(days) + ' days. \n\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference ' + order.pk + '\n'
+        offering = Offering.objects.get(pk=ObjectId(contract.offering))
+
+        text = 'Your subscription belonging to the product offering ' + offering.name + '\n'
+        text += 'is going to expire in ' + str(days) + ' days. \n\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference ' + str(order.pk) + '\n'
         text += 'in the web portal or accessing the following link: \n\n'
         text += url
 
-        self._send_text_email(text, recipients, contract.offering.name + ' subscription is about to expire')
+        self._send_text_email(text, recipients, offering.name + ' subscription is about to expire')
 
     def send_renovation_notification(self, order, transactions):
         org = order.owner_organization
@@ -174,12 +181,14 @@ class NotificationsHandler:
         product_url = urljoin(domain, '/#/inventory/product')
 
         text = 'We have received your recurring payment for renovating products offerings\n'
-        text += 'acquired in the order with reference ' + order.pk + '\n'
+        text += 'acquired in the order with reference ' + str(order.pk) + '\n'
 
         text += 'The following product offerings have been renovated: \n\n'
         for t in transactions:
             cont = order.get_item_contract(t['item'])
-            text += cont.offering.name + ' with id ' + cont.offering.off_id + '\n\n'
+            offering = Offering.objects.get(pk=ObjectId(cont.offering))
+
+            text += offering.name + ' with id ' + offering.off_id + '\n\n'
 
         text += 'You can review your orders at: \n' + order_url + '\n'
         text += 'and your acquired products at: \n' + product_url + '\n'

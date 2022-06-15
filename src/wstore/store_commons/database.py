@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from bson import ObjectId
 from pymongo import MongoClient
@@ -33,23 +32,47 @@ def get_database_connection():
     # Get database info from settings
     database_info = settings.DATABASES['default']
 
-    client = None
     # Create database connection
-    if database_info['HOST'] and database_info['PORT']:
-        client = MongoClient(database_info['HOST'], int(database_info['PORT']))
-    elif database_info['HOST'] and not database_info['PORT']:
-        client = MongoClient(database_info['HOST'])
-    elif not database_info['HOST'] and database_info['PORT']:
-        client = MongoClient('localhost', int(database_info['PORT']))
+    client = None
+    if 'CLIENT' in database_info:
+        client_info = database_info['CLIENT']
+
+        if 'host' in client_info and 'port' in client_info and 'username' in client_info:
+            client = MongoClient(
+                client_info['host'],
+                int(client_info['port']),
+                user=client_info['username'],
+                password=client_info['password'])
+
+        elif 'host' in client_info and 'port' in client_info and 'username' not in client_info:
+            client = MongoClient(client_info['host'], int(client_info['port']))
+
+        elif 'host' in client_info and 'port' not in client_info and 'username' in client_info:
+            client = MongoClient(
+                client_info['host'],
+                user=client_info['username'],
+                password=client_info['password'])
+
+        elif 'host' in client_info and 'port' not in client_info and 'username' not in client_info:
+            client = MongoClient(client_info['host'])
+
+        elif 'host' not in client_info and 'port' in client_info and 'username' in client_info:
+            client = MongoClient(
+                'localhost',
+                int(client_info['port']),
+                user=client_info['username'],
+                password=client_info['password'])
+
+        elif 'host' not in client_info and 'port' in client_info and 'username' not in client_info:
+            client = MongoClient('localhost', int(client_info['port']))
+
+        else:
+            client = MongoClient()
     else:
         client = MongoClient()
 
     db_name = database_info['NAME']
     db = client[db_name]
-
-    # Authenticate if needed
-    if database_info['USER'] and database_info['PASSWORD']:
-        db.authenticate(database_info['USER'], database_info['PASSWORD'], mechanism='MONGODB-CR')
 
     return db
 
@@ -64,7 +87,7 @@ class DocumentLock:
 
     def lock_document(self):
         prev = self._db[self._collection].find_one_and_update(
-            {'_id': ObjectId(self._doc_id)},
+            {'_id': self._doc_id},
             {'$set': {self._lock_id: True}}
         )
         return self._lock_id in prev and prev[self._lock_id]
@@ -77,6 +100,6 @@ class DocumentLock:
 
     def unlock_document(self):
         self._db[self._collection].find_one_and_update(
-            {'_id': ObjectId(self._doc_id)},
+            {'_id': self._doc_id},
             {'$set': {self._lock_id: False}}
         )

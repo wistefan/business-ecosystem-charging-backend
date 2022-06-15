@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S. L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,12 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 import base64
 import os
 import threading
-from urlparse import urljoin
+import json
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -59,7 +59,7 @@ class AssetManager:
         provider_dir = os.path.join(settings.MEDIA_ROOT, 'assets', provider)
 
         if not os.path.isdir(provider_dir):
-            os.mkdir(provider_dir)
+            os.makedirs(provider_dir, exist_ok=True)
 
         file_path = os.path.join(provider_dir, file_name)
         resource_path = file_path[file_path.index(settings.MEDIA_DIR):]
@@ -98,6 +98,7 @@ class AssetManager:
             is_public=resource_data['is_public'],
             meta_info=resource_data['metadata']
         )
+
         self.rollback_logger['models'].append(resource)
 
         return resource
@@ -132,13 +133,13 @@ class AssetManager:
 
         if asset_type.form:
 
-            for k, v in asset_type.form.iteritems():
+            for k, v in asset_type.form.items():
                 # Validate mandatory fields
                 if 'mandatory' in v and v['mandatory'] and 'default' not in v and k not in metadata:
                     raise ValueError('Missing mandatory field ' + k + ' in metadata')
 
                 # Validate metadata types
-                if k in metadata and v['type'] != 'checkbox' and not (isinstance(metadata[k], str) or isinstance(metadata[k], unicode)):
+                if k in metadata and v['type'] != 'checkbox' and not (isinstance(metadata[k], str)):
                     raise TypeError('Metadata field ' + k + ' must be a string')
 
                 if k in metadata and v['type'] == 'checkbox' and not isinstance(metadata[k], bool):
@@ -172,7 +173,7 @@ class AssetManager:
         # Check if the asset is a file upload or a service registration
         provided_as = 'FILE'
         if 'content' in data:
-            if isinstance(data['content'], str) or isinstance(data['content'], unicode):
+            if isinstance(data['content'], str):
 
                 download_link = data['content']
                 provided_as = 'URL'
@@ -225,6 +226,7 @@ class AssetManager:
             content_type=asset.content_type,
             meta_info=asset.meta_info
         )
+
         asset.old_versions.append(curr_version)
         asset.version = ''
         asset.download_link = ''
@@ -293,7 +295,7 @@ class AssetManager:
 
     def get_resource_info(self, resource):
         return {
-            'id': resource.pk,
+            'id': str(resource.pk),
             'version': resource.version,
             'contentType': resource.content_type,
             'state': resource.state,

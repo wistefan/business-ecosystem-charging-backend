@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,13 +19,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
+from bson.objectid import ObjectId
 from copy import deepcopy
-from nose_parameterized import parameterized
+from parameterized import parameterized
 from mock import MagicMock, call
 from datetime import datetime
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
@@ -56,6 +56,7 @@ class OrderingManagementTestCase(TestCase):
         # Mock Offering model
         ordering_management.Offering = MagicMock()
         self._offering_inst = MagicMock()
+        self._offering_inst.pk = '61004aba5e05acc115f022f0'
         self._order_inst.bundled_offerings = []
         ordering_management.Offering.objects.filter.return_value = []
         ordering_management.Offering.objects.create.return_value = self._offering_inst
@@ -63,6 +64,7 @@ class OrderingManagementTestCase(TestCase):
         # Mock Contract model
         ordering_management.Contract = MagicMock()
         self._contract_inst = MagicMock()
+        self._contract_inst.offering = '61004aba5e05acc115f022f0'
         ordering_management.Contract.return_value = self._contract_inst
 
         # Mock Charging Engine
@@ -80,9 +82,7 @@ class OrderingManagementTestCase(TestCase):
 
         # Mock organization model
         self._org_inst = MagicMock()
-        self._org_inst.tax_address = {
-            'street': 'fake street'
-        }
+
         ordering_management.Organization = MagicMock()
         ordering_management.Organization.objects.get.return_value = self._org_inst
         self._customer.userprofile.current_organization = self._org_inst
@@ -112,12 +112,15 @@ class OrderingManagementTestCase(TestCase):
             item_id="1",
             pricing_model=pricing,
             revenue_class="productClass",
-            offering=self._offering_inst
+            offering=self._offering_inst.pk
         )
 
     def _check_offering_retrieving_call(self):
         ordering_management.Offering.objects.filter.assert_called_once_with(off_id="5")
-        ordering_management.Offering.objects.get.assert_called_once_with(off_id="5")
+        self.assertEqual([
+            call(off_id="5"),
+            call(pk=ObjectId('61004aba5e05acc115f022f0'))
+        ], ordering_management.Offering.objects.get.call_args_list)
 
     def _basic_add_checker(self):
         # Check offering creation
@@ -274,18 +277,18 @@ class OrderingManagementTestCase(TestCase):
         ordering_management.requests.get = get
 
     def _already_owned(self):
-        self._offering_inst.pk = '11111'
+        self._offering_inst.pk = '61004aba5e05acc115f022f0'
         self._offering_inst.name = 'Example offering'
         self._offering_inst.off_id = '5'
-        self._customer.userprofile.current_organization.acquired_offerings = ['11111']
+        self._customer.userprofile.current_organization.acquired_offerings = ['61004aba5e05acc115f022f0']
 
     def _already_owned_bundle(self):
         bundle_offering = MagicMock()
-        bundle_offering.pk = '111111'
+        bundle_offering.pk = '61004aba5e05acc115f022f0'
         bundle_offering.name = 'Bundle'
         bundle_offering.off_id = '6'
-        self._offering_inst.bundled_offerings = ['111111']
-        self._customer.userprofile.current_organization.acquired_offerings = ['111111']
+        self._offering_inst.bundled_offerings = ['61004aba5e05acc115f022f0']
+        self._customer.userprofile.current_organization.acquired_offerings = ['61004aba5e05acc115f022f0']
 
         ordering_management.Offering.objects.get.side_effect = [self._offering_inst, bundle_offering]
 
@@ -301,7 +304,7 @@ class OrderingManagementTestCase(TestCase):
         self._response.json.side_effect = [OFFERING, BILLING_ACCOUNT, CUSTOMER_ACCOUNT, new_cust]
 
     def _terms_not_required(self):
-        self._contract_inst.offering.asset.has_terms = False
+        self._offering_inst.asset.has_terms = False
 
     @parameterized.expand([
         ('basic_add', BASIC_ORDER, BASIC_PRICING, _basic_add_checker),
@@ -331,6 +334,9 @@ class OrderingManagementTestCase(TestCase):
         ('missing_postal_address', BASIC_ORDER, BASIC_PRICING, None, _missing_postal, 'OrderingError: Provided Billing Account does not contain a Postal Address')
     ])
     def test_process_order(self, name, order, pricing, checker, side_effect=None, err_msg=None, terms_accepted=True):
+
+        #if name == 'free_add':
+        #    import ipdb; ipdb.sset_trace()
 
         OFFERING['productOfferingPrice'] = [pricing]
 
@@ -388,7 +394,7 @@ class OrderingManagementTestCase(TestCase):
             # Check particular calls
             checker(self)
         else:
-            self.assertEquals(err_msg, unicode(error))
+            self.assertEquals(err_msg, str(error))
 
     BASIC_MODIFY = {
         'state': 'Acknowledged',
@@ -493,7 +499,7 @@ class OrderingManagementTestCase(TestCase):
                 self.assertEquals(pricing, mock_contract.pricing_model)
                 self.assertEquals('old_revenue', mock_contract.revenue_class)
         else:
-            self.assertEquals(err_msg, unicode(error))
+            self.assertEquals(err_msg, str(error))
 
 
 @override_settings(
@@ -542,7 +548,7 @@ class OrderingClientTestCase(TestCase):
         msg += 'please check that the ordering API is correctly configured '
         msg += 'and that the ordering API is up and running'
 
-        self.assertEquals(msg, unicode(e))
+        self.assertEquals(msg, str(error))
 
     @parameterized.expand([
         ('complete', {
@@ -627,6 +633,7 @@ class OrderTestCase(TestCase):
 
         # Build offerings and contracts
         offering1 = Offering(
+            pk='61004aba5e05acc115f022f0',
             off_id='1',
             owner_organization=owner_org,
             name='Offering1',
@@ -635,6 +642,7 @@ class OrderTestCase(TestCase):
         )
 
         offering2 = Offering(
+            pk='61004aba5e05acc115f022f1',
             off_id='2',
             owner_organization=owner_org,
             name='Offering2',
@@ -645,13 +653,13 @@ class OrderTestCase(TestCase):
         self._contract1 = Contract(
             item_id='1',
             product_id='3',
-            offering=offering1,
+            offering=offering1.pk
         )
 
         self._contract2 = Contract(
             item_id='2',
             product_id='4',
-            offering=offering2,
+            offering=offering2.pk
         )
 
         # Build order
@@ -676,7 +684,7 @@ class OrderTestCase(TestCase):
             error = e
 
         self.assertFalse(error is None)
-        self.assertEquals('OrderingError: Invalid item id', unicode(e))
+        self.assertEquals('OrderingError: Invalid item id', str(error))
 
     def test_get_product(self):
         contract = self._order.get_product_contract('4')
@@ -690,7 +698,12 @@ class OrderTestCase(TestCase):
             error = e
 
         self.assertFalse(error is None)
-        self.assertEquals('OrderingError: Invalid product id', unicode(e))
+        self.assertEquals('OrderingError: Invalid product id', str(error))
+
+    def test_get_contracts(self):
+        contracts = self._order.get_contracts()
+        self.assertEquals([self._contract1, self._contract2], contracts)
+
 
 
 @override_settings(
@@ -760,7 +773,7 @@ class InventoryClientTestCase(TestCase):
         msg = "It hasn't been possible to create inventory subscription, "
         msg += 'please check that the inventory API is correctly configured '
         msg += 'and that the inventory API is up and running'
-        self.assertEquals(msg, unicode(error))
+        self.assertEquals(msg, str(error))
 
     def test_activate_product(self):
         client = inventory_client.InventoryClient()

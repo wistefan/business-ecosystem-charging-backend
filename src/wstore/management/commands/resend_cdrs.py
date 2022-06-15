@@ -58,7 +58,7 @@ class Command(BaseCommand):
             org = Organization.objects.get(name=cdr['provider'])
 
             new_org = db.wstore_organization.find_and_modify(
-                query={'_id': ObjectId(org.pk)},
+                query={'_id': org.pk},
                 update={'$inc': {'correlation_number': 1}}
             )
 

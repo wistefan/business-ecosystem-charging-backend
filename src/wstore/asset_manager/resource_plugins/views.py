@@ -18,10 +18,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import json
-from urlparse import urljoin
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -69,7 +68,7 @@ class PluginCollection(Resource):
             result.append(get_plugin_info(plugin))
 
         mime_type = 'application/JSON; charset=UTF-8'
-        return HttpResponse(json.dumps(result), status=200, mimetype=mime_type)
+        return HttpResponse(json.dumps(result), status=200, content_type=mime_type)
 
 
 class PluginEntry(Resource):
@@ -83,4 +82,4 @@ class PluginEntry(Resource):
 
         plugin_info = get_plugin_info(plugin)
         mime_type = 'application/JSON; charset=UTF-8'
-        return HttpResponse(json.dumps(plugin_info), status=200, mimetype=mime_type)
+        return HttpResponse(json.dumps(plugin_info), status=200, content_type=mime_type)

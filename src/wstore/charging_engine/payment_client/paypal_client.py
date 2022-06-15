@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from decimal import Decimal
 import os
@@ -32,8 +31,8 @@ from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.ordering.errors import PaymentError
 
 # Paypal credentials
-PAYPAL_CLIENT_ID = os.environ.get('BAE_CB_PAYPAL_CLIENT_ID', '')
-PAYPAL_CLIENT_SECRET = os.environ.get('BAE_CB_PAYPAL_CLIENT_SECRET', '')
+PAYPAL_CLIENT_ID = os.environ.get('BAE_CB_PAYPAL_CLIENT_ID', 'AVOLRuc4jN599UD5FMLHv07T7pnmh76zrllx60cQ-fPK39Bu4yR2iOCzNrzqou6XmAFbnuYhdMY4cExY')
+PAYPAL_CLIENT_SECRET = os.environ.get('BAE_CB_PAYPAL_CLIENT_SECRET', 'EAgeaOxAgJ5ZMMu9Tf4riICdT7Sz2y77PRBwUIYppNlf_xw2Q0WD1_jCG4YzSLNxQFevkNnFovtT02u7')
 
 MODE = 'sandbox'  # sandbox or live
 
@@ -59,8 +58,8 @@ class PayPalClient(PaymentClient):
         if url[-1] != '/':
             url += '/'
 
-        return_url = url + 'payment?action=accept&ref=' + self._order.pk
-        cancel_url = url + 'payment?action=cancel&ref=' + self._order.pk
+        return_url = url + 'payment?action=accept&ref=' + str(self._order.pk)
+        cancel_url = url + 'payment?action=cancel&ref=' + str(self._order.pk)
 
         if not self._order.owner_organization.private:
             # The request has been made on behalf an organization
@@ -79,7 +78,7 @@ class PayPalClient(PaymentClient):
             },
             'transactions': [{
                 'amount': {
-                    'total': unicode(t['price']),
+                    'total': str(t['price']),
                     'currency': t['currency']
                 },
                 'description': t['description']
@@ -112,7 +111,7 @@ class PayPalClient(PaymentClient):
                     msg += 'Order composed of the following items ' + items
 
                     self.start_redirection_payment([{
-                        'price': unicode(total),
+                        'price': str(total),
                         'currency': current_curr,
                         'description': msg
                     }])

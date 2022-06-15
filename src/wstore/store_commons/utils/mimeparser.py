@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -17,6 +18,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+from functools import reduce
+
 
 """
 MIME-Type Parser
@@ -104,7 +109,7 @@ def fitness_and_quality_parsed(mime_type, parsed_ranges):
         subtype_match = (subtype == target_subtype or subtype == '*' or target_subtype == '*')
         if type_match and subtype_match:
             param_matches = reduce(lambda x, y: x + y, [1 for (key, value) in
-                    target_params.iteritems() if key != 'q' and
+                    target_params.items() if key != 'q' and
                     key in params and value == params[key]], 0)
             fitness = (type == target_type) and 100 or 0
             fitness += (subtype == target_subtype) and 10 or 0

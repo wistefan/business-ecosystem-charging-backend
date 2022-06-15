@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S. L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,20 +19,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
-from djangotoolbox.fields import ListField, DictField
-from django.db import models
+from djongo import models
 
 
 class ReportsPayout(models.Model):
-    reports = ListField()
+    _id = models.ObjectIdField()
+    reports = models.JSONField() # List
     payout_id = models.CharField(max_length=15)
     status = models.CharField(max_length=15)
 
 
 class ReportSemiPaid(models.Model):
+    _id = models.ObjectIdField()
     report = models.IntegerField()
-    failed = ListField()
-    success = ListField()
-    errors = DictField()
+    failed = models.JSONField() # List
+    success = models.JSONField() # List
+    errors = models.JSONField() # Dict

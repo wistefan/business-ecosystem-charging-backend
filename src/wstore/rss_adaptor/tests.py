@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,14 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from bson import ObjectId
 
 from copy import deepcopy
-from mock import MagicMock
-from mock import call
-from nose_parameterized import parameterized
+from importlib import reload
+from mock import MagicMock, call
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.conf import settings
@@ -126,7 +126,7 @@ class RSSAdaptorTestCase(TestCase):
         rss_ad.send_cdr(cdrs)
 
         # Decrement correlation number for every cdr
-        calls = call(query={'_id': ObjectId(b"111111111111")}, update={'$inc': {'correlation_number': -1}})
+        calls = call(query={'_id': b"111111111111"}, update={'$inc': {'correlation_number': -1}})
         rss_adaptor.get_database_connection().wstore_organization.find_and_modify.assert_has_calls([calls, calls], any_order=True)
         # Save the failed cdrs
         rss_adaptor.Context.objects.all.assert_called_once_with()
@@ -263,8 +263,8 @@ class ModelManagerTestCase(TestCase):
             self.assertTrue(error is None)
             self.manager._make_request.assert_called_once_with('POST', 'http://testhost.com/rssHost/rss/models', exp_data)
         else:
-            self.assertTrue(isinstance(e, err_type))
-            self.assertEquals(err_msg, unicode(e))
+            self.assertTrue(isinstance(error, err_type))
+            self.assertEquals(err_msg, str(error))
 
     def test_update_model(self):
         self.manager.update_revenue_model(deepcopy(BASIC_MODEL))

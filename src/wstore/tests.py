@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 import json
 from mock import call
 
@@ -82,19 +80,19 @@ class ServeMediaTestCase(TestCase):
     def _validate_off_call(self):
         self._validate_res_call()
         self.assertEquals([
-            call(pk='offpk1'),
-            call(pk='offpk2')
+            call(pk=ObjectId('61004aba5e05acc115f022f0')),
+            call(pk=ObjectId('61004aba5e05acc115f022f1'))
         ], views.Offering.objects.get.call_args_list)
 
     def _validate_bundle_call(self):
         self._validate_res_call()
         self.assertEquals([
-            call(pk='offpk1'),
-            call(pk='offpk2'),
-            call(pk='offpk3'),
-            call(pk='offpk3'),
-            call(pk='offpk4'),
-            call(pk='offpk4')
+            call(pk=ObjectId('61004aba5e05acc115f022f0')),
+            call(pk=ObjectId('61004aba5e05acc115f022f1')),
+            call(pk=ObjectId('61004aba5e05acc115f022f2')),
+            call(pk=ObjectId('61004aba5e05acc115f022f2')),
+            call(pk=ObjectId('61004aba5e05acc115f022f3')),
+            call(pk=ObjectId('61004aba5e05acc115f022f3'))
         ], views.Offering.objects.get.call_args_list)
 
     def _validate_product_bundle_call(self):
@@ -106,8 +104,8 @@ class ServeMediaTestCase(TestCase):
         self.assertEquals(0, views.Order.objects.get.call_count)
 
         self.assertEquals([
-            call(pk='offpk1'),
-            call(pk='offpk2')
+            call(pk=ObjectId('61004aba5e05acc115f022f0')),
+            call(pk=ObjectId('61004aba5e05acc115f022f1'))
         ], views.Offering.objects.get.call_args_list)
 
     def _validate_upgrading_call(self):
@@ -170,11 +168,11 @@ class ServeMediaTestCase(TestCase):
 
     def _acquired(self):
         self._user.userprofile.current_organization = MagicMock()
-        self._user.userprofile.current_organization.acquired_offerings = ['offpk1', 'offpk2']
+        self._user.userprofile.current_organization.acquired_offerings = ['61004aba5e05acc115f022f0', '61004aba5e05acc115f022f1']
 
     def _bundle_acquired(self):
         self._acquired()
-        self._offering_inst = MagicMock(asset=None, bundled_offerings=['offpk3', 'offpk4'])
+        self._offering_inst = MagicMock(asset=None, bundled_offerings=['61004aba5e05acc115f022f2', '61004aba5e05acc115f022f3'])
 
         views.Offering.objects.get.side_effect = [MagicMock(), self._offering_inst,
                                                   MagicMock(is_digital=True, asset=MagicMock()),

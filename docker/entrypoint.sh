@@ -30,30 +30,30 @@ function test_connection {
 }
 
 # Check that the settings files have been included
-if [ ! -f /business-ecosystem-charging-backend/src/settings.py ]; then
+if [ ! -f /opt/business-ecosystem-charging-backend/src/settings.py ]; then
     echo "Missing settings.py file"
     exit 1
 fi
 
-if [ ! -f /business-ecosystem-charging-backend/src/services_settings.py ]; then
+if [ ! -f /opt/business-ecosystem-charging-backend/src/services_settings.py ]; then
     echo "Missing services_settings.py file"
     exit 1
 fi
 
-if [ ! -f /business-ecosystem-charging-backend/src/__init__.py ]; then
-    touch /business-ecosystem-charging-backend/src/__init__.py
+if [ ! -f /opt/business-ecosystem-charging-backend/src/__init__.py ]; then
+    touch /opt/business-ecosystem-charging-backend/src/__init__.py
 fi
 
 # Create __init__.py file if not present (a volume has been bound)
-if [ ! -f /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py ]; then
-    touch /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py
+if [ ! -f /opt/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py ]; then
+    touch /opt/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins/__init__.py
 fi
 
 # Ensure mongodb is running
 # Get MongoDB host and port from settings
 
 if [ -z ${BAE_CB_MONGO_SERVER} ]; then
-    MONGO_HOST=`grep -o "'HOST':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+    MONGO_HOST=`grep -o "'host':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
     if [ -z ${MONGO_HOST} ]; then
         MONGO_HOST=localhost
@@ -63,7 +63,7 @@ else
 fi
 
 if [ -z ${BAE_CB_MONGO_PORT} ]; then
-    MONGO_PORT=`grep -o "'PORT':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
+    MONGO_PORT=`grep -o "'port':.*" ./settings.py | grep -o ": '.*'" | grep -oE "[^:' ]+"`
 
     if [ -z ${MONGO_PORT} ]; then
         MONGO_PORT=27017
@@ -126,7 +126,6 @@ while [[ ${STATUS} -ne 6  && ${I} -lt 50 ]]; do
 done
 
 echo "Starting charging server"
-#service apache2 restart
-./manage.py runserver 0.0.0.0:8006
 
-while true; do sleep 1000; done
+python3 manage.py migrate
+gunicorn wsgi:application --workers 1 --forwarded-allow-ips "*" --log-file - --bind 0.0.0.0:8006 --log-level ${LOGLEVEL}

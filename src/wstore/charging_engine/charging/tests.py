@@ -18,13 +18,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from bson.objectid import ObjectId
 from decimal import Decimal
 from datetime import datetime
 from mock import MagicMock
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 
@@ -99,16 +98,22 @@ class CDRGenerationTestCase(TestCase):
 
         self._contract = MagicMock()
         self._contract.revenue_class = 'one time'
-        self._contract.offering.off_id = '2'
+        self._contract.offering = '61004aba5e05acc115f022f0'
         self._contract.item_id = '3'
         self._contract.pricing_model = {
             'general_currency': 'EUR'
         }
-        self._contract.offering.off_id = '4'
-        self._contract.offering.name = 'offering'
-        self._contract.offering.version = '1.0'
-        self._contract.offering.owner_organization.name = 'provider'
-        self._contract.offering.owner_organization.pk = '61004aba5e05acc115f022f0'
+
+        offering = MagicMock()
+        offering.pk = '61004aba5e05acc115f022f0'
+        offering.off_id = '4'
+        offering.name = 'offering'
+        offering.version = '1.0'
+        offering.owner_organization.name = 'provider'
+        offering.owner_organization.pk = '61004aba5e05acc115f022f0'
+
+        cdr_manager.Offering = MagicMock()
+        cdr_manager.Offering.objects.get.return_value = offering
 
     @parameterized.expand([
         ('initial_charge', {
@@ -159,12 +164,14 @@ class CDRGenerationTestCase(TestCase):
 
         # Validate calls
         self._conn.wstore_organization.find_and_modify.assert_called_once_with(
-            query={'_id': ObjectId('61004aba5e05acc115f022f0')},
+            query={'_id': '61004aba5e05acc115f022f0'},
             update={'$inc': {'correlation_number': 1}}
         )
 
         cdr_manager.RSSAdaptorThread.assert_called_once_with(exp_cdrs)
         cdr_manager.RSSAdaptorThread().start.assert_called_once_with()
+
+        cdr_manager.Offering.objects.get.assert_called_once_with(pk=ObjectId('61004aba5e05acc115f022f0'))
 
     def test_refund_cdr_generation(self):
         exp_cdr = [{
@@ -188,7 +195,7 @@ class CDRGenerationTestCase(TestCase):
 
         # Validate calls
         self._conn.wstore_organization.find_and_modify.assert_called_once_with(
-            query={'_id': ObjectId('61004aba5e05acc115f022f0')},
+            query={'_id': '61004aba5e05acc115f022f0'},
             update={'$inc': {'correlation_number': 1}}
         )
 

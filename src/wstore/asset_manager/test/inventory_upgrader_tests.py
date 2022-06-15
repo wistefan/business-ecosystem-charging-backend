@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from bson import ObjectId
 from copy import deepcopy
@@ -383,17 +382,17 @@ class InventoryUpgraderTestCase(TestCase):
 
         # Mock inventory client methods
         self._client_instance.get_products.side_effect = [
-            [{'id': unicode(i)} for i in range(1, 6)],  # First call
+            [{'id': str(i)} for i in range(1, 6)],  # First call
             [self._product1, self._product2],  # Second call
             [self._product3, self._product4],  # Third call
             [self._product5],  # Last call
-            [{'id': unicode(i)} for i in range(6, 7)],  # First call
+            [{'id': str(i)} for i in range(6, 7)],  # First call
             [self._product6],  # Last call
-            [{'id': unicode(i)} for i in range(7, 8)],
+            [{'id': str(i)} for i in range(7, 8)],
             [self._product_p_bundle],
-            [{'id': unicode(i)} for i in range(8, 9)],
+            [{'id': str(i)} for i in range(8, 9)],
             [self._product_off_bundle],
-            [{'id': unicode(i)} for i in range(9, 10)],
+            [{'id': str(i)} for i in range(9, 10)],
             [self._product_mix_bundle]
         ]
 
@@ -551,7 +550,7 @@ class InventoryUpgraderTestCase(TestCase):
 
         # Mock inventory client methods
         self._client_instance.get_products.side_effect = [
-            [{'id': unicode(i)} for i in range(1, 5)],  # First call off1
+            [{'id': str(i)} for i in range(1, 5)],  # First call off1
             HTTPError(),  # Second call - HTTPError retrieving page
             [self._product3, self._product4],  # Last call off1
             HTTPError()  # Error retrieving second offering
@@ -625,7 +624,7 @@ class InventoryUpgraderTestCase(TestCase):
         inventory_upgrader.Offering.objects.filter.side_effect = [[MagicMock(off_id=self._product_off_id)], []]
 
         self._client_instance.get_products.side_effect = [
-            [{'id': unicode(i)} for i in range(3, 5)],  # First call
+            [{'id': str(i)} for i in range(3, 5)],  # First call
             [self._product3, self._product4],  # Last call
         ]
 

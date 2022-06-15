@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,10 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import json
+from bson.objectid import ObjectId
 from django.http import HttpResponse
+from wstore.ordering.models import Offering
 
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
@@ -69,7 +71,7 @@ class OrderingCollection(Resource):
 
                 response = HttpResponse(json.dumps({
                     'redirectUrl': redirect_url
-                }), status=200, mimetype='application/json; charset=utf-8')
+                }), status=200, content_type='application/json; charset=utf-8')
 
             else:
                 # All the order items are free so digital assets can be set as Completed
@@ -77,8 +79,10 @@ class OrderingCollection(Resource):
                 order_model = Order.objects.get(order_id=order['id'])
 
                 for item in order['orderItem']:
-                    contract = order_model.get_item_contract(item_id=item['id'])
-                    if contract.offering.is_digital:
+                    contract = order_model.get_item_contract(item['id'])
+                    offering = Offering.objects.get(pk=ObjectId(contract.offering))
+
+                    if offering.is_digital:
                         digital_items.append(item)
 
                 client.update_items_state(order, 'Completed', digital_items)
@@ -86,7 +90,7 @@ class OrderingCollection(Resource):
                 response = build_response(request, 200, 'OK')
 
         except OrderingError as e:
-            response = build_response(request, 400, unicode(e.value))
+            response = build_response(request, 400, str(e.value))
             client.update_items_state(order, 'Failed')
         except Exception as e:
             response = build_response(request, 500, 'Your order could not be processed')
@@ -118,8 +122,9 @@ class InventoryCollection(Resource):
         contract = None
 
         # Search contract
-        for cont in order.contracts:
-            if product['productOffering']['id'] == cont.offering.off_id:
+        for cont in order.get_contracts():
+            off = Offering.objects.get(pk=ObjectId(cont.offering))
+            if product['productOffering']['id'] == off.off_id:
                 contract = cont
 
         if contract is None:
@@ -175,7 +180,7 @@ def validate_product_job(self, request):
 
     # Get contract to renovate
     if isinstance(task['id'], int):
-        task['id'] = unicode(task['id'])
+        task['id'] = str(task['id'])
 
     try:
         contract = order.get_product_contract(task['id'])
@@ -196,10 +201,10 @@ def process_product_payment(self, request, task, order, contract):
     try:
         redirect_url = charging_engine.resolve_charging(type_=task['priceType'].lower(), related_contracts=[contract])
     except ValueError as e:
-        return None, build_response(request, 400, unicode(e))
+        return None, build_response(request, 400, str(e))
     except OrderingError as e:
         # The error might be raised because renewing a suspended product not expired
-        if unicode(e) == 'OrderingError: There is not recurring payments to renovate' and contract.suspended:
+        if str(e) == 'OrderingError: There is not recurring payments to renovate' and contract.suspended:
             try:
                 on_product_acquired(order, contract)
 
@@ -213,7 +218,7 @@ def process_product_payment(self, request, task, order, contract):
                 return None, build_response(request, 400, 'The asset has failed to be activated')
 
         else:
-            return None, build_response(request, 422, unicode(e))
+            return None, build_response(request, 422, str(e))
     except:
         return None, build_response(request, 500, 'An unexpected event prevented your payment to be created')
 

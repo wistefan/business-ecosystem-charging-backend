@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,12 +19,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 from django.core.exceptions import ImproperlyConfigured
 
+from bson import ObjectId
+from importlib import reload
 from mock import MagicMock, mock_open, call
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 
@@ -53,25 +54,41 @@ class NotificationsTestCase(TestCase):
         # Mock contracts
         contract1 = MagicMock()
         contract1.product_id = '11'
-        contract1.offering.name = 'Offering1'
-        contract1.offering.off_id = '1'
-        contract1.offering.owner_organization.managers = ['33333', '44444']
+        contract1.offering = '61004aba5e05acc115f022f0'
         contract1.charges = [charge1]
 
+        offering1 = MagicMock()
+        offering1.name = 'Offering1'
+        offering1.off_id = '1'
+        offering1.owner_organization.managers = ['33333', '44444']
+
         contract2 = MagicMock()
-        contract2.offering.name = 'Offering2'
-        contract2.offering.off_id = '2'
+        contract2.offering = '61004aba5e05acc115f022f1'
         contract2.charges = []
+
+        offering2 = MagicMock()
+        offering2.name = 'Offering2'
+        offering2.off_id = '2'
+
+        def get_offering(pk):
+            if pk == ObjectId('61004aba5e05acc115f022f0'):
+                return offering1
+
+            if pk == ObjectId('61004aba5e05acc115f022f1'):
+                return offering2
+
+        notification_handler.Offering = MagicMock()
+        notification_handler.Offering.objects.get = get_offering
 
         # Mock order
         self._order = MagicMock()
-        self._order.pk = 'orderid'
+        self._order.pk = ObjectId('61004aba5e05acc115f022f0')
         self._order.order_id = '67'
         self._order.owner_organization.managers = ['11111', '22222']
         self._order.owner_organization.name = 'customer'
         self._order.get_item_contract.return_value = contract1
 
-        self._order.contracts = [contract1, contract2]
+        self._order.get_contracts.return_value = [contract1, contract2]
 
         # Mock user
         notification_handler.User = MagicMock()
@@ -125,7 +142,7 @@ class NotificationsTestCase(TestCase):
             error = e
 
         self.assertTrue(error is not None)
-        self.assertEquals('Missing email configuration', unicode(error))
+        self.assertEquals('Missing email configuration', str(error))
 
     def _validate_user_call(self):
         self.assertEquals([
@@ -192,7 +209,7 @@ class NotificationsTestCase(TestCase):
             call('To', 'user1@email.com,user2@email.com')
         ], notification_handler.MIMEMultipart().__setitem__.call_args_list)
 
-        text = "We have received the payment of your order with reference orderid\n"
+        text = "We have received the payment of your order with reference 61004aba5e05acc115f022f0\n"
         text += "containing the following product offerings: \n\n"
         text += "Offering1 with id 1\n\n"
         text += "Offering2 with id 2\n\n"
@@ -216,7 +233,7 @@ class NotificationsTestCase(TestCase):
         self._order.get_item_contract.assert_called_once_with('0')
 
         text = 'We have received your recurring payment for renovating products offerings\n'
-        text += 'acquired in the order with reference orderid\n'
+        text += 'acquired in the order with reference 61004aba5e05acc115f022f0\n'
         text += 'The following product offerings have been renovated: \n\n'
         text += 'Offering1 with id 1\n\n'
         text += 'You can review your orders at: \nhttp://localhost:8000/#/inventory/order\n'
@@ -239,7 +256,7 @@ class NotificationsTestCase(TestCase):
 
     def test_provider_notification(self):
         handler = notification_handler.NotificationsHandler()
-        handler.send_provider_notification(self._order, self._order.contracts[0])
+        handler.send_provider_notification(self._order, self._order.get_contracts()[0])
 
         # Validate calls
         self._validate_provider_call()
@@ -256,10 +273,10 @@ class NotificationsTestCase(TestCase):
 
     def test_payment_required_notification(self):
         handler = notification_handler.NotificationsHandler()
-        handler.send_payment_required_notification(self._order, self._order.contracts[0])
+        handler.send_payment_required_notification(self._order, self._order.get_contracts()[0])
 
         text = 'Your subscription belonging to the product offering Offering1 has expired.\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference orderid\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n'
         text += 'in the web portal or accessing the following link: \n\n'
         text += 'http://localhost:8000/#/inventory/order/67'
 
@@ -271,13 +288,13 @@ class NotificationsTestCase(TestCase):
 
     def test_near_expiration_notification(self):
         handler = notification_handler.NotificationsHandler()
-        handler.send_near_expiration_notification(self._order, self._order.contracts[0], 3)
+        handler.send_near_expiration_notification(self._order, self._order.get_contracts()[0], 3)
 
         self._validate_user_call()
 
         text = 'Your subscription belonging to the product offering Offering1\n'
         text += 'is going to expire in 3 days. \n\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference orderid\n'
+        text += 'You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n'
         text += 'in the web portal or accessing the following link: \n\n'
         text += 'http://localhost:8000/#/inventory/order/67'
 
@@ -287,7 +304,7 @@ class NotificationsTestCase(TestCase):
 
     def test_product_upgrade_notification(self):
         handler = notification_handler.NotificationsHandler()
-        handler.send_product_upgraded_notification(self._order, self._order.contracts[0], 'product name')
+        handler.send_product_upgraded_notification(self._order, self._order.get_contracts()[0], 'product name')
 
         text = 'There is a new version available for your acquired product product name\n'
         text += 'You can review your new product version at http://localhost:8000/#/inventory/product/11\n'

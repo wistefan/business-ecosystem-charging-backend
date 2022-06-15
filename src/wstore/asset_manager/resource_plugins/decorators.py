@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S. L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,8 +19,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from __future__ import unicode_literals
+from bson.objectid import ObjectId
 
 from functools import wraps
 
@@ -45,7 +45,7 @@ def load_plugin_module(asset_t):
     module_class_name = module.split('.')[-1]
     module_package = module.partition('.' + module_class_name)[0]
 
-    module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], -1), module_class_name)
+    module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], 0), module_class_name)
 
     return module_class(plugin_model)
 
@@ -174,12 +174,14 @@ def _execute_asset_event(asset, order, contract, type_):
 def process_product_notification(order, contract, type_):
     # Get digital asset from the contract
     offering_assets = []
-    if len(contract.offering.bundled_offerings) > 0:
-        offering_assets = [Offering.objects.get(pk=key).asset
-                           for key in contract.offering.bundled_offerings if Offering.objects.get(pk=key).is_digital]
+    offering = Offering.objects.get(pk=ObjectId(contract.offering))
 
-    elif contract.offering.is_digital:
-        offering_assets = [contract.offering.asset]
+    if len(offering.bundled_offerings) > 0:
+        offering_assets = [Offering.objects.get(pk=ObjectId(key)).asset
+                           for key in offering.bundled_offerings if Offering.objects.get(pk=ObjectId(key)).is_digital]
+
+    elif offering.is_digital:
+        offering_assets = [offering.asset]
 
     assets = _expand_bundled_assets(offering_assets)
 

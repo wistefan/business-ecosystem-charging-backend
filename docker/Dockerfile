@@ -1,46 +1,31 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 
 LABEL MAINTAINER="Future Internet Consulting and Development Solutions S.L."
 
-RUN apt-get update && apt-get install -y --fix-missing \
-    gcc git wkhtmltopdf xvfb python2.7 python-pip wget \
-    python-dev build-essential libssl-dev libffi-dev \
-    apache2 libapache2-mod-wsgi && \
-    git clone https://github.com/FIWARE-TMForum/business-ecosystem-charging-backend.git && \
-    pip install sh
+ENV LOGLEVEL=info
+ENV VERSION=master
+ARG DEBIAN_FRONTEND=noninteractive
 
-ENV VERSION master
+RUN mkdir /opt/business-ecosystem-charging-backend/
+WORKDIR /opt/business-ecosystem-charging-backend/
 
-WORKDIR /business-ecosystem-charging-backend
+COPY requirements.txt requirements.txt
+COPY dev-requirements.txt dev-requirements.txt
+COPY src/ src/
 
-RUN git checkout $VERSION && \
-    mkdir ./src/media && \
-    mkdir ./src/media/bills && \
-    mkdir ./src/media/assets && \
-    mkdir ./src/plugins && \
-    pip install -r requirements.txt
+RUN apt-get update && apt-get -y install python3 python3-pip gcc git wkhtmltopdf xvfb wget && \
+    pip3 install -r requirements.txt && pip3 install -r dev-requirements.txt && \
+    mkdir ./src/media && mkdir ./src/media/bills && mkdir ./src/media/assets && mkdir ./src/plugins
 
 # Create volumes
-VOLUME /business-ecosystem-charging-backend/src/media/bills
-VOLUME /business-ecosystem-charging-backend/src/media/assets
-VOLUME /business-ecosystem-charging-backend/src/plugins
-VOLUME /business-ecosystem-charging-backend/src/user_settings
-VOLUME /business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
+VOLUME /opt/business-ecosystem-charging-backend/src/media/bills
+VOLUME /opt/business-ecosystem-charging-backend/src/media/assets
+VOLUME /opt/business-ecosystem-charging-backend/src/plugins
+VOLUME /opt/business-ecosystem-charging-backend/src/wstore/asset_manager/resource_plugins/plugins
 
-WORKDIR /business-ecosystem-charging-backend/src
+WORKDIR /opt/business-ecosystem-charging-backend/src
 
-RUN rm wsgi.py
-COPY wsgi.py .
-
-WORKDIR /etc/apache2/
-COPY charging.conf ./sites-available
-
-RUN ln -s ../sites-available/charging.conf ./sites-enabled/charging.conf && \
-    sed -i "s|Listen 80|Listen 8006|g" ports.conf
-
-WORKDIR /business-ecosystem-charging-backend/src
-
-COPY ./entrypoint.sh /
+COPY ./docker/entrypoint.sh /
 
 EXPOSE 8006
 

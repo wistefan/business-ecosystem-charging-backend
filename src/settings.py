@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 from os import path, environ
 
 DEBUG = True
@@ -35,17 +33,20 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django_mongodb_engine',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': 'wstore_db',           # Or path to database file if using sqlite3.
-        'USER': '',                         # Not used with sqlite3.
-        'PASSWORD': '',                     # Not used with sqlite3.
-        'HOST': '',                         # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': '',                         # Set to empty string for default. Not used with sqlite3.
-        'TEST_NAME': 'test_database',
+        'ENGINE': 'djongo',
+        'NAME': 'wstore_db',
+        'ENFORCE_SCHEMA': False,
+        'CLIENT': {
+            'host': 'localhost',
+            #'username': 'mongoadmin',
+            #'password': 'mongopass'
+        }
     }
 }
 
 BASEDIR = path.dirname(path.abspath(__file__))
+
+DATA_UPLOAD_MAX_MEMORY_SIZE=52428800
 
 STORE_NAME = 'WStore'
 AUTH_PROFILE_MODULE = 'wstore.models.UserProfile'
@@ -116,20 +117,18 @@ BILL_ROOT = path.join(MEDIA_ROOT, 'bills')
 # URL that handles the media served from MEDIA_ROOT.
 MEDIA_URL = '/charging/media/'
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.admin',
-    'django_mongodb_engine',
-    'djangotoolbox',
+    #'django.contrib.messages',
+    #'django.contrib.admin',
+    #'wstore.store_commons',
     'wstore',
-    'wstore.store_commons',
-    'wstore.charging_engine',
-    'django_crontab',
-    'django_nose'
-)
+    #'wstore.charging_engine',
+    #'django_crontab',
+    #'django_nose'
+]
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '8p509oqr^68+z)y48_*pv!ceun)gu7)yw6%y9j2^0=o14)jetr'
@@ -149,37 +148,19 @@ TEMPLATE_LOADERS = (
     'django.template.loaders.app_directories.Loader',
 )
 
-MIDDLEWARE_CLASSES = (
-    'wstore.store_commons.middleware.URLMiddleware',
-)
-
 WSTOREMAILUSER = 'email_user'
 WSTOREMAIL = 'wstore@email.com'
 WSTOREMAILPASS = 'wstore_email_passwd'
 SMTPSERVER = 'wstore_smtp_server'
 SMTPPORT = 587
 
-URL_MIDDLEWARE_CLASSES = {
-    'default': (
-        'django.middleware.common.CommonMiddleware',
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'wstore.store_commons.middleware.ConditionalGetMiddleware',
-        'django.contrib.auth.middleware.AuthenticationMiddleware',
-        'django.contrib.messages.middleware.MessageMiddleware',
-    ),
-    'api': (
-        'django.middleware.common.CommonMiddleware',
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'wstore.store_commons.middleware.ConditionalGetMiddleware',
-        'wstore.store_commons.middleware.AuthenticationMiddleware',
-    ),
-    'media': (
-        'django.middleware.common.CommonMiddleware',
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'wstore.store_commons.middleware.ConditionalGetMiddleware',
-        'wstore.store_commons.middleware.AuthenticationMiddleware',
-    )
-}
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'wstore.store_commons.middleware.AuthenticationMiddleware'
+]
 
 ROOT_URLCONF = 'urls'
 
@@ -214,6 +195,8 @@ NOTIF_CERT_KEY_FILE = None
 
 PROPAGATE_TOKEN = True
 
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
 from services_settings import *
 
 # =====================================
@@ -221,10 +204,26 @@ from services_settings import *
 # =====================================
 
 DATABASES['default']['NAME'] = environ.get('BAE_CB_MONGO_DB', DATABASES['default']['NAME'])
-DATABASES['default']['USER'] = environ.get('BAE_CB_MONGO_USER', DATABASES['default']['USER'])
-DATABASES['default']['PASSWORD'] = environ.get('BAE_CB_MONGO_PASS', DATABASES['default']['PASSWORD'])
-DATABASES['default']['HOST'] = environ.get('BAE_CB_MONGO_SERVER', DATABASES['default']['HOST'])
-DATABASES['default']['PORT'] = environ.get('BAE_CB_MONGO_PORT', DATABASES['default']['PORT'])
+
+env_user = environ.get('BAE_CB_MONGO_USER', None)
+if env_user is not None:
+    DATABASES['default']['CLIENT']['username'] = env_user
+    DATABASES['default']['CLIENT']['authSource'] = DATABASES['default']['NAME']
+
+env_pass = environ.get('BAE_CB_MONGO_PASS', None)
+if env_pass is not None:
+    DATABASES['default']['CLIENT']['password'] = env_pass
+
+env_host = environ.get('BAE_CB_MONGO_SERVER', None)
+if env_host is not None:
+    DATABASES['default']['CLIENT']['host'] = env_host
+
+env_port = environ.get('BAE_CB_MONGO_PORT', None)
+if env_port is not None:
+    DATABASES['default']['CLIENT']['port'] = int(env_port)
+
+
+DATA_UPLOAD_MAX_MEMORY_SIZE=int(environ.get('BAE_CB_MAX_UPLOAD_SIZE', DATA_UPLOAD_MAX_MEMORY_SIZE))
 
 ADMIN_ROLE = environ.get('BAE_LP_OAUTH2_ADMIN_ROLE', ADMIN_ROLE)
 PROVIDER_ROLE = environ.get('BAE_LP_OAUTH2_SELLER_ROLE', PROVIDER_ROLE)
@@ -242,7 +241,7 @@ if PAYMENT_METHOD == 'None':
     PAYMENT_METHOD = None
 
 VERIFY_REQUESTS = environ.get('BAE_CB_VERIFY_REQUESTS', VERIFY_REQUESTS)
-if isinstance(VERIFY_REQUESTS, str) or isinstance(VERIFY_REQUESTS, unicode):
+if isinstance(VERIFY_REQUESTS, str):
     VERIFY_REQUESTS = VERIFY_REQUESTS == 'True'
 
 SITE = environ.get('BAE_SERVICE_HOST', SITE)
@@ -259,5 +258,5 @@ AUTHORIZE_SERVICE = environ.get('BAE_CB_AUTHORIZE_SERVICE', AUTHORIZE_SERVICE)
 PAYMENT_CLIENT = CLIENTS[PAYMENT_METHOD]
 
 PROPAGATE_TOKEN = environ.get('BAE_CB_PROPAGATE_TOKEN', PROPAGATE_TOKEN)
-if isinstance(PROPAGATE_TOKEN, str) or isinstance(PROPAGATE_TOKEN, unicode):
+if isinstance(PROPAGATE_TOKEN, str):
     PROPAGATE_TOKEN = PROPAGATE_TOKEN == 'True'

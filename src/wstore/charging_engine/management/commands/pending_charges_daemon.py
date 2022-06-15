@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 from datetime import datetime, timedelta
 
@@ -88,7 +87,7 @@ class Command(BaseCommand):
 
         # Check contracts
         for order in Order.objects.all():
-            for contract in order.contracts:
+            for contract in order.get_contracts():
                 if 'pay_per_use' in contract.pricing_model and not contract.terminated:
                         self._process_usage_item(order, contract)
 

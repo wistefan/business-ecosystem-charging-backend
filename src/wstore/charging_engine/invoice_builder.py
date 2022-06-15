@@ -18,17 +18,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 import os
 import codecs
 import subprocess
+from bson.objectid import ObjectId
 from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
 
 from django.template import loader, Context
 from django.conf import settings
+
+from wstore.ordering.models import Offering
 
 
 class InvoiceBuilder(object):
@@ -50,7 +52,7 @@ class InvoiceBuilder(object):
         if 'subscription' in applied_parts:
             for part in applied_parts['subscription']:
                 parts['subs_parts'].append(
-                    (part['duty_free'], part['tax_rate'], part['value'], part['unit'], unicode(part['renovation_date'])))
+                    (part['duty_free'], part['tax_rate'], part['value'], part['unit'], str(part['renovation_date'])))
 
     def _process_alteration_parts(self, applied_parts, parts):
         if 'alteration' in applied_parts:
@@ -94,7 +96,7 @@ class InvoiceBuilder(object):
             for sdr in part['accounting']:
                 use += Decimal(sdr['value'])
 
-            parts[part_name].append((unit, value_unit, unicode(use), part['price']))
+            parts[part_name].append((unit, value_unit, str(use), part['price']))
             parts[part_sub] += Decimal(part['price'])
 
     def _process_usage_parts(self, applied_parts, parts):
@@ -180,7 +182,7 @@ class InvoiceBuilder(object):
         context['use_parts'] = parts['use_parts']
         self._fill_alts_context(context, parts)
 
-        context['use_subtotal'] = unicode(parts['use_subtotal'])
+        context['use_subtotal'] = str(parts['use_subtotal'])
 
         if 'deduct_parts' in parts:
             context['deduction'] = True
@@ -190,7 +192,7 @@ class InvoiceBuilder(object):
             context['deduction'] = False
 
     def _avoid_existing_name(self, name, ix):
-        new_name = name + '_' + unicode(ix) + '.pdf'
+        new_name = name + '_' + str(ix) + '.pdf'
         path = os.path.join(settings.BILL_ROOT, new_name)
 
         if os.path.exists(path):
@@ -214,19 +216,20 @@ class InvoiceBuilder(object):
         if contract.last_charge is None:
             # If last charge is None means that it is the invoice generation
             # associated with a free offering
-            date = unicode(datetime.utcnow()).split(' ')[0]
+            date = str(datetime.utcnow()).split(' ')[0]
         else:
-            date = unicode(contract.last_charge).split(' ')[0]
+            date = str(contract.last_charge).split(' ')[0]
 
         # Calculate total taxes applied
         tax_value = Decimal(transaction['price']) - Decimal(transaction['duty_free'])
 
         # Load pricing info into the context
+        offering = Offering.objects.get(pk=ObjectId(contract.offering))
         context = {
             'basedir': settings.BASEDIR,
-            'offering_name': contract.offering.name,
-            'off_organization': contract.offering.owner_organization.name,
-            'off_version': contract.offering.version,
+            'offering_name': offering.name,
+            'off_organization': offering.owner_organization.name,
+            'off_version': offering.version,
             'ref': self._order.pk,
             'date': date,
             'organization': customer_profile.current_organization.name,
@@ -237,7 +240,7 @@ class InvoiceBuilder(object):
             'province': tax.get('province'),
             'country': tax.get('country'),
             'subtotal': transaction['duty_free'],
-            'tax': unicode(tax_value),
+            'tax': str(tax_value),
             'total': transaction['price'],
             'cur': transaction['currency']  # General currency of the invoice
         }
@@ -250,7 +253,7 @@ class InvoiceBuilder(object):
         bill_code = bill_template.render(Context(context))
 
         # Create the bill code file
-        invoice_id = self._order.pk + '_' + contract.item_id + '_' + date
+        invoice_id = str(self._order.pk) + '_' + contract.item_id + '_' + date
         raw_invoice_path = os.path.join(settings.BILL_ROOT, invoice_id + '.html')
 
         f = codecs.open(raw_invoice_path, 'wb', 'utf-8')

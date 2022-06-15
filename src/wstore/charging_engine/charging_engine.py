@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,8 +19,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
-from __future__ import unicode_literals
 
 import threading
 import importlib
@@ -27,6 +26,7 @@ from bson import ObjectId
 from datetime import datetime, timedelta
 
 from django.conf import settings
+from wstore.ordering.models import Offering
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
 from wstore.charging_engine.accounting.usage_client import UsageClient
 
@@ -81,7 +81,7 @@ class ChargingEngine:
         # Uses an atomic operation to get and set the _lock value in the purchase
         # document
         pre_value = db.wstore_order.find_one_and_update(
-            {'_id': ObjectId(self._order.pk)},
+            {'_id': self._order.pk},
             {'$set': {'_lock': True}}
         )
 
@@ -100,7 +100,7 @@ class ChargingEngine:
                 timeout_processors[self._concept](order)
 
             db.wstore_order.find_one_and_update(
-                {'_id': ObjectId(self._order.pk)},
+                {'_id': self._order.pk},
                 {'$set': {'_lock': False}}
             )
 
@@ -145,7 +145,7 @@ class ChargingEngine:
             related_model['subscription'] = updated_subscriptions
 
         # Save offerings in org profile
-        self._order.owner_organization.acquired_offerings.append(contract.offering.pk)
+        self._order.owner_organization.acquired_offerings.append(contract.offering)
         self._order.owner_organization.save()
 
         return None, valid_to
@@ -178,7 +178,7 @@ class ChargingEngine:
 
                 usage_client.rate_usage(
                     sdr['usage_id'],
-                    unicode(contract.last_charge),
+                    str(contract.last_charge),
                     sdr['duty_free'],
                     sdr['price'],
                     sdr_info['model']['tax_rate'],
@@ -198,7 +198,7 @@ class ChargingEngine:
             if concept == 'initial':
                 # Send customer and provider notifications
                 handler.send_acquired_notification(self._order)
-                for cont in self._order.contracts:
+                for cont in self._order.get_contracts():
                     handler.send_provider_notification(self._order, cont)
 
             elif concept == 'recurring' or concept == 'usage':
@@ -259,18 +259,18 @@ class ChargingEngine:
                 billing_client.create_charge(charge, contract.product_id, start_date=valid_from, end_date=valid_to)
 
         for free in free_contracts:
-            self._order.owner_organization.acquired_offerings.append(free.offering.pk)
+            self._order.owner_organization.acquired_offerings.append(free.offering)
 
         self._order.owner_organization.save()
         self._order.save()
         self._send_notification(concept, transactions)
 
     def _save_pending_charge(self, transactions, free_contracts=[]):
-        pending_payment = Payment(
-            transactions=transactions,
-            concept=self._concept,
-            free_contracts=free_contracts
-        )
+        pending_payment = {  # Payment model
+            'transactions': transactions,
+            'concept': self._concept,
+            'free_contracts': free_contracts
+        }
 
         self._order.pending_payment = pending_payment
         self._order.save()
@@ -282,10 +282,11 @@ class ChargingEngine:
         if 'alteration' in related_model and not self._price_resolver.is_altered():
             del related_model['alteration']
 
+        offering = Offering.objects.get(pk=ObjectId(contract.offering))
         transaction = {
             'price': price,
             'duty_free': duty_free,
-            'description': contract.offering.description,
+            'description': offering.description,
             'currency': contract.pricing_model['general_currency'],
             'related_model': related_model,
             'item': contract.item_id
@@ -450,6 +451,6 @@ class ChargingEngine:
             raise ValueError('Invalid charge type, must be initial, recurring, or usage')
 
         if related_contracts is None:
-            related_contracts = self._order.contracts
+            related_contracts = self._order.get_contracts()
 
         return self.charging_processors[type_](related_contracts)

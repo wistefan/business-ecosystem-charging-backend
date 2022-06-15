@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,13 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
-import urllib
+from urllib.parse import quote
 
 from copy import deepcopy
+from importlib import reload
 from mock import MagicMock, mock_open
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
@@ -83,7 +84,7 @@ class ResourceRetrievingTestCase(TestCase):
             self.assertEquals(result, expected_result)
         else:
             self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(unicode(error), err_msg)
+            self.assertEquals(str(error), err_msg)
 
     @parameterized.expand([
         ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
@@ -172,7 +173,10 @@ class UploadAssetTestCase(TestCase):
         asset_manager.Resource.objects.create.return_value = self.res_mock
         asset_manager.Resource.objects.get.return_value = self.res_mock
 
+        self._old_is_dir = asset_manager.os.path.isdir
         asset_manager.os.path.isdir = MagicMock()
+
+        self._old_exists = asset_manager.os.path.exists
         asset_manager.os.path.exists = MagicMock()
         asset_manager.os.path.exists.return_value = False
 
@@ -181,6 +185,9 @@ class UploadAssetTestCase(TestCase):
         asset_manager.__builtins__['open'] = self.open_mock
 
     def tearDown(self):
+        asset_manager.os.path.isdir = self._old_is_dir
+        asset_manager.os.path.exists = self._old_exists
+
         import wstore.store_commons.rollback
         reload(wstore.store_commons.rollback)
 
@@ -192,9 +199,10 @@ class UploadAssetTestCase(TestCase):
         # Mock file
         self._file = MagicMock(name="example.wgt")
         self._file.name = "example.wgt"
-        self._file.read.return_value = "Test data content"
+        self._file.read.return_value = "Test data content".encode()
         asset_manager.os.path.isdir.return_value = False
-        asset_manager.os.mkdir = MagicMock()
+        #asset_manager.os.mkdir = MagicMock()
+        asset_manager.os.makedirs = MagicMock()
 
     def _file_conflict(self):
         asset_manager.os.path.exists.return_value = True
@@ -208,14 +216,14 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
         asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name))
         self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name), "wb")
-        self.open_mock().write.assert_called_once_with("Test data content")
+        self.open_mock().write.assert_called_once_with("Test data content".encode())
 
     @parameterized.expand([
         ('basic', UPLOAD_CONTENT),
         ('whitespce_name', UPLOAD_CONTENT_WHITESPACE, None, None, None, None, 'example file.wgt'),
         ('file', {'contentType': 'application/x-widget'}, _use_file),
         ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
-        ('inv_file_name', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
+        ('missing_type', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
         ('inv_file_name', UPLOAD_INV_FILENAME, None, False, ValueError, 'Invalid file name format: Unsupported character'),
         ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset file (example.wgt) already exists'),
         ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset has not been provided'),
@@ -261,7 +269,7 @@ class UploadAssetTestCase(TestCase):
             # Check file calls
             if self._file is not None:
                 self._file.seek.assert_called_once_with(0)
-                asset_manager.os.mkdir.assert_called_once_with("/home/test/media/assets/test_user")
+                asset_manager.os.makedirs.assert_called_once_with("/home/test/media/assets/test_user", exist_ok=True)
 
             # Check override calls
             if override:
@@ -272,7 +280,7 @@ class UploadAssetTestCase(TestCase):
             asset_manager.Resource.objects.create.assert_called_once_with(
                 provider=self._user.userprofile.current_organization,
                 version='',
-                download_link='http://testdomain.com/charging/media/assets/test_user/{}'.format(urllib.quote(file_name)),
+                download_link='http://testdomain.com/charging/media/assets/test_user/{}'.format(quote(file_name)),
                 resource_path='media/assets/test_user/{}'.format(file_name),
                 content_type='application/x-widget',
                 resource_type='',
@@ -282,7 +290,7 @@ class UploadAssetTestCase(TestCase):
             )
         else:
             self.assertTrue(isinstance(error, err_type))
-            self.assertEquals(err_msg, unicode(error))
+            self.assertEquals(err_msg, str(error))
 
     def _mock_resource_type(self, form):
         asset_manager.ResourcePlugin = MagicMock()
@@ -460,7 +468,7 @@ class UploadAssetTestCase(TestCase):
             error = e
 
         self.assertTrue(isinstance(error, err_type))
-        self.assertEquals(err_msg, unicode(error))
+        self.assertEquals(err_msg, str(error))
 
     def _mock_timer(self):
         timer = MagicMock()
@@ -525,10 +533,10 @@ class UploadAssetTestCase(TestCase):
 
         old_version = asset.old_versions[0]
 
-        self.assertEquals(prev_path, old_version.resource_path)
-        self.assertEquals(prev_link, old_version.download_link)
-        self.assertEquals(prev_type, old_version.content_type)
-        self.assertEquals(prev_version, old_version.version)
+        self.assertEquals(prev_path, old_version['resource_path'])
+        self.assertEquals(prev_link, old_version['download_link'])
+        self.assertEquals(prev_type, old_version['content_type'])
+        self.assertEquals(prev_version, old_version['version'])
 
         asset_manager.threading.Timer.assert_called_once_with(15, am._upgrade_timer)
         timer.start.assert_called_once_with()
@@ -575,7 +583,7 @@ class UploadAssetTestCase(TestCase):
             error = e
 
         self.assertTrue(isinstance(error, err_type))
-        self.assertEquals(err_msg, unicode(error))
+        self.assertEquals(err_msg, str(error))
 
     def _test_timer(self, state, check_calls):
         asset_pk = '1234'
@@ -636,7 +644,7 @@ class ResourceModelTestCase(TestCase):
             state=''
         )
 
-        uri = 'http://testserver.com/charging/api/assetManagement/assets/' + res.pk
+        uri = 'http://testserver.com/charging/api/assetManagement/assets/' + str(res.pk)
         self.assertEquals(url, res.get_url())
         self.assertEquals(uri, res.get_uri())
 

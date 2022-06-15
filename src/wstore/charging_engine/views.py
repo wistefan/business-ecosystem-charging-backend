@@ -19,8 +19,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import unicode_literals
-
 import json
 import importlib
 from copy import deepcopy
@@ -33,7 +31,7 @@ from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types, authentication_required
-from wstore.ordering.models import Order
+from wstore.ordering.models import Order, Offering
 from wstore.ordering.errors import PaymentError
 from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.store_commons.database import get_database_connection
@@ -43,6 +41,10 @@ from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 class PayPalConfirmation(Resource):
 
     def _set_initial_states(self, transactions, raw_order, order):
+        def is_digital_contract(contract):
+            off = Offering.objects.get(pk=ObjectId(contract.offering))
+            return off.is_digital
+
         # Set all order items as in progress
         self.ordering_client.update_state(raw_order, 'InProgress')
 
@@ -50,7 +52,7 @@ class PayPalConfirmation(Resource):
         involved_items = [t['item'] for t in transactions]
 
         digital_items = [item for item in raw_order['orderItem'] if item['id'] in involved_items and
-                         order.get_item_contract(item['id']).offering.is_digital]
+                         is_digital_contract(order.get_item_contract(item['id']))]
 
         # Oder Items state is not checked
         # self.ordering_client.update_items_state(raw_order, 'InProgress', digital_items)
@@ -160,7 +162,7 @@ class PayPalConfirmation(Resource):
             expl = ' due to an unexpected error'
             err_code = 500
             if isinstance(e, PaymentError) or isinstance(e, ValueError):
-                expl = ': ' + unicode(e)
+                expl = ': ' + str(e)
                 err_code = 403
 
             msg = 'The payment has been canceled' + expl
@@ -245,7 +247,7 @@ class PayPalRefund(Resource):
 
             # Only those orders with all its order items in ack state can be refunded
             # that means that all the contracts have been refunded
-            for contract in order.contracts:
+            for contract in order.get_contracts():
                 if len(contract.charges) > 0:
                     cdr_manager = CDRManager(order, contract)
                     charge = contract.charges[-1]

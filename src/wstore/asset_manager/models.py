@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S. L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,13 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
+from urllib.parse import urljoin
 
-from urlparse import urljoin
-
-from django.db import models
+from djongo import models
 from django.conf import settings
-from djangotoolbox.fields import ListField, DictField, EmbeddedModelField
+from djongo.models.fields import JSONField
 
 from wstore.models import Organization
 
@@ -32,27 +31,38 @@ from wstore.models import Organization
 # This embedded class is used to save old versions
 # of resources to allow downgrades
 class ResourceVersion(models.Model):
+    _id = models.ObjectIdField()
     version = models.CharField(max_length=20)
     resource_path = models.CharField(max_length=100)
     download_link = models.URLField()
     content_type = models.CharField(max_length=100)
-    meta_info = DictField()
+    meta_info = models.JSONField()
+
+    class Meta:
+        managed = False
+
+    def __getitem__(self, name):
+        return getattr(self, name)
 
 
 class Resource(models.Model):
+    _id = models.ObjectIdField()
     product_id = models.CharField(max_length=100, blank=True, null=True)
     version = models.CharField(max_length=20)  # This field maps the Product Spec version
-    provider = models.ForeignKey(Organization)
+    provider = models.ForeignKey(Organization, on_delete=models.DO_NOTHING)
     content_type = models.CharField(max_length=100)
     download_link = models.URLField()
     resource_path = models.CharField(max_length=100)
-    old_versions = ListField(EmbeddedModelField(ResourceVersion))
+    old_versions = models.ArrayField(
+        model_container=ResourceVersion
+    )
     state = models.CharField(max_length=20)
     resource_type = models.CharField(max_length=100, blank=True, null=True)
     is_public = models.BooleanField(default=False)
     has_terms = models.BooleanField(default=False)
-    meta_info = DictField()
-    bundled_assets = ListField()
+
+    bundled_assets = models.JSONField(default=[]) # List
+    meta_info = models.JSONField(default={}) # Dict
 
     def get_url(self):
         return self.download_link
@@ -60,29 +70,30 @@ class Resource(models.Model):
     def get_uri(self):
         base_uri = settings.SITE
 
-        return urljoin(base_uri, 'charging/api/assetManagement/assets/' + self.pk)
+        return urljoin(base_uri, 'charging/api/assetManagement/assets/' + str(self.pk))
 
     class Meta:
         app_label = 'wstore'
 
 
 class ResourcePlugin(models.Model):
+    _id = models.ObjectIdField()
     plugin_id = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
     version = models.CharField(max_length=50)
     author = models.CharField(max_length=100)
-    form = DictField()
-    form_order = ListField(models.CharField(max_length=100))
+    form_order = models.JSONField(default=[])  # String List
     module = models.CharField(max_length=200)
-    media_types = ListField(models.CharField(max_length=100))
-    formats = ListField(models.CharField(max_length=10))
-    overrides = ListField(models.CharField(max_length=10))
+    media_types = models.JSONField(default=[])  # String List
+    formats = models.JSONField(default=[])  # String List
+    overrides = models.JSONField(default=[])  # String List
+    options = models.JSONField(default={}) # Dict
+    form = models.JSONField(default={}) # Dict
 
     # Whether the plugin must ask for accounting info
     pull_accounting = models.BooleanField(default=False)
-    options = DictField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.plugin_id
 
     class Meta:

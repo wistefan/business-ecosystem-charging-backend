@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,8 +19,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import urllib
-import urlparse
+from urllib.parse import urlsplit, urlunsplit, quote, quote_plus
 
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
@@ -36,16 +36,13 @@ def is_valid_url(url):
     return valid
 
 
-def url_fix(s, charset='utf-8'):
-    if isinstance(s, unicode):
-        s = s.encode(charset, 'ignore')
+def url_fix(s):
+    scheme, netloc, path, qs, anchor = urlsplit(s)
 
-    scheme, netloc, path, qs, anchor = urlparse.urlsplit(s)
+    path = quote(path, '/%')
+    qs = quote_plus(qs, ':&=')
 
-    path = urllib.quote(path, '/%')
-    qs = urllib.quote_plus(qs, ':&=')
-
-    return urlparse.urlunsplit((scheme, netloc, path, qs, anchor))
+    return urlunsplit((scheme, netloc, path, qs, anchor))
 
 
 def add_slash(url):

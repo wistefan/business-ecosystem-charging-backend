@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
 
 EXISTING_INFO = [{
     'pk': '111',
@@ -117,7 +116,7 @@ UPLOAD_CONTENT_WHITESPACE = {
 UPLOAD_INV_FILENAME = {
     'contentType': 'application/x-widget',
     'content': {
-        'name': 'exampleÑ.wgt',
+        'name': 'example/.wgt',
         'data': 'VGVzdCBkYXRhIGNvbnRlbnQ='
     }
 }

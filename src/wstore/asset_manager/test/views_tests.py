@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -18,15 +19,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
 import json
 
+from importlib import reload
 from mock import MagicMock
-from StringIO import StringIO
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from django.test import TestCase
 from django.test.client import RequestFactory, MULTIPART_CONTENT
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 
 from wstore.asset_manager import views
@@ -66,7 +68,6 @@ class AssetCollectionTestCase(TestCase):
         self.factory = RequestFactory()
         # Create testing user
         self.user = User.objects.create_user(username='test_user', email='', password='passwd')
-        self.user.is_anonymous = MagicMock(return_value=False)
         self.user.userprofile.get_current_roles = MagicMock(name='get_current_roles')
         self.user.userprofile.get_current_roles.return_value = ['provider', 'customer']
         self.user.userprofile.save()
@@ -91,7 +92,7 @@ class AssetCollectionTestCase(TestCase):
         self.user.userprofile.save()
 
     def _anonymous(self):
-        self.user.is_anonymous.return_value = True
+        self.user = AnonymousUser()
 
     def _call_exception(self):
         self.am_instance.get_provider_assets_info.side_effect = Exception('Getting resources error')
@@ -139,14 +140,14 @@ class AssetCollectionTestCase(TestCase):
 
         request = self.factory.get(path, HTTP_ACCEPT='application/json')
 
-        request.user = self.user
-
         views.User.reset_mock()
         views.UserProfile.reset_mock()
 
         # Create the side effect if needed
         if side_effect:
             side_effect(self)
+
+        request.user = self.user
 
         # Call the view
         response = resource_collection.read(request)
@@ -319,7 +320,7 @@ class AssetCollectionTestCase(TestCase):
         content_type = 'application/json'
 
         if file_:
-            f = StringIO()
+            f = io.StringIO()
             f.name = 'test_file.txt'
             f.write('test file')
             content = {

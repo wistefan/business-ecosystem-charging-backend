@@ -18,8 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from __future__ import unicode_literals
+from bson import ObjectId
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -73,7 +72,7 @@ class ProductValidator(CatalogValidator):
             # The asset is already registered
             asset = None
             for url_asset in assets:
-                if url_asset.id == asset_id:
+                if str(url_asset.pk) == asset_id:
                     asset = url_asset
                     break
             else:
@@ -161,7 +160,7 @@ class ProductValidator(CatalogValidator):
 
         asset = None
         if is_digital:
-            asset = Resource.objects.get(id=asset_id)
+            asset = Resource.objects.get(pk=ObjectId(asset_id))
 
         elif product_spec['isBundle']:
             # Get the list of bundles pending to be attached of the given provider

@@ -18,16 +18,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import unicode_literals
-
 
 class ConflictError(Exception):
 
     def __init__(self, msg):
         self.value = msg
-
-    def __unicode__(self):
-        return self.value
 
     def __str__(self):
         return self.value
@@ -36,9 +31,6 @@ class ConflictError(Exception):
 class RepositoryError(Exception):
     def __init__(self, msg):
         self.value = msg
-
-    def __unicode__(self):
-        return self.value
 
     def __str__(self):
         return self.value
