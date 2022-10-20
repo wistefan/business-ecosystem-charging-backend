@@ -12,3 +12,4 @@ cryptography>=35.0.0
 pyjwt>=2.3.0
 regex
 gunicorn==20.1.0
+mongodb-migrations>=1.2.1

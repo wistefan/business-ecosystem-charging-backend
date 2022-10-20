@@ -30,8 +30,8 @@ from wstore.charging_engine.models import *
 
 class Context(models.Model):
     _id = models.ObjectIdField()
-    failed_cdrs = models.JSONField() # List
-    failed_upgrades = models.JSONField() # List
+    failed_cdrs = models.JSONField(default=[]) # List
+    failed_upgrades = models.JSONField(default=[]) # List
     payouts_n = models.IntegerField(default=0)
 
 
@@ -61,7 +61,7 @@ class UserProfile(models.Model):
     current_organization = models.ForeignKey(Organization, on_delete=models.DO_NOTHING)
     complete_name = models.CharField(max_length=100)
     actor_id = models.CharField(null=True, blank=True, max_length=100)
-    current_roles = models.JSONField() #List
+    current_roles = models.JSONField(default=[]) #List
     access_token = models.CharField(max_length=16384, null=True, blank=True)
 
     def get_current_roles(self):
