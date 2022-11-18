@@ -1122,14 +1122,14 @@ class PayPalConfirmationTestCase(TestCase):
         self._order_inst.customer = self.user
         self._order_inst.state = 'pending'
 
-        self._payment = MagicMock()
-        self._payment.transactions = [{
+        self._payment = {}
+        self._payment['transactions'] = [{
                 'item': '1'
             }, {
                 'item': '2'
         }]
-        self._payment.free_contracts = self._free_contracts
-        self._payment.concept = 'initial'
+        self._payment['free_contracts'] = self._free_contracts
+        self._payment['concept'] = 'initial'
 
         self._order_inst.pending_payment = self._payment
 
@@ -1252,8 +1252,8 @@ class PayPalConfirmationTestCase(TestCase):
                 self._connection_inst.wstore_order.find_one_and_update.call_args_list
             )
 
-            views.Order.objects.filter.assert_called_once_with(pk='111111111111111111111111')
-            views.Order.objects.get.assert_called_once_with(pk='111111111111111111111111')
+            views.Order.objects.filter.assert_called_once_with(pk=ObjectId('111111111111111111111111'))
+            views.Order.objects.get.assert_called_once_with(pk=ObjectId('111111111111111111111111'))
 
             self._payment_class.assert_called_once_with(self._order_inst)
             self._payment_inst.end_redirection_payment.assert_called_once_with('payment', 'payer')

@@ -225,6 +225,7 @@ class ChargingEngine:
         invoice_builder = InvoiceBuilder(self._order)
         billing_client = BillingClient() if concept != 'initial' else None
 
+        updated_contracts = {}
         for transaction in transactions:
             contract = self._order.get_item_contract(transaction['item'])
             contract.last_charge = time_stamp
@@ -251,7 +252,11 @@ class ChargingEngine:
                 concept=concept,
                 invoice=invoice_path
             )
+            if contract.charges is None:
+                contract.charges = []
+
             contract.charges.append(charge)
+            updated_contracts[transaction['item']] = contract
 
             # Send the charge to the billing API to allow user accesses
             if concept != 'initial':
@@ -261,8 +266,18 @@ class ChargingEngine:
         for free in free_contracts:
             self._order.owner_organization.acquired_offerings.append(free.offering)
 
+        # Update order contracts
+        new_contracts = []
+        for cont in self._order.get_contracts():
+            if cont.item_id not in updated_contracts:
+                new_contracts.append(cont)
+            else:
+                new_contracts.append(updated_contracts[cont.item_id])
+
+        self._order.contracts = new_contracts
         self._order.owner_organization.save()
         self._order.save()
+
         self._send_notification(concept, transactions)
 
     def _save_pending_charge(self, transactions, free_contracts=[]):

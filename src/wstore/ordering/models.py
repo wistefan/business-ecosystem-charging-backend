@@ -38,7 +38,7 @@ class Offering(models.Model):
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, on_delete=models.DO_NOTHING, null=True, blank=True)
     is_open = models.BooleanField(default=False)
-    bundled_offerings = models.JSONField() # List
+    bundled_offerings = models.JSONField(default=[]) # List
 
 
 class Charge(models.Model):
@@ -126,7 +126,7 @@ class Order(models.Model):
             offering=contract_info['offering'],
             pricing_model=contract_info['pricing_model'],
             last_charge=contract_info['last_charge'],
-            charges=contract_info['last_charge'],
+            charges=contract_info['charges'],
             correlation_number=contract_info['correlation_number'],
             last_usage=contract_info['last_usage'],
             revenue_class=contract_info['revenue_class'],

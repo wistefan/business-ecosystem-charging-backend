@@ -35,20 +35,20 @@ class BillingClient:
 
     def create_charge(self, charge_model, product_id, start_date=None, end_date=None):
 
-        str_time = charge_model.date.isoformat() + 'Z'
-        tax_rate = ((Decimal(charge_model.cost) - Decimal(charge_model.duty_free)) * Decimal('100') / Decimal(charge_model.cost))
+        str_time = charge_model['date'].isoformat() + 'Z'
+        tax_rate = ((Decimal(charge_model['cost']) - Decimal(charge_model['duty_free'])) * Decimal('100') / Decimal(charge_model['cost']))
 
         domain = settings.SITE
-        invoice_url = urljoin(domain, charge_model.invoice)
-        description = charge_model.concept + ' charge of ' + charge_model.cost + ' ' + charge_model.currency + ' ' + invoice_url
+        invoice_url = urljoin(domain, charge_model['invoice'])
+        description = charge_model['concept'] + ' charge of ' + charge_model['cost'] + ' ' + charge_model['currency'] + ' ' + invoice_url
 
         charge = {
             'date': str_time,
             'description': description,
-            'type': charge_model.concept,
-            'currencyCode': charge_model.currency,
-            'taxIncludedAmount': charge_model.cost,
-            'taxExcludedAmount': charge_model.duty_free,
+            'type': charge_model['concept'],
+            'currencyCode': charge_model['currency'],
+            'taxIncludedAmount': charge_model['cost'],
+            'taxExcludedAmount': charge_model['duty_free'],
             'appliedCustomerBillingTaxRate': [{
                 'amount': str(tax_rate),
                 'taxCategory': 'VAT'

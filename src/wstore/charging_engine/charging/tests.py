@@ -262,13 +262,13 @@ class BillingClientTestCase(TestCase):
         # Create Mocks
         billing_client.settings.BILLING = 'http://billing.api.com'
 
-        charge = MagicMock()
-        charge.date = TIMESTAMP
-        charge.cost = '10'
-        charge.duty_free = '8'
-        charge.invoice = 'charging/media/bills/bill1.pdf'
-        charge.currency = 'EUR'
-        charge.concept = name
+        charge = {}
+        charge['date'] = TIMESTAMP
+        charge['cost'] = '10'
+        charge['duty_free'] = '8'
+        charge['invoice'] = 'charging/media/bills/bill1.pdf'
+        charge['currency'] = 'EUR'
+        charge['concept'] = name
 
         site = 'http://extpath.com:8080/'
         billing_client.settings.SITE = site

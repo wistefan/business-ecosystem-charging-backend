@@ -91,7 +91,7 @@ class PayPalConfirmation(Resource):
             token = data['paymentId']
             payer_id = data['payerId']
 
-            if not Order.objects.filter(pk=reference):
+            if not Order.objects.filter(pk=ObjectId(reference)):
                 raise ValueError('The provided reference does not identify a valid order')
 
             db = get_database_connection()
@@ -109,10 +109,10 @@ class PayPalConfirmation(Resource):
             if not pre_value or '_lock' in pre_value and pre_value['_lock']:
                 raise PaymentError('The timeout set to process the payment has finished')
 
-            order = Order.objects.get(pk=reference)
+            order = Order.objects.get(pk=ObjectId(reference))
             raw_order = self.ordering_client.get_order(order.order_id)
             pending_info = order.pending_payment
-            concept = pending_info.concept
+            concept = pending_info['concept']
 
             # If the order state value is different from pending means that
             # the timeout function has completely ended before acquiring the resource
@@ -128,7 +128,7 @@ class PayPalConfirmation(Resource):
             if request.user.userprofile.current_organization != order.owner_organization or request.user != order.customer:
                 raise PaymentError('You are not authorized to execute the payment')
 
-            transactions = pending_info.transactions
+            transactions = pending_info['transactions']
 
             # Get the payment client
             # Load payment client
@@ -143,7 +143,7 @@ class PayPalConfirmation(Resource):
             order.save()
 
             charging_engine = ChargingEngine(order)
-            charging_engine.end_charging(transactions, pending_info.free_contracts, concept)
+            charging_engine.end_charging(transactions, pending_info['free_contracts'], concept)
 
         except Exception as e:
 
@@ -178,7 +178,7 @@ class PayPalConfirmation(Resource):
         }
         # Include the free contracts as transactions in order to activate them
         ext_transactions = deepcopy(transactions)
-        ext_transactions.extend([{'item': contract.item_id} for contract in pending_info.free_contracts])
+        ext_transactions.extend([{'item': contract.item_id} for contract in pending_info['free_contracts']])
 
         states_processors[concept](ext_transactions, raw_order, order)
 
