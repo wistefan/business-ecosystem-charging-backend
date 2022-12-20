@@ -50,6 +50,7 @@ class Organization(models.Model):
     managers = ListField()
     actor_id = models.CharField(null=True, blank=True, max_length=100)
     idp = models.CharField(null=True, blank=True, max_length=100)
+    issuerDid = models.CharField(null=True, blank=True, max_length=100)
 
     expenditure_limits = DictField()
 

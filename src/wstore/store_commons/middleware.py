@@ -143,6 +143,10 @@ def get_api_user(request):
         user_name = request.META['HTTP_X_ACTOR']
         external_username = request.META['HTTP_X_EXT_NAME']
         idp = request.META['HTTP_X_IDP_ID']
+        if 'HTTP_X_ISSUER_DID' in request.META:
+            issuerDid = request.META['HTTP_X_ISSUER_DID']
+        else:
+            issuerDid = "none"
     except:
         return AnonymousUser()
 
@@ -181,6 +185,7 @@ def get_api_user(request):
 
     org.private = nick_name == user_name
     org.idp = idp
+    org.issuerDid = issuerDid
     org.save()
 
     user.userprofile.current_roles = user_roles
