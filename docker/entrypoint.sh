@@ -128,7 +128,4 @@ done
 echo "Starting charging server"
 
 python3 manage.py migrate
-
-mongodb-migrate --url mongodb://${BAE_CB_MONGO_USER}:${BAE_CB_MONGO_PASS}@${MONGO_HOST}:27017/${BAE_CB_MONGO_DB} --migrations migrations
-
 gunicorn wsgi:application --workers 1 --forwarded-allow-ips "*" --log-file - --bind 0.0.0.0:8006 --log-level ${LOGLEVEL}
